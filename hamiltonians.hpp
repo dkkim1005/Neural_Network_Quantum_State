@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ComplexRBM_nqs.hpp"
+#include "ComplexRBM.hpp"
 #include <trng/yarn5.hpp>
 #include <trng/uniform01_dist.hpp>
 #include <trng/uniform_int_dist.hpp>
