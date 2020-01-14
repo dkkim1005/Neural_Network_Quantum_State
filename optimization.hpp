@@ -50,7 +50,15 @@ public:
           S_[i*knVariables+j] = std::conj(S_[i*knVariables+j]);
         }
       // F_ = S_^{-1}*F_
-      linSolver_.solve(&S_[0], &F_[0], krcond);
+	  try
+	  {
+        linSolver_.solve(&S_[0], &F_[0], krcond);
+	  }
+	  catch (const std::exception & e)
+	  {
+		std::cout << "# reset the strength of regularization" << std::endl;
+        bp_ = 1.0;
+	  }
       sampler.evolve(&F_[0], deltaTau);
       std::cout << (conjHavg.real()) << std::endl << std::flush;
     }
@@ -64,7 +72,7 @@ private:
   const int knChains, knVariables;
   static constexpr float_t klambda0 = 100.0, kb = 0.9, klambMin = 1e-4, krcond = 1e-7;
   int nIteration_;
-  float_t kbp_;
+  float_t bp_;
   PsuedoInverseSolver<float_t> linSolver_;
 };
 
@@ -83,14 +91,14 @@ StochasticReconfiguration<float_t>::StochasticReconfiguration(const int nChains,
   aO_(nVariables),
   F_(nVariables),
   nIteration_(0),
-  kbp_(1.0),
+  bp_(1.0),
   linSolver_(nVariables, nVariables)
 {}
 
 template <typename float_t>
 float_t StochasticReconfiguration<float_t>::schedular()
 {
-  kbp_ *= kb;
-  const float_t lambda = klambda0*kbp_;
+  bp_ *= kb;
+  const float_t lambda = klambda0*bp_;
   return ((lambda > klambMin) ? lambda : klambMin);
 }
