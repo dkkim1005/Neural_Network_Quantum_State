@@ -45,11 +45,11 @@ public:
   int get_nVariables() const { return variables_.size(); }
 private:
   const int knInputs, knHiddens, knChains;
-  const std::vector<std::complex<float_t>> koneChains, koneHiddens;
+  const std::vector<std::complex<float_t> > koneChains, koneHiddens;
   const std::complex<float_t> kzero, kone, ktwo;
-  std::vector<std::complex<float_t>> variables_, lnpsiGradients_;
-  std::vector<std::complex<float_t>> spinStates_;
-  std::vector<std::complex<float_t>> y_, ly_, sa_;
+  std::vector<std::complex<float_t> > variables_, lnpsiGradients_;
+  std::vector<std::complex<float_t> > spinStates_;
+  std::vector<std::complex<float_t> > y_, ly_, sa_;
   std::complex<float_t> * w_, * a_, * b_, * d_dw_, * d_da_, * d_db_;
   int index_;
 };

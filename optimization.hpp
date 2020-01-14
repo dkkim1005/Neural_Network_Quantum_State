@@ -68,21 +68,21 @@ private:
 
 template <typename float_t>
 StochasticReconfiguration<float_t>::StochasticReconfiguration(const int nChains, const int nVariables):
-htilda_(nChains),
-lnpsiGradients_(nChains*nVariables),
-kones(nChains, std::complex<float_t>(1.0, 0.0)),
-koneOverNchains(std::complex<float_t>(1.0/static_cast<float_t>(nChains), 0.0)),
-kone(std::complex<float_t>(1.0, 0.0)),
-kzero(std::complex<float_t>(0.0, 0.0)),
-kminusOne(std::complex<float_t>(-1.0, 0.0)),
-knChains(nChains),
-knVariables(nVariables),
-S_(nVariables*nVariables),
-aO_(nVariables),
-F_(nVariables),
-nIteration_(0),
-kbp_(1.0),
-linSolver_(nVariables, nVariables)
+  htilda_(nChains),
+  lnpsiGradients_(nChains*nVariables),
+  kones(nChains, std::complex<float_t>(1.0, 0.0)),
+  koneOverNchains(std::complex<float_t>(1.0/static_cast<float_t>(nChains), 0.0)),
+  kone(std::complex<float_t>(1.0, 0.0)),
+  kzero(std::complex<float_t>(0.0, 0.0)),
+  kminusOne(std::complex<float_t>(-1.0, 0.0)),
+  knChains(nChains),
+  knVariables(nVariables),
+  S_(nVariables*nVariables),
+  aO_(nVariables),
+  F_(nVariables),
+  nIteration_(0),
+  kbp_(1.0),
+  linSolver_(nVariables, nVariables)
 {}
 
 template <typename float_t>

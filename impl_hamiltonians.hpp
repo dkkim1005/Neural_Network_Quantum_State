@@ -3,13 +3,13 @@
 template <typename DerivedWFSampler, typename float_t>
 BaseParallelVMC<DerivedWFSampler, float_t>::BaseParallelVMC(const int nMCUnitSteps, const int nChains,
 const unsigned long seedDistance, const unsigned long seedNumber):
-knMCUnitSteps(nMCUnitSteps),
-knChains(nChains),
-updateList_(nChains),
-lnpsi0_(nChains),
-lnpsi1_(nChains),
-ratio_(nChains),
-randDev_(nChains)
+  knMCUnitSteps(nMCUnitSteps),
+  knChains(nChains),
+  updateList_(nChains),
+  lnpsi0_(nChains),
+  lnpsi1_(nChains),
+  ratio_(nChains),
+  randDev_(nChains)
 {
   // block splitting scheme for parallel Monte-Carlo
   for (int k=0; k<knChains; ++k)
@@ -77,16 +77,16 @@ void BaseParallelVMC<DerivedWFSampler, float_t>::evolve(const std::complex<float
 template <typename float_t>
 TFI_chain<float_t>::TFI_chain(ComplexRBM<float_t> & machine,
 const float_t h, const float_t J, const unsigned long seedDistance, const unsigned long seedNumber):
-BaseParallelVMC<TFI_chain<float_t>, float_t>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
-kh(h),
-kJ(J),
-kzero(0.0),
-ktwo(2.0),
-machine_(machine),
-list_(machine.get_nInputs()),
-diag_(machine.get_nChains()),
-leftIdx_(machine.get_nInputs()),
-rightIdx_(machine.get_nInputs())
+  BaseParallelVMC<TFI_chain<float_t>, float_t>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  kh(h),
+  kJ(J),
+  kzero(0.0),
+  ktwo(2.0),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  diag_(machine.get_nChains()),
+  leftIdx_(machine.get_nInputs()),
+  rightIdx_(machine.get_nInputs())
 {
   // (checker board update) list_ : 1,3,5,...,2,4,6,...
   const int nSites = machine.get_nInputs();

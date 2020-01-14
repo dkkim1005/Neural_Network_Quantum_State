@@ -27,19 +27,19 @@ void print(const float_t * data, const int m, const int n)
  */
 template <typename float_t>
 ComplexRBM<float_t>::ComplexRBM(const int nInputs, const int nHiddens, const int nChains):
-knInputs(nInputs), knHiddens(nHiddens), knChains(nChains), 
-variables_(nInputs*nHiddens + nInputs + nHiddens),
-lnpsiGradients_(nChains*(nInputs*nHiddens + nInputs + nHiddens)),
-spinStates_(nInputs*nChains),
-y_(nHiddens*nChains),
-ly_(nHiddens*nChains),
-sa_(nChains),
-kzero(std::complex<float_t>(0.0, 0.0)),
-kone(std::complex<float_t>(1.0, 0.0)),
-ktwo(std::complex<float_t>(2.0, 0.0)),
-koneChains(nChains, std::complex<float_t>(1.0,0.0)),
-koneHiddens(nHiddens, std::complex<float_t>(1.0,0.0)),
-index_(0)
+  knInputs(nInputs), knHiddens(nHiddens), knChains(nChains), 
+  variables_(nInputs*nHiddens + nInputs + nHiddens),
+  lnpsiGradients_(nChains*(nInputs*nHiddens + nInputs + nHiddens)),
+  spinStates_(nInputs*nChains),
+  y_(nHiddens*nChains),
+  ly_(nHiddens*nChains),
+  sa_(nChains),
+  kzero(std::complex<float_t>(0.0, 0.0)),
+  kone(std::complex<float_t>(1.0, 0.0)),
+  ktwo(std::complex<float_t>(2.0, 0.0)),
+  koneChains(nChains, std::complex<float_t>(1.0,0.0)),
+  koneHiddens(nHiddens, std::complex<float_t>(1.0,0.0)),
+  index_(0)
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);

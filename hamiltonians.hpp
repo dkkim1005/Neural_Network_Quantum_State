@@ -49,7 +49,7 @@ private:
 };
 
 
-// transverse field Ising model in 1D chain.
+// transverse field Ising model for 1D chain.
 template <typename float_t>
 class TFI_chain: public BaseParallelVMC<TFI_chain<float_t>, float_t>
 {
