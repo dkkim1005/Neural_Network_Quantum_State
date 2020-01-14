@@ -2,6 +2,7 @@
 #include "hamiltonians.hpp"
 #include "optimization.hpp"
 #include "argparse.hpp"
+#include <chrono>
 
 int main(int argc, char* argv[])
 {
@@ -28,7 +29,6 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("path", "./"));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));
-
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
@@ -44,7 +44,6 @@ int main(int argc, char* argv[])
 		      J = parser.find<double>("J"),
 			  lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
-
   const std::string path = parser.find<>("path") + "/",
 					nvstr = std::to_string(nInputs),
 					nhstr = std::to_string(nHiddens),
@@ -53,7 +52,6 @@ int main(int argc, char* argv[])
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
   const std::string prefix = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
-
   // print info of the registered args
   parser.print(std::cout);
 
@@ -62,21 +60,30 @@ int main(int argc, char* argv[])
 
   ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
+  // load parameters: w,a,b
   machine.load(RBMData_t::W, prefix + "Dw.dat");
   machine.load(RBMData_t::V, prefix + "Da.dat");
   machine.load(RBMData_t::H, prefix + "Db.dat");
 
-  const unsigned long nJump = static_cast<unsigned long>(nIterations)*
+  // block size for block splitting scheme of parallel Monte-Carlo
+  const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
                               static_cast<unsigned long>(nMonteCarloSteps)*
                               static_cast<unsigned long>(nInputs);
-  TFI_chain<double> rbmWrapper(machine, h, J, nJump, seed);
+
+  TFI_chain<double> rbmWrapper(machine, h, J, nBlocks, seed);
+  const auto start = std::chrono::system_clock::now();
+
   rbmWrapper.warm_up(nWarmup);
 
   // imaginary time propagator
   StochasticReconfiguration<double> iTimePropagator(nChains, machine.get_nVariables());
-
   iTimePropagator.propagate(rbmWrapper, nIterations, nMonteCarloSteps, lr);
 
+  const auto end = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
+
+  // save parameters: w,a,b
   machine.save(RBMData_t::W, prefix + "Dw.dat");
   machine.save(RBMData_t::V, prefix + "Da.dat");
   machine.save(RBMData_t::H, prefix + "Db.dat");
