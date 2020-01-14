@@ -14,7 +14,7 @@ MESSAGE (STATUS "TRNG4_LIBRARY_DIR : ${TRNG4_LIBRARY_DIR}")
 
 # Check whether header files are in TRNG4_INCLUDE_DIR or not.
 MESSAGE (STATUS "Checking for trng4")
-SET (HEADER_FILES "yarn5.hpp; uniform01_dist.hpp; uniform_int_dist.hpp")
+SET (HEADER_FILES "yarn5.hpp;uniform01_dist.hpp;uniform_int_dist.hpp")
 FOREACH (HEADER_FILE ${HEADER_FILES})
   MESSAGE (STATUS "  Looking for ${HEADER_FILE}")
   FIND_PATH (HEADER_FILE_PATH NAMES ${HEADER_FILE} HINTS "${TRNG4_INCLUDE_DIR}/trng")
