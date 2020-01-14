@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
 			  lr = parser.find<float>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
 
-  const std::string path = parser.find<std::string>("path"),
+  const std::string path = parser.find<>("path"),
 					nvstr = std::to_string(nInputs),
 					nhstr = std::to_string(nHiddens),
 					vestr = std::to_string(version);
