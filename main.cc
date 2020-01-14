@@ -40,12 +40,12 @@ int main(int argc, char* argv[])
 			nIterations =  parser.find<int>("niter"),
 	        num_omp_threads = parser.find<int>("nthread"),
             version = parser.find<int>("ver");
-  const float h = parser.find<float>("h"),
-		      J = parser.find<float>("J"),
-			  lr = parser.find<float>("lr");
+  const double h = parser.find<double>("h"),
+		      J = parser.find<double>("J"),
+			  lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
 
-  const std::string path = parser.find<>("path"),
+  const std::string path = parser.find<>("path") + "/",
 					nvstr = std::to_string(nInputs),
 					nhstr = std::to_string(nHiddens),
 					vestr = std::to_string(version);
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  ComplexRBM<float> machine(nInputs, nHiddens, nChains);
+  ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
   machine.load(RBMData_t::W, prefix + "Dw.dat");
   machine.load(RBMData_t::V, prefix + "Da.dat");
@@ -69,11 +69,11 @@ int main(int argc, char* argv[])
   const unsigned long nJump = static_cast<unsigned long>(nIterations)*
                               static_cast<unsigned long>(nMonteCarloSteps)*
                               static_cast<unsigned long>(nInputs);
-  TFI_chain<float> rbmWrapper(machine, h, J, nJump, seed);
+  TFI_chain<double> rbmWrapper(machine, h, J, nJump, seed);
   rbmWrapper.warm_up(nWarmup);
 
   // imaginary time propagator
-  StochasticReconfiguration<float> iTimePropagator(nChains, machine.get_nVariables());
+  StochasticReconfiguration<double> iTimePropagator(nChains, machine.get_nVariables());
 
   iTimePropagator.propagate(rbmWrapper, nIterations, nMonteCarloSteps, lr);
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iomanip>
 #include <numeric>
 #include "blas_lapack.hpp"
 #include "hamiltonians.hpp"
@@ -13,9 +14,10 @@ public:
   template <typename WFSampler>
   void propagate(BaseParallelVMC<WFSampler, float_t> & sampler, const int nIteration, const int nMCSteps = 1, const float_t deltaTau = 1e-3)
   {
+    std::cout << "# of loop\t" << "<H>" << std::endl;
     for (int n=0; n<nIteration; ++n)
     {
-      std::cout << "n: " << (n+1) << " ";
+      std::cout << std::setw(5) << (n+1) << std::setw(16);
       sampler.do_mcmc_steps(nMCSteps);
       sampler.get_htilda(&htilda_[0]);
       sampler.get_lnpsiGradients(&lnpsiGradients_[0]);
@@ -50,7 +52,7 @@ public:
       // F_ = S_^{-1}*F_
       linSolver_.solve(&S_[0], &F_[0], krcond);
       sampler.evolve(&F_[0], deltaTau);
-      std::cout << (conjHavg.real()) << std::endl;
+      std::cout << (conjHavg.real()) << std::endl << std::flush;
     }
   }
 private:
