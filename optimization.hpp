@@ -4,10 +4,42 @@
 
 #include <iomanip>
 #include <numeric>
+#include <trng/yarn5.hpp>
+#include <trng/uniform01_dist.hpp>
+#include <trng/uniform_int_dist.hpp>
 #include "blas_lapack.hpp"
-#include "hamiltonians.hpp"
 #include "linear_solver.hpp"
 
+#define THIS_(TYPENAME) static_cast<TYPENAME*>(this)
+#define CONST_THIS_(TYPENAME) static_cast<const TYPENAME*>(this)
+
+/* 
+ * Base class of importance sampling for wave functions: ln(\psi(x))
+ *  - ratio = norm(ln(\psi(x1))-ln(\psi(x0)))
+ *   where x1 is a candidate of the next state and x0 is a current state.
+ */
+template <typename DerivedWFSampler, typename FloatType>
+class BaseParallelVMC
+{
+public:
+  BaseParallelVMC(const int nSites, const int nChains, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void warm_up(const int nMCSteps = 100);
+  void do_mcmc_steps(const int nMCSteps = 1);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  int get_nChains() const { return knChains; }
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+private:
+  const int knMCUnitSteps, knChains;
+  std::vector<bool> updateList_;
+  std::vector<FloatType> ratio_;
+  std::vector<trng::yarn5> randDev_;
+  trng::uniform01_dist<FloatType> randUniform_;
+protected:
+  std::vector<std::complex<FloatType> > lnpsi1_, lnpsi0_;
+};
+
+// Ref. S. Sorella, M. Casula, and D. Rocca, J. Chem. Phys. 127, 014105 (2007).
 template <typename FloatType>
 class StochasticReconfiguration
 {
@@ -37,7 +69,7 @@ public:
       // F_i = -(\frac{1}{knChains}\sum_k std::conj(htilda_k))*aO_i
       for (int k=0; k<knChains; ++k)
         htilda_[k] = std::conj(htilda_[k]);
-      std::complex<FloatType> conjHavg = koneOverNchains*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
+      const std::complex<FloatType> conjHavg = koneOverNchains*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
       for (int i=0; i<knVariables; ++i)
         F_[i] = kminusOne*conjHavg*aO_[i];
       // F_i += \frac{1}{knChains}\sum_k std::conj(htilda_k) * lnpsiGradients_ki
@@ -51,9 +83,9 @@ public:
           S_[j*knVariables+i] = S_[i*knVariables+j];
           S_[i*knVariables+j] = std::conj(S_[i*knVariables+j]);
         }
-      // F_ = S_^{-1}*F_
 	  try
 	  {
+        // F_ = S_^{-1}*F_
         linSolver_.solve(&S_[0], &F_[0], krcond);
 	  }
 	  catch (const std::exception & e)
@@ -78,29 +110,4 @@ private:
   PsuedoInverseSolver<FloatType> linSolver_;
 };
 
-template <typename FloatType>
-StochasticReconfiguration<FloatType>::StochasticReconfiguration(const int nChains, const int nVariables):
-  htilda_(nChains),
-  lnpsiGradients_(nChains*nVariables),
-  kones(nChains, std::complex<FloatType>(1.0, 0.0)),
-  koneOverNchains(std::complex<FloatType>(1.0/static_cast<FloatType>(nChains), 0.0)),
-  kone(std::complex<FloatType>(1.0, 0.0)),
-  kzero(std::complex<FloatType>(0.0, 0.0)),
-  kminusOne(std::complex<FloatType>(-1.0, 0.0)),
-  knChains(nChains),
-  knVariables(nVariables),
-  S_(nVariables*nVariables),
-  aO_(nVariables),
-  F_(nVariables),
-  nIteration_(0),
-  bp_(1.0),
-  linSolver_(nVariables, nVariables)
-{}
-
-template <typename FloatType>
-FloatType StochasticReconfiguration<FloatType>::schedular()
-{
-  bp_ *= kb;
-  const FloatType lambda = klambda0*bp_;
-  return ((lambda > klambMin) ? lambda : klambMin);
-}
+#include "impl_optimization.hpp"
