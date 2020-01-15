@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
 #include <iomanip>
@@ -6,15 +8,15 @@
 #include "hamiltonians.hpp"
 #include "linear_solver.hpp"
 
-template <typename float_t>
+template <typename FloatType>
 class StochasticReconfiguration
 {
 public:
   StochasticReconfiguration(const int nChains, const int nVariables);
   template <typename WFSampler>
-  void propagate(BaseParallelVMC<WFSampler, float_t> & sampler, const int nIteration, const int nMCSteps = 1, const float_t deltaTau = 1e-3)
+  void propagate(BaseParallelVMC<WFSampler, FloatType> & sampler, const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
   {
-    std::cout << "# of loop\t" << "<H>" << std::endl;
+    std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
     for (int n=0; n<nIteration; ++n)
     {
       std::cout << std::setw(5) << (n+1) << std::setw(16);
@@ -29,13 +31,13 @@ public:
       // S_ij += (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_kj)/knChains
       blas::herk(knVariables, knChains, koneOverNchains, &lnpsiGradients_[0], kone, &S_[0]);
       // aOO^{reg}_ij = S_ij + lambda*\delta_ij*S_ij
-      const float_t lambda = this->schedular();
+      const FloatType lambda = this->schedular();
       for (int i=0; i<knVariables; ++i)
         S_[i*knVariables+i] = (1+lambda)*S_[i*knVariables+i];
       // F_i = -(\frac{1}{knChains}\sum_k std::conj(htilda_k))*aO_i
       for (int k=0; k<knChains; ++k)
         htilda_[k] = std::conj(htilda_[k]);
-      std::complex<float_t> conjHavg = koneOverNchains*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
+      std::complex<FloatType> conjHavg = koneOverNchains*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
       for (int i=0; i<knVariables; ++i)
         F_[i] = kminusOne*conjHavg*aO_[i];
       // F_i += \frac{1}{knChains}\sum_k std::conj(htilda_k) * lnpsiGradients_ki
@@ -57,34 +59,34 @@ public:
 	  catch (const std::exception & e)
 	  {
 		std::cout << "# reset the strength of regularization" << std::endl;
-        bp_ = 1.0;
+        bp_ *= 1e3;
 	  }
       sampler.evolve(&F_[0], deltaTau);
       std::cout << (conjHavg.real()) << std::endl << std::flush;
     }
   }
 private:
-  float_t schedular();
-  std::vector<std::complex<float_t> > htilda_, lnpsiGradients_;
-  std::vector<std::complex<float_t> > S_, aO_, F_;
-  const std::vector<std::complex<float_t> > kones;
-  const std::complex<float_t> koneOverNchains, kone, kzero, kminusOne;
+  FloatType schedular();
+  std::vector<std::complex<FloatType> > htilda_, lnpsiGradients_;
+  std::vector<std::complex<FloatType> > S_, aO_, F_;
+  const std::vector<std::complex<FloatType> > kones;
+  const std::complex<FloatType> koneOverNchains, kone, kzero, kminusOne;
   const int knChains, knVariables;
-  static constexpr float_t klambda0 = 100.0, kb = 0.9, klambMin = 1e-4, krcond = 1e-7;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4, krcond = 1e-7;
   int nIteration_;
-  float_t bp_;
-  PsuedoInverseSolver<float_t> linSolver_;
+  FloatType bp_;
+  PsuedoInverseSolver<FloatType> linSolver_;
 };
 
-template <typename float_t>
-StochasticReconfiguration<float_t>::StochasticReconfiguration(const int nChains, const int nVariables):
+template <typename FloatType>
+StochasticReconfiguration<FloatType>::StochasticReconfiguration(const int nChains, const int nVariables):
   htilda_(nChains),
   lnpsiGradients_(nChains*nVariables),
-  kones(nChains, std::complex<float_t>(1.0, 0.0)),
-  koneOverNchains(std::complex<float_t>(1.0/static_cast<float_t>(nChains), 0.0)),
-  kone(std::complex<float_t>(1.0, 0.0)),
-  kzero(std::complex<float_t>(0.0, 0.0)),
-  kminusOne(std::complex<float_t>(-1.0, 0.0)),
+  kones(nChains, std::complex<FloatType>(1.0, 0.0)),
+  koneOverNchains(std::complex<FloatType>(1.0/static_cast<FloatType>(nChains), 0.0)),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  kzero(std::complex<FloatType>(0.0, 0.0)),
+  kminusOne(std::complex<FloatType>(-1.0, 0.0)),
   knChains(nChains),
   knVariables(nVariables),
   S_(nVariables*nVariables),
@@ -95,10 +97,10 @@ StochasticReconfiguration<float_t>::StochasticReconfiguration(const int nChains,
   linSolver_(nVariables, nVariables)
 {}
 
-template <typename float_t>
-float_t StochasticReconfiguration<float_t>::schedular()
+template <typename FloatType>
+FloatType StochasticReconfiguration<FloatType>::schedular()
 {
   bp_ *= kb;
-  const float_t lambda = klambda0*bp_;
+  const FloatType lambda = klambda0*bp_;
   return ((lambda > klambMin) ? lambda : klambMin);
 }

@@ -1,7 +1,9 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
-template <typename DerivedWFSampler, typename float_t>
-BaseParallelVMC<DerivedWFSampler, float_t>::BaseParallelVMC(const int nMCUnitSteps, const int nChains,
+template <typename DerivedWFSampler, typename FloatType>
+BaseParallelVMC<DerivedWFSampler, FloatType>::BaseParallelVMC(const int nMCUnitSteps, const int nChains,
 const unsigned long seedDistance, const unsigned long seedNumber):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
@@ -19,8 +21,8 @@ const unsigned long seedDistance, const unsigned long seedNumber):
   }
 }
 
-template <typename DerivedWFSampler, typename float_t>
-void BaseParallelVMC<DerivedWFSampler, float_t>::warm_up(const int nMCSteps)
+template <typename DerivedWFSampler, typename FloatType>
+void BaseParallelVMC<DerivedWFSampler, FloatType>::warm_up(const int nMCSteps)
 {
   // memorize an initial state
   THIS_(DerivedWFSampler)->initialize(&lnpsi0_[0]);
@@ -31,8 +33,8 @@ void BaseParallelVMC<DerivedWFSampler, float_t>::warm_up(const int nMCSteps)
   this->do_mcmc_steps(nMCSteps);
 }
 
-template <typename DerivedWFSampler, typename float_t>
-void BaseParallelVMC<DerivedWFSampler, float_t>::do_mcmc_steps(const int nMCSteps)
+template <typename DerivedWFSampler, typename FloatType>
+void BaseParallelVMC<DerivedWFSampler, FloatType>::do_mcmc_steps(const int nMCSteps)
 {
   // Markov chain MonteCarlo(MCMC) sampling with nskip iterations
   for (int n=0; n<(nMCSteps*knMCUnitSteps); ++n)
@@ -55,29 +57,29 @@ void BaseParallelVMC<DerivedWFSampler, float_t>::do_mcmc_steps(const int nMCStep
   }
 }
 
-template <typename DerivedWFSampler, typename float_t>
-void BaseParallelVMC<DerivedWFSampler, float_t>::get_htilda(std::complex<float_t> * htilda)
+template <typename DerivedWFSampler, typename FloatType>
+void BaseParallelVMC<DerivedWFSampler, FloatType>::get_htilda(std::complex<FloatType> * htilda)
 {
   THIS_(DerivedWFSampler)->get_htilda(htilda);
 }
 
-template <typename DerivedWFSampler, typename float_t>
-void BaseParallelVMC<DerivedWFSampler, float_t>::get_lnpsiGradients(std::complex<float_t> * lnpsiGradients)
+template <typename DerivedWFSampler, typename FloatType>
+void BaseParallelVMC<DerivedWFSampler, FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   THIS_(DerivedWFSampler)->get_lnpsiGradients(lnpsiGradients);
 }
 
-template <typename DerivedWFSampler, typename float_t>
-void BaseParallelVMC<DerivedWFSampler, float_t>::evolve(const std::complex<float_t> * trueGradients, const float_t learningRate)
+template <typename DerivedWFSampler, typename FloatType>
+void BaseParallelVMC<DerivedWFSampler, FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   THIS_(DerivedWFSampler)->evolve(trueGradients, learningRate);
 }
 
 
-template <typename float_t>
-TFI_chain<float_t>::TFI_chain(ComplexRBM<float_t> & machine,
-const float_t h, const float_t J, const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelVMC<TFI_chain<float_t>, float_t>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+template <typename FloatType>
+TFI_chain<FloatType>::TFI_chain(ComplexRBM<FloatType> & machine,
+const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelVMC<TFI_chain<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
   kzero(0.0),
@@ -113,11 +115,11 @@ const float_t h, const float_t J, const unsigned long seedDistance, const unsign
   }
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::initialize(std::complex<float_t> * lnpsi)
+template <typename FloatType>
+void TFI_chain<FloatType>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
-  const std::complex<float_t> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   // diag_ = \sum_i spin_i*spin_{i+1}
   for (int k=0; k<nChains; ++k)
@@ -129,18 +131,18 @@ void TFI_chain<float_t>::initialize(std::complex<float_t> * lnpsi)
   }
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::sampling(std::complex<float_t> * lnpsi)
+template <typename FloatType>
+void TFI_chain<FloatType>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::accept_next_state(const std::vector<bool> & updateList)
+template <typename FloatType>
+void TFI_chain<FloatType>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
-  const std::complex<float_t> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   for (int k=0; k<nChains; ++k)
   {
@@ -150,8 +152,8 @@ void TFI_chain<float_t>::accept_next_state(const std::vector<bool> & updateList)
   machine_.spin_flip(updateList);
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::get_htilda(std::complex<float_t> * htilda)
+template <typename FloatType>
+void TFI_chain<FloatType>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -169,14 +171,14 @@ void TFI_chain<float_t>::get_htilda(std::complex<float_t> * htilda)
   }
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::get_lnpsiGradients(std::complex<float_t> * lnpsiGradients)
+template <typename FloatType>
+void TFI_chain<FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
-template <typename float_t>
-void TFI_chain<float_t>::evolve(const std::complex<float_t> * trueGradients, const float_t learningRate)
+template <typename FloatType>
+void TFI_chain<FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }

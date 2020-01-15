@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
 #include "ComplexRBM.hpp"
@@ -13,64 +15,64 @@
  *  - ratio = norm(ln(\psi(x1))-ln(\psi(x0)))
  *   where x1 is a candidate of the next state and x0 is a current state.
  */
-template <typename DerivedWFSampler, typename float_t>
+template <typename DerivedWFSampler, typename FloatType>
 class BaseParallelVMC
 {
 public:
   BaseParallelVMC(const int nSites, const int nChains, const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
-  void get_htilda(std::complex<float_t> * htilda);
-  void get_lnpsiGradients(std::complex<float_t> * lnpsiGradients);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   int get_nChains() const { return knChains; }
-  void evolve(const std::complex<float_t> * trueGradients, const float_t learningRate);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
   const int knMCUnitSteps, knChains;
   std::vector<bool> updateList_;
-  std::vector<float_t> ratio_;
+  std::vector<FloatType> ratio_;
   std::vector<trng::yarn5> randDev_;
-  trng::uniform01_dist<float_t> randUniform_;
+  trng::uniform01_dist<FloatType> randUniform_;
 protected:
-  std::vector<std::complex<float_t> > lnpsi1_, lnpsi0_;
+  std::vector<std::complex<FloatType> > lnpsi1_, lnpsi0_;
 };
 
 
-template <typename float_t>
+template <typename FloatType>
 class OneSideList
 {
 public:
-  void set_item(const float_t & item) { item_ = item; }
-  void set_nextptr(OneSideList<float_t> * nextPtr) { nextPtr_ = nextPtr; }
-  OneSideList<float_t> * next_ptr() const { return nextPtr_; }
-  float_t get_item() { return item_; }
+  void set_item(const FloatType & item) { item_ = item; }
+  void set_nextptr(OneSideList<FloatType> * nextPtr) { nextPtr_ = nextPtr; }
+  OneSideList<FloatType> * next_ptr() const { return nextPtr_; }
+  FloatType get_item() { return item_; }
 private:
-  float_t item_;
-  OneSideList<float_t> * nextPtr_;
+  FloatType item_;
+  OneSideList<FloatType> * nextPtr_;
 };
 
 
 // transverse field Ising model for 1D chain.
-template <typename float_t>
-class TFI_chain: public BaseParallelVMC<TFI_chain<float_t>, float_t>
+template <typename FloatType>
+class TFI_chain: public BaseParallelVMC<TFI_chain<FloatType>, FloatType>
 {
-  friend BaseParallelVMC<TFI_chain<float_t>, float_t>;
-  using BaseParallelVMC<TFI_chain<float_t>, float_t>::lnpsi1_;
-  using BaseParallelVMC<TFI_chain<float_t>, float_t>::lnpsi0_;
+  friend BaseParallelVMC<TFI_chain<FloatType>, FloatType>;
+  using BaseParallelVMC<TFI_chain<FloatType>, FloatType>::lnpsi1_;
+  using BaseParallelVMC<TFI_chain<FloatType>, FloatType>::lnpsi0_;
   typedef OneSideList<int> CircularLinkedList;
 public:
-  TFI_chain(ComplexRBM<float_t> & machine, const float_t h, const float_t J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<float_t> * htilda);
-  void get_lnpsiGradients(std::complex<float_t> * lnpsiGradients);
+  TFI_chain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<float_t> * lnpsi);
-  void sampling(std::complex<float_t> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<float_t> * trueGradients, const float_t learningRate);
-  ComplexRBM<float_t> & machine_;
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  ComplexRBM<FloatType> & machine_;
   std::vector<CircularLinkedList> list_;
   CircularLinkedList * idxptr_;
-  const float_t kh, kJ, kzero, ktwo;
-  std::vector<std::complex<float_t> > diag_;
+  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<FloatType> > diag_;
   std::vector<int> leftIdx_, rightIdx_;
 };
 

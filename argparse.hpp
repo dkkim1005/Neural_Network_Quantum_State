@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
 #include <iostream>
@@ -144,8 +146,8 @@ public:
   }
 
   // printing a current status
-  template <typename fstream_t>
-  void print(fstream_t & fstream) const
+  template <typename FstreamType>
+  void print(FstreamType & fstream) const
   {
     fstream << "#===== updated arguments =====" << std::endl;
     for (int i=0; i<options_.size(); ++i)

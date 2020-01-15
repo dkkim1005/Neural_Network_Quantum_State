@@ -1,11 +1,13 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
 #include <iostream>
 #include <random>
 #include <fstream>
 
-template <typename float_t>
-void print(const float_t * data, const int m, const int n)
+template <typename FloatType>
+void print(const FloatType * data, const int m, const int n)
 {
   for (int i=0; i<m; ++i)
   {
@@ -25,8 +27,8 @@ void print(const float_t * data, const int m, const int n)
   - spin configurations: spinStates_ki
   - variables: w_ij, a_i, b_j
  */
-template <typename float_t>
-ComplexRBM<float_t>::ComplexRBM(const int nInputs, const int nHiddens, const int nChains):
+template <typename FloatType>
+ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const int nChains):
   knInputs(nInputs), knHiddens(nHiddens), knChains(nChains), 
   variables_(nInputs*nHiddens + nInputs + nHiddens),
   lnpsiGradients_(nChains*(nInputs*nHiddens + nInputs + nHiddens)),
@@ -34,11 +36,11 @@ ComplexRBM<float_t>::ComplexRBM(const int nInputs, const int nHiddens, const int
   y_(nHiddens*nChains),
   ly_(nHiddens*nChains),
   sa_(nChains),
-  kzero(std::complex<float_t>(0.0, 0.0)),
-  kone(std::complex<float_t>(1.0, 0.0)),
-  ktwo(std::complex<float_t>(2.0, 0.0)),
-  koneChains(nChains, std::complex<float_t>(1.0,0.0)),
-  koneHiddens(nHiddens, std::complex<float_t>(1.0,0.0)),
+  kzero(std::complex<FloatType>(0.0, 0.0)),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  ktwo(std::complex<FloatType>(2.0, 0.0)),
+  koneChains(nChains, std::complex<FloatType>(1.0,0.0)),
+  koneHiddens(nHiddens, std::complex<FloatType>(1.0,0.0)),
   index_(0)
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -53,15 +55,15 @@ ComplexRBM<float_t>::ComplexRBM(const int nInputs, const int nHiddens, const int
   d_da_ = &lnpsiGradients_[knInputs*knHiddens],
   d_db_ = &lnpsiGradients_[knInputs*knHiddens+nInputs];
   for (int n=0; n<nInputs*nHiddens; ++n)
-    w_[n] = std::complex<float_t>(randw(ran), randw(ran));
+    w_[n] = std::complex<FloatType>(randw(ran), randw(ran));
   for (int i=0; i<nInputs; ++i)
-    a_[i] = std::complex<float_t>(randa(ran), randa(ran));
+    a_[i] = std::complex<FloatType>(randa(ran), randa(ran));
   for (int j=0; j<nHiddens; ++j)
-    b_[j] = std::complex<float_t>(randb(ran), randb(ran));
+    b_[j] = std::complex<FloatType>(randb(ran), randb(ran));
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::update_variables(const std::complex<float_t> * derivativeLoss, const float_t learningRate)
+template <typename FloatType>
+void ComplexRBM<FloatType>::update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate)
 {
   for (int i=0; i<variables_.size(); ++i)
     variables_[i] = variables_[i] - learningRate*derivativeLoss[i];
@@ -73,8 +75,8 @@ void ComplexRBM<float_t>::update_variables(const std::complex<float_t> * derivat
   blas::gemm(1, knChains, knInputs, kone, kzero, a_, &spinStates_[0], &sa_[0]);
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::initialize(std::complex<float_t> * lnpsi, const std::complex<float_t> * spinStates)
+template <typename FloatType>
+void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates)
 {
   if (spinStates == NULL)
   {
@@ -101,8 +103,8 @@ void ComplexRBM<float_t>::initialize(std::complex<float_t> * lnpsi, const std::c
   blas::gemm(1, knChains, knHiddens, kone, kone, &koneHiddens[0], &ly_[0], lnpsi);
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::forward(const int spinFlipIndex, std::complex<float_t> * lnpsi)
+template <typename FloatType>
+void ComplexRBM<FloatType>::forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi)
 {
   index_ = spinFlipIndex;
   #pragma omp parallel for
@@ -115,8 +117,8 @@ void ComplexRBM<float_t>::forward(const int spinFlipIndex, std::complex<float_t>
   blas::gemm(1, knChains, knHiddens, kone, kone, &koneHiddens[0], &ly_[0], lnpsi);
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::backward(std::complex<float_t> * lnpsiGradients)
+template <typename FloatType>
+void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
 {
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
@@ -130,18 +132,18 @@ void ComplexRBM<float_t>::backward(std::complex<float_t> * lnpsiGradients)
 	  for (int j=0; j<knHiddens; ++j)
 		d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i]*d_db_[kvsize+j];
   }
-  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<float_t>)*variables_.size()*knChains);
+  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*knChains);
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::load(const RBMData_t typeInfo, const std::string filePath)
+template <typename FloatType>
+void ComplexRBM<FloatType>::load(const RBMDataType typeInfo, const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
-  std::vector<std::complex<float_t>> rawdata;
+  std::vector<std::complex<FloatType>> rawdata;
   std::ifstream reader(filePath);
   if (reader.is_open())
   {
-    std::complex<float_t> temp;
+    std::complex<FloatType> temp;
     while (reader >> temp)
       rawdata.push_back(temp);
     reader.close();
@@ -152,7 +154,7 @@ void ComplexRBM<float_t>::load(const RBMData_t typeInfo, const std::string fileP
     return;
   }
   // insert rawdata into 'variables_'
-  if (typeInfo == RBMData_t::W)
+  if (typeInfo == RBMDataType::W)
   {
     if (rawdata.size() == knInputs*knHiddens)
       for (int i=0; i<rawdata.size(); ++i)
@@ -160,7 +162,7 @@ void ComplexRBM<float_t>::load(const RBMData_t typeInfo, const std::string fileP
 	else
       std::cout << " check 'w' size... " << std::endl;
   }
-  else if (typeInfo == RBMData_t::V)
+  else if (typeInfo == RBMDataType::V)
   {
     if (rawdata.size() == knInputs)
 	  for (int i=0; i<rawdata.size(); ++i)
@@ -168,7 +170,7 @@ void ComplexRBM<float_t>::load(const RBMData_t typeInfo, const std::string fileP
 	else
       std::cout << " check 'a' size... " << std::endl;
   }
-  else if (typeInfo == RBMData_t::H)
+  else if (typeInfo == RBMDataType::H)
   {
     if (rawdata.size() == knHiddens)
 	  for (int i=0; i<rawdata.size(); ++i)
@@ -178,12 +180,12 @@ void ComplexRBM<float_t>::load(const RBMData_t typeInfo, const std::string fileP
   }
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::save(const RBMData_t typeInfo, const std::string filePath, const int precision) const
+template <typename FloatType>
+void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string filePath, const int precision) const
 {
   std::ofstream writer(filePath);
   writer << std::setprecision(precision);
-  if (typeInfo == RBMData_t::W)
+  if (typeInfo == RBMDataType::W)
   {
     for (int i=0; i<knInputs; ++i)
 	{
@@ -192,20 +194,20 @@ void ComplexRBM<float_t>::save(const RBMData_t typeInfo, const std::string fileP
 	  writer << std::endl;
 	}
   }
-  else if (typeInfo == RBMData_t::V)
+  else if (typeInfo == RBMDataType::V)
   {
 	for (int i=0; i<knInputs; ++i)
 	  writer << a_[i] << " ";
 	writer << std::endl;
   }
-  else if (typeInfo == RBMData_t::H)
+  else if (typeInfo == RBMDataType::H)
 	for (int j=0; j<knHiddens; ++j)
 	  writer << b_[j] << " ";
   writer.close();
 }
 
-template <typename float_t>
-void ComplexRBM<float_t>::spin_flip(const std::vector<bool> & doSpinFlip)
+template <typename FloatType>
+void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
 {
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)

@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #include "ComplexRBM.hpp"
 #include "hamiltonians.hpp"
 #include "optimization.hpp"
@@ -61,15 +63,15 @@ int main(int argc, char* argv[])
   ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
-  machine.load(RBMData_t::W, prefix + "Dw.dat");
-  machine.load(RBMData_t::V, prefix + "Da.dat");
-  machine.load(RBMData_t::H, prefix + "Db.dat");
+  machine.load(RBMDataType::W, prefix + "Dw.dat");
+  machine.load(RBMDataType::V, prefix + "Da.dat");
+  machine.load(RBMDataType::H, prefix + "Db.dat");
 
   // block size for block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
-                              static_cast<unsigned long>(nMonteCarloSteps)*
-                              static_cast<unsigned long>(nInputs);
-
+                                static_cast<unsigned long>(nMonteCarloSteps)*
+                                static_cast<unsigned long>(nInputs);
+  // Transverse Field Ising Hamiltonian with 1D chain system
   TFI_chain<double> rbmWrapper(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
@@ -84,9 +86,9 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters: w,a,b
-  machine.save(RBMData_t::W, prefix + "Dw.dat");
-  machine.save(RBMData_t::V, prefix + "Da.dat");
-  machine.save(RBMData_t::H, prefix + "Db.dat");
+  machine.save(RBMDataType::W, prefix + "Dw.dat");
+  machine.save(RBMDataType::V, prefix + "Da.dat");
+  machine.save(RBMDataType::H, prefix + "Db.dat");
 
   return 0;
 }

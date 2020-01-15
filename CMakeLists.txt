@@ -1,3 +1,5 @@
+# Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 PROJECT (VMC_OPENMP_VER)
 CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
 
