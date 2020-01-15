@@ -3,9 +3,9 @@
 #pragma once
 
 template <typename FloatType>
-TFI_chain<FloatType>::TFI_chain(ComplexRBM<FloatType> & machine,
+TFIChain<FloatType>::TFIChain(ComplexRBM<FloatType> & machine,
 const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelVMC<TFI_chain<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelVMC<TFIChain<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
   kzero(0.0),
@@ -42,7 +42,7 @@ const FloatType h, const FloatType J, const unsigned long seedDistance, const un
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::initialize(std::complex<FloatType> * lnpsi)
+void TFIChain<FloatType>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -58,14 +58,14 @@ void TFI_chain<FloatType>::initialize(std::complex<FloatType> * lnpsi)
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::sampling(std::complex<FloatType> * lnpsi)
+void TFIChain<FloatType>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::accept_next_state(const std::vector<bool> & updateList)
+void TFIChain<FloatType>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -79,7 +79,7 @@ void TFI_chain<FloatType>::accept_next_state(const std::vector<bool> & updateLis
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::get_htilda(std::complex<FloatType> * htilda)
+void TFIChain<FloatType>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -98,13 +98,13 @@ void TFI_chain<FloatType>::get_htilda(std::complex<FloatType> * htilda)
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+void TFIChain<FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
 template <typename FloatType>
-void TFI_chain<FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+void TFIChain<FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }

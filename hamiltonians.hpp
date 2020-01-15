@@ -21,14 +21,14 @@ private:
 
 // transverse field Ising model for 1D chain.
 template <typename FloatType>
-class TFI_chain: public BaseParallelVMC<TFI_chain<FloatType>, FloatType>
+class TFIChain: public BaseParallelVMC<TFIChain<FloatType>, FloatType>
 {
-  friend BaseParallelVMC<TFI_chain<FloatType>, FloatType>;
-  using BaseParallelVMC<TFI_chain<FloatType>, FloatType>::lnpsi1_;
-  using BaseParallelVMC<TFI_chain<FloatType>, FloatType>::lnpsi0_;
+  friend BaseParallelVMC<TFIChain<FloatType>, FloatType>;
+  using BaseParallelVMC<TFIChain<FloatType>, FloatType>::lnpsi1_;
+  using BaseParallelVMC<TFIChain<FloatType>, FloatType>::lnpsi0_;
   typedef OneSideList<int> CircularLinkedList;
 public:
-  TFI_chain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  TFIChain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:
