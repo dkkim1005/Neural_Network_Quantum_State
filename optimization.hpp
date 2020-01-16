@@ -40,7 +40,7 @@ protected:
 };
 
 // Ref. S. Sorella, M. Casula, and D. Rocca, J. Chem. Phys. 127, 014105 (2007).
-template <typename FloatType>
+template <typename FloatType, template<typename> class LinearSolver>
 class StochasticReconfiguration
 {
 public:
@@ -79,20 +79,12 @@ public:
       // transpose S_ to prepare as fortran style format
       for (int i=0; i<knVariables; ++i)
         for (int j=i+1; j<knVariables; ++j)
-        {
+		{
           S_[j*knVariables+i] = S_[i*knVariables+j];
           S_[i*knVariables+j] = std::conj(S_[i*knVariables+j]);
-        }
-	  try
-	  {
-        // F_ = S_^{-1}*F_
-        linSolver_.solve(&S_[0], &F_[0], krcond);
-	  }
-	  catch (const std::exception & e)
-	  {
-		std::cout << "# reset the strength of regularization" << std::endl;
-        bp_ *= 1e3;
-	  }
+		}
+      // F_ = S_^{-1}*F_
+      linSolver_.solve(&S_[0], &F_[0]);
       sampler.evolve(&F_[0], deltaTau);
       std::cout << (conjHavg.real()) << std::endl << std::flush;
     }
@@ -104,10 +96,10 @@ private:
   const std::vector<std::complex<FloatType> > kones;
   const std::complex<FloatType> koneOverNchains, kone, kzero, kminusOne;
   const int knChains, knVariables;
-  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4, krcond = 1e-7;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4;
   int nIteration_;
   FloatType bp_;
-  PsuedoInverseSolver<FloatType> linSolver_;
+  LinearSolver<FloatType> linSolver_; 
 };
 
 #include "impl_optimization.hpp"

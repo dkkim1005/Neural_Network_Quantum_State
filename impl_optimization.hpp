@@ -76,8 +76,8 @@ void BaseParallelVMC<DerivedWFSampler, FloatType>::evolve(const std::complex<Flo
 }
 
 
-template <typename FloatType>
-StochasticReconfiguration<FloatType>::StochasticReconfiguration(const int nChains, const int nVariables):
+template <typename FloatType, template<typename> class LinearSolver>
+StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(const int nChains, const int nVariables):
   htilda_(nChains),
   lnpsiGradients_(nChains*nVariables),
   kones(nChains, std::complex<FloatType>(1.0, 0.0)),
@@ -92,10 +92,10 @@ StochasticReconfiguration<FloatType>::StochasticReconfiguration(const int nChain
   F_(nVariables),
   nIteration_(0),
   bp_(1.0),
-  linSolver_(nVariables, nVariables) {}
+  linSolver_(nVariables) {}
 
-template <typename FloatType>
-FloatType StochasticReconfiguration<FloatType>::schedular()
+template <typename FloatType, template<typename> class LinearSolver>
+FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular()
 {
   bp_ *= kb;
   const FloatType lambda = klambda0*bp_;

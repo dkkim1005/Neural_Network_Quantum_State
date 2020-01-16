@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
   rbmWrapper.warm_up(nWarmup);
 
   // imaginary time propagator
-  StochasticReconfiguration<double> iTimePropagator(nChains, machine.get_nVariables());
+  StochasticReconfiguration<double, linearsolver::minresqlp> iTimePropagator(nChains, machine.get_nVariables());
   iTimePropagator.propagate(rbmWrapper, nIterations, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
