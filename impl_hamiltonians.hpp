@@ -19,7 +19,7 @@ const FloatType h, const FloatType J, const unsigned long seedDistance, const un
   // (checker board update) list_ : 1,3,5,...,2,4,6,...
   const int nSites = machine.get_nInputs();
   for (int i=0; i<nSites; i++)
-    list_[i].set_item(i);  
+    list_[i].set_item(i);
   int idx = 0;
   for (int i=2; i<nSites; i+=2)
   {

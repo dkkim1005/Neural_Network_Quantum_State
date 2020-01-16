@@ -6,7 +6,7 @@ template<typename DerivedOP, typename NumberType>
 BaseInterface<DerivedOP, NumberType>::BaseInterface(const int n_, const NumberType * b_,
   const NumberTypeFloat<NumberType> shift_,
   const bool useMsolve_,
-  const bool disable_, 
+  const bool disable_,
   const int itnlim_,
   const NumberTypeFloat<NumberType> rtol_,
   const NumberTypeFloat<NumberType> maxxnorm_,
@@ -47,8 +47,8 @@ void BaseInterface<DerivedOP, NumberType>::Msolve(const int n, const NumberType 
 }
 
 
-template<typename INFO_t, typename FloatType>
-void RealSolver<INFO_t, FloatType>::symortho_(const FloatType& a, const FloatType& b, FloatType &c, FloatType &s, FloatType &r) const
+template<typename DerivedOP, typename FloatType>
+void RealSolver<DerivedOP, FloatType>::symortho_(const FloatType& a, const FloatType& b, FloatType &c, FloatType &s, FloatType &r) const
 {
   FloatType t, abs_a = std::abs(a), abs_b = std::abs(b);
   if (abs_b <= eps_)
@@ -82,8 +82,8 @@ void RealSolver<INFO_t, FloatType>::symortho_(const FloatType& a, const FloatTyp
   }
 }
 
-template<typename INFO_t, typename FloatType>
-FloatType RealSolver<INFO_t, FloatType>::dnrm2_(const int n, const FloatType* x, const int incx) const
+template<typename DerivedOP, typename FloatType>
+FloatType RealSolver<DerivedOP, FloatType>::dnrm2_(const int n, const FloatType* x, const int incx) const
 {
   int ix;
   FloatType ssq, absxi, norm, scale;
@@ -113,8 +113,8 @@ FloatType RealSolver<INFO_t, FloatType>::dnrm2_(const int n, const FloatType* x,
   return norm;
 }
 
-template<typename INFO_t, typename FloatType>
-void RealSolver<INFO_t, FloatType>::printstate_(const int iter, const FloatType x1, const FloatType xnorm,
+template<typename DerivedOP, typename FloatType>
+void RealSolver<DerivedOP, FloatType>::printstate_(const int iter, const FloatType x1, const FloatType xnorm,
   const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
   const FloatType relAres, const FloatType Anorm, const FloatType Acond) const
 {
@@ -143,8 +143,8 @@ void RealSolver<INFO_t, FloatType>::printstate_(const int iter, const FloatType 
             << std::flush;
 }
 
-template<typename INFO_t, typename FloatType>
-void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
+template<typename DerivedOP, typename FloatType>
+void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<FloatType> >  & client) const
 {
   const int n = client.n;
   const std::vector<FloatType> &b = client.b, zero(n,0);
@@ -152,14 +152,14 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
 
   // local constants
   const FloatType EPSINV = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10))),
-		          NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
+		              NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
 
   // local arrays and variables
   const FloatType shift_ = client.shift;
   const bool   checkA_ = true, precon_ = client.useMsolve, disable_ = client.disable;
   FloatType rtol_ = client.rtol, maxxnorm_ = std::min({client.maxxnorm, 1./eps_}),
-    trancond_ = std::min({client.trancond, NORMMAX}),
-    Acondlim_ = std::min({client.Acondlim, EPSINV});
+            trancond_ = std::min({client.trancond, NORMMAX}),
+            Acondlim_ = std::min({client.Acondlim, EPSINV});
 
   FloatType Arnorm_ = 0, xnorm_ = 0, Anorm_ = 0, Acond_ = 1;
   int itnlim_ = client.itnlim, istop_ = 0, itn_ = 0;
@@ -167,18 +167,18 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
   FloatType
 	       Axnorm    = 0,  beta      = 0,        beta1     = dnrm2_(n, &b[0], 1),
 	       betan     = 0,  ieps      = 0.1/eps_, pnorm     = 0,
-	       relAres   = 0,  relAresl  = 0,        relresl   = 0,     
-           t1        = 0,  t2        = 0,        xl2norm   = 0,
+	       relAres   = 0,  relAresl  = 0,        relresl   = 0,
+         t1        = 0,  t2        = 0,        xl2norm   = 0,
 	       cr1       =-1,  cr2       =-1,        cs        =-1,
 	       dbar      = 0,  dltan     = 0,        epln      = 0,
 	       eplnn     = 0,  eta       = 0,        etal      = 0,
-           etal2     = 0,  gama      = 0,        gama_QLP  = 0,
+         etal2     = 0,  gama      = 0,        gama_QLP  = 0,
 	       gamal     = 0,  gamal_QLP = 0,        gamal_tmp = 0,
 	       gamal2    = 0,  gamal3    = 0,        gmin      = 0,
            gminl     = 0,  phi       = 0,        s         = 0,
            sn        = 0,  sr1       = 0,        sr2       = 0,
            t         = 0,  tau       = 0,        taul      = 0,
-	       taul2     = 0,  u         = 0,        u_QLP     = 0,          
+	       taul2     = 0,  u         = 0,        u_QLP     = 0,
            ul        = 0,  ul_QLP    = 0,        ul2       = 0,
 	       ul3       = 0,  ul4       = 0,        vepln     = 0,
            vepln_QLP = 0,  veplnl    = 0,        veplnl2   = 0,
@@ -411,7 +411,7 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
       {
         xl2 = zero;
         if (itn_ > 1) // construct w_{k-3}, w_{k-2}, w_{k-1}
-		{ 
+		{
           if (itn_ > 3)
             for (int index=0; index<n; ++index)
               wl2[index] = gamal3*wl2[index] + veplnl2*wl[index] + etal*w[index];
@@ -424,7 +424,7 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
             xl2[index] = x[index] - ul_QLP*wl[index] - u_QLP*w[index];
         }
       }
-		
+
       if (itn_ == 1)
       {
         wl2 =  wl;
@@ -522,7 +522,7 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
       istop_ = 12;
     else if (Acond_ >= Acondlim_ || Acond_ >= ieps)
       istop_ = 13;
-    else if (itn_ >= itnlim_) 
+    else if (itn_ >= itnlim_)
       istop_ = 8;
     else if (betan < eps_)
       istop_ = 1;
@@ -569,10 +569,10 @@ void RealSolver<INFO_t, FloatType>::solve(INFO_t& client) const
 }
 
 
-template<typename INFO_t, typename FloatType>
-void HermitianSolver<INFO_t, FloatType>::printstate_(const int iter,       const std::complex<FloatType> x1,   const FloatType xnorm,
-			             const FloatType rnorm,   const FloatType Arnorm, const FloatType relres,
-			             const FloatType relAres, const FloatType Anorm,  const FloatType Acond) const
+template<typename DerivedOP, typename FloatType>
+void HermitianSolver<DerivedOP, FloatType>::printstate_(const int iter, const std::complex<FloatType> x1, const FloatType xnorm,
+  const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
+  const FloatType relAres, const FloatType Anorm,  const FloatType Acond) const
 {
   std::cout << std::setw(7) << "iter "
             << std::setw(21) << "x[0] "
@@ -598,15 +598,14 @@ void HermitianSolver<INFO_t, FloatType>::printstate_(const int iter,       const
             << std::flush;
 }
 
-template<typename INFO_t, typename FloatType>
-std::complex<FloatType> HermitianSolver<INFO_t, FloatType>::zdotc_(const int n, const std::complex<FloatType>* cx,
+template<typename DerivedOP, typename FloatType>
+std::complex<FloatType> HermitianSolver<DerivedOP, FloatType>::zdotc_(const int n, const std::complex<FloatType>* cx,
 	       const int incx, const std::complex<FloatType>* cy, const int incy) const
 {
   std::complex<FloatType> ctemp = std::complex<FloatType>(0,0);
   int ix, iy;
   if (n <= 0)
     return std::complex<FloatType>(0,0);
-
   if (incx == 1 && incy == 1)
     for(int i = 0; i<n; ++i)
       ctemp += std::conj(cx[i])*cy[i];
@@ -630,8 +629,8 @@ std::complex<FloatType> HermitianSolver<INFO_t, FloatType>::zdotc_(const int n, 
   return ctemp;
 }
 
-template<typename INFO_t, typename FloatType>
-FloatType HermitianSolver<INFO_t, FloatType>::znrm2_(const int n, const std::complex<FloatType>* x, const int incx) const
+template<typename DerivedOP, typename FloatType>
+FloatType HermitianSolver<DerivedOP, FloatType>::znrm2_(const int n, const std::complex<FloatType>* x, const int incx) const
 {
   FloatType norm, scale, ssq;
   if (n< 1 || incx < 1)
@@ -669,8 +668,8 @@ FloatType HermitianSolver<INFO_t, FloatType>::znrm2_(const int n, const std::com
   return norm;
 }
 
-template<typename INFO_t, typename FloatType>
-void HermitianSolver<INFO_t, FloatType>::zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b, FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const
+template<typename DerivedOP, typename FloatType>
+void HermitianSolver<DerivedOP, FloatType>::zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b, FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const
 {
   FloatType t, abs_a = std::abs(a), abs_b = std::abs(b);
   if (abs_b <= realmin_)
@@ -694,17 +693,17 @@ void HermitianSolver<INFO_t, FloatType>::zsymortho_(const std::complex<FloatType
   }
 }
 
-template<typename INFO_t, typename FloatType>
-void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
+template<typename DerivedOP, typename FloatType>
+void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<FloatType> > & client) const
 {
   const int n = client.n;
   const std::vector<std::complex<FloatType> > &b = client.b, zero(n,0);
   std::vector<std::complex<FloatType> >& x = client.x;
   // local arrays and variables
   FloatType shift_, rtol_, maxxnorm_, trancond_, Acondlim_,
-         rnorm_, Arnorm_, xnorm_ = 0, Anorm_ = 0, Acond_ = 1.;
-  bool   checkA_, precon_, disable_;
-  int    itnlim_, nout_, istop_, itn_ = 0;
+            rnorm_, Arnorm_, xnorm_ = 0, Anorm_ = 0, Acond_ = 1.;
+  bool checkA_, precon_, disable_;
+  int itnlim_, nout_, istop_, itn_ = 0;
   std::vector<std::complex<FloatType> > r1(n), r2(n), v(n), w(n), wl(n), wl2(n), xl2(n), y(n), vec2(2), vec3(3);
   FloatType  Axnorm   = 0, beta    = 0, gmin    = 0,
              gminl    = 0, pnorm   = 0, relAres = 0,
@@ -713,7 +712,7 @@ void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
              cr2      = -1, cs     =-1;
 
   std::complex<FloatType>
-	       dbar      = std::complex<FloatType>(0,0), dltan     = std::complex<FloatType>(0,0), eplnn     = std::complex<FloatType>(0,0),
+           dbar      = std::complex<FloatType>(0,0), dltan     = std::complex<FloatType>(0,0), eplnn     = std::complex<FloatType>(0,0),
            eta       = std::complex<FloatType>(0,0), etal      = std::complex<FloatType>(0,0), etal2     = std::complex<FloatType>(0,0),
            gama      = std::complex<FloatType>(0,0), gama_QLP  = std::complex<FloatType>(0,0), gamal     = std::complex<FloatType>(0,0),
            gamal_QLP = std::complex<FloatType>(0,0), gamal_tmp = std::complex<FloatType>(0,0), gamal2    = std::complex<FloatType>(0,0),
@@ -846,7 +845,7 @@ void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
     if (std::abs(shift_) >= realmin_)
       for (int index=0; index<n; ++index)
 		y[index] += -shift_*v[index];
-    if (itn_ >= 2) 
+    if (itn_ >= 2)
       for (int index=0; index<n; ++index)
 		y[index] += (-beta/betal)*r1[index];
     FloatType alfa = (zdotc_(n, &v[0], 1, &y[0], 1)).real();
@@ -855,7 +854,7 @@ void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
     r1 = r2;
     r2 = y;
 
-    if (!precon_) 
+    if (!precon_)
       betan = znrm2_(n, &y[0], 1);
     else
 	{
@@ -959,7 +958,7 @@ void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
     xnorm_  = znrm2_(3, &vec3[0], 1);
 
     if (Acond_ < trancond_ && istop_ == flag0 && QLPiter == 0) // MINRES updates
-    { 
+    {
       wl2 = wl;
       wl = w;
       if (std::abs(gama_tmp) > 0)
@@ -981,7 +980,7 @@ void HermitianSolver<INFO_t, FloatType>::solve(INFO_t& client) const
       }
     }
 	else //MINRES-QLP updates
-	{ 
+	{
       QLPiter += 1;
       if (QLPiter == 1)
       {

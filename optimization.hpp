@@ -10,10 +10,7 @@
 #include "blas_lapack.hpp"
 #include "linear_solver.hpp"
 
-#define THIS_(TYPENAME) static_cast<TYPENAME*>(this)
-#define CONST_THIS_(TYPENAME) static_cast<const TYPENAME*>(this)
-
-/* 
+/*
  * Base class of importance sampling for wave functions: ln(\psi(x))
  *  - ratio = norm(ln(\psi(x1))-ln(\psi(x0)))
  *   where x1 is a candidate of the next state and x0 is a current state.
@@ -79,10 +76,10 @@ public:
       // transpose S_ to prepare as fortran style format
       for (int i=0; i<knVariables; ++i)
         for (int j=i+1; j<knVariables; ++j)
-		{
+        {
           S_[j*knVariables+i] = S_[i*knVariables+j];
           S_[i*knVariables+j] = std::conj(S_[i*knVariables+j]);
-		}
+        }
       // F_ = S_^{-1}*F_
       linSolver_.solve(&S_[0], &F_[0]);
       sampler.evolve(&F_[0], deltaTau);
@@ -99,7 +96,7 @@ private:
   static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4;
   int nIteration_;
   FloatType bp_;
-  LinearSolver<FloatType> linSolver_; 
+  LinearSolver<FloatType> linSolver_;
 };
 
 #include "impl_optimization.hpp"

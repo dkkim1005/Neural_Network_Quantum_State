@@ -10,19 +10,13 @@
 #include <iomanip>
 #include "blas_lapack.hpp"
 
-typedef std::complex<double> dcomplex;
-typedef std::complex<float>  scomplex;
+template <typename FloatType> struct FloatTypeTrait_ {};
+template <> struct FloatTypeTrait_<float> { static constexpr int precision = 8; };
+template <> struct FloatTypeTrait_<double> { static constexpr int precision = 15; };
 
-template <typename FloatType>
-struct property_ {};
-template <>
-struct property_<float> { static constexpr int precision = 8; };
-template <>
-struct property_<double> { static constexpr int precision = 15; };
-
-/* 
+/*
  * W : weight matrix
- * V : vector for visible units 
+ * V : vector for visible units
  * H : vector for hidden units
  */
 enum class RBMDataType { W, V, H };
@@ -39,7 +33,7 @@ public:
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
   void load(const RBMDataType typeInfo, const std::string filePath);
-  void save(const RBMDataType typeInfo, const std::string filePath, const int precision = property_<FloatType>::precision) const;
+  void save(const RBMDataType typeInfo, const std::string filePath, const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }

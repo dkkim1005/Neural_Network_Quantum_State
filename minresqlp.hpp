@@ -29,8 +29,8 @@
   * Date:
     ver 1.0 / 27 april 2018
 	  - first realse
-	ver 1.1 / 16 january 2020 
-	  - extend supports of float type of BaseInterface class 
+	ver 1.1 / 16 january 2020
+	  - extend supports of float type of BaseInterface class
 	  - CRTP design
 
   Searching for detailed descriptions, see http://web.stanford.edu/group/SOL/software/minresqlp/
@@ -56,13 +56,13 @@ using IMAG = std::complex<FloatType>;
  * NumberTypeFloat:
  * ex) REAL<float> --> float, Imag<double> --> double
  */
-template <typename NumberType> struct NumberTypeTrait {};
-template <> struct NumberTypeTrait<REAL<float> > { typedef float FloatType; };
-template <> struct NumberTypeTrait<REAL<double> > { typedef double FloatType; };
-template <> struct NumberTypeTrait<IMAG<float> > { typedef float FloatType; };
-template <> struct NumberTypeTrait<IMAG<double> > { typedef double FloatType; };
+template <typename NumberType> struct NumberTypeTrait_ {};
+template <> struct NumberTypeTrait_<REAL<float> > { typedef float FloatType; };
+template <> struct NumberTypeTrait_<REAL<double> > { typedef double FloatType; };
+template <> struct NumberTypeTrait_<IMAG<float> > { typedef float FloatType; };
+template <> struct NumberTypeTrait_<IMAG<double> > { typedef double FloatType; };
 template <typename NumberType>
-using NumberTypeFloat = typename NumberTypeTrait<NumberType>::FloatType;
+using NumberTypeFloat = typename NumberTypeTrait_<NumberType>::FloatType;
 
 namespace MINRESQLP
 {
@@ -93,7 +93,7 @@ public:
   int n, itnlim;
   ContainerType b;
   NumberTypeFloat<NumberType> shift, rtol, maxxnorm, trancond, Acondlim;
-  bool   useMsolve, disable, print;
+  bool useMsolve, disable, print;
   // outputs
   ContainerType x;
   int istop, itn;
@@ -101,11 +101,11 @@ public:
 };
 
 
-template<typename INFO_t, typename FloatType>
+template<typename DerivedOP, typename FloatType>
 class RealSolver
 {
 public:
-  void solve(INFO_t& client) const;
+  void solve(BaseInterface<DerivedOP, REAL<FloatType> > & client) const;
 private:
   void symortho_(const FloatType& a, const FloatType& b, FloatType &c, FloatType &s, FloatType &r) const;
   FloatType dnrm2_(const int n, const FloatType* x, const int incx) const;
@@ -116,11 +116,11 @@ private:
 };
 
 
-template<typename INFO_t, typename FloatType>
+template<typename DerivedOP, typename FloatType>
 class HermitianSolver
 {
 public:
-  void solve(INFO_t& client) const;
+  void solve(BaseInterface<DerivedOP, IMAG<FloatType> > & client) const;
 private:
   void zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b, FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const;
   std::complex<FloatType> zdotc_(const int n, const std::complex<FloatType>* cx, const int incx, const std::complex<FloatType>* cy, const int incy) const;
