@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
   machine.load(RBMDataType::V, prefix + "Da.dat");
   machine.load(RBMDataType::H, prefix + "Db.dat");
 
-  // block size for block splitting scheme of parallel Monte-Carlo
+  // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
                                 static_cast<unsigned long>(nMonteCarloSteps)*
                                 static_cast<unsigned long>(nInputs);
