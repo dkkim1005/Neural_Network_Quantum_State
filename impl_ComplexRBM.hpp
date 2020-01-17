@@ -13,15 +13,15 @@ void print(const FloatType * data, const int m, const int n)
   {
     for (int j=0; j<n; ++j)
       std::cout << data[i*n+j] << " ";
-	std::cout << std::endl;
+    std::cout << std::endl;
   }
 }
 
 /*
  1. Index notation
-  - i : index for the input layer 
-  - j :       ""    hidden   "" 
-  - k :       ""    MCMC chain 
+  - i : index for the input layer
+  - j :       ""    hidden   ""
+  - k :       ""    MCMC chain
 
  2. member data
   - spin configurations: spinStates_ki
@@ -29,7 +29,7 @@ void print(const FloatType * data, const int m, const int n)
  */
 template <typename FloatType>
 ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const int nChains):
-  knInputs(nInputs), knHiddens(nHiddens), knChains(nChains), 
+  knInputs(nInputs), knHiddens(nHiddens), knChains(nChains),
   variables_(nInputs*nHiddens + nInputs + nHiddens),
   lnpsiGradients_(nChains*(nInputs*nHiddens + nInputs + nHiddens)),
   spinStates_(nInputs*nChains),
@@ -85,8 +85,8 @@ void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const st
   }
   else
   {
-	for (int i=0; i<spinStates_.size(); ++i)
-	  spinStates_[i] = spinStates[i];
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = spinStates[i];
   }
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   std::fill(y_.begin(), y_.end(), kzero);
@@ -110,7 +110,7 @@ void ComplexRBM<FloatType>::forward(const int spinFlipIndex, std::complex<FloatT
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
     for (int j=0; j<knHiddens; ++j)
-	  ly_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-ktwo*w_[index_*knHiddens+j]*spinStates_[k*knInputs+index_]));
+	    ly_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-ktwo*w_[index_*knHiddens+j]*spinStates_[k*knInputs+index_]));
   // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
   for (int k=0; k<knChains; ++k)
     lnpsi[k] = sa_[k]-ktwo*spinStates_[k*knInputs+index_]*a_[index_];
@@ -123,14 +123,14 @@ void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
-	const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+	  const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
     for (int i=0; i<knInputs; ++i)
       d_da_[kvsize+i] = spinStates_[kisize+i];
-	for (int j=0; j<knHiddens; ++j)
-	  d_db_[kvsize+j] = std::tanh(y_[khsize+j]);
-	for (int i=0; i<knInputs; ++i)
-	  for (int j=0; j<knHiddens; ++j)
-		d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i]*d_db_[kvsize+j];
+    for (int j=0; j<knHiddens; ++j)
+      d_db_[kvsize+j] = std::tanh(y_[khsize+j]);
+    for (int i=0; i<knInputs; ++i)
+      for (int j=0; j<knHiddens; ++j)
+        d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i]*d_db_[kvsize+j];
   }
   std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*knChains);
 }
@@ -158,24 +158,24 @@ void ComplexRBM<FloatType>::load(const RBMDataType typeInfo, const std::string f
   {
     if (rawdata.size() == knInputs*knHiddens)
       for (int i=0; i<rawdata.size(); ++i)
-		w_[i] = rawdata[i];
-	else
+        w_[i] = rawdata[i];
+    else
       std::cout << " check 'w' size... " << std::endl;
   }
   else if (typeInfo == RBMDataType::V)
   {
     if (rawdata.size() == knInputs)
-	  for (int i=0; i<rawdata.size(); ++i)
-		a_[i] = rawdata[i];
-	else
+      for (int i=0; i<rawdata.size(); ++i)
+        a_[i] = rawdata[i];
+    else
       std::cout << " check 'a' size... " << std::endl;
   }
   else if (typeInfo == RBMDataType::H)
   {
     if (rawdata.size() == knHiddens)
-	  for (int i=0; i<rawdata.size(); ++i)
-		b_[i] = rawdata[i];
-	else
+      for (int i=0; i<rawdata.size(); ++i)
+        b_[i] = rawdata[i];
+    else
       std::cout << " check 'b' size... " << std::endl;
   }
 }
@@ -188,21 +188,21 @@ void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string f
   if (typeInfo == RBMDataType::W)
   {
     for (int i=0; i<knInputs; ++i)
-	{
-	  for (int j=0; j<knHiddens; ++j)
-		writer << w_[i*knHiddens+j] << " ";
-	  writer << std::endl;
-	}
+    {
+	    for (int j=0; j<knHiddens; ++j)
+        writer << w_[i*knHiddens+j] << " ";
+      writer << std::endl;
+	  }
   }
   else if (typeInfo == RBMDataType::V)
   {
-	for (int i=0; i<knInputs; ++i)
-	  writer << a_[i] << " ";
-	writer << std::endl;
+    for (int i=0; i<knInputs; ++i)
+      writer << a_[i] << " ";
+    writer << std::endl;
   }
   else if (typeInfo == RBMDataType::H)
-	for (int j=0; j<knHiddens; ++j)
-	  writer << b_[j] << " ";
+    for (int j=0; j<knHiddens; ++j)
+      writer << b_[j] << " ";
   writer.close();
 }
 
@@ -213,11 +213,11 @@ void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
   for (int k=0; k<knChains; ++k)
   {
     if (doSpinFlip[k])
-	{
-      for (int j=0; j<knHiddens; ++j) 
+    {
+      for (int j=0; j<knHiddens; ++j)
         y_[k*knHiddens+j] -= ktwo*w_[index_*knHiddens+j]*spinStates_[k*knInputs+index_];
       sa_[k] -= ktwo*spinStates_[k*knInputs+index_]*a_[index_];
       spinStates_[k*knInputs+index_] *= -1;
-	}
+    }
   }
 }

@@ -148,7 +148,7 @@ template<typename DerivedOP, typename FloatType>
 void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<FloatType> >  & client) const
 {
   const int n = client.n;
-  const std::vector<FloatType> &b = client.b, zero(n,0);
+  const std::vector<FloatType> &b = client.b, zeros(n,0);
   std::vector<FloatType>& x = client.x;
 
   // local constants
@@ -165,26 +165,16 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   FloatType Arnorm_ = 0, xnorm_ = 0, Anorm_ = 0, Acond_ = 1;
   int itnlim_ = client.itnlim, istop_ = 0, itn_ = 0;
   std::vector<FloatType> r1(n), r2(n), v(n), w(n), wl(n), wl2(n), xl2(n), y(n), vec2(2), vec3(3);
-  FloatType
-	       Axnorm    = 0,  beta      = 0,        beta1     = dnrm2_(n, &b[0], 1),
-	       betan     = 0,  ieps      = 0.1/eps_, pnorm     = 0,
-	       relAres   = 0,  relAresl  = 0,        relresl   = 0,
-         t1        = 0,  t2        = 0,        xl2norm   = 0,
-	       cr1       =-1,  cr2       =-1,        cs        =-1,
-	       dbar      = 0,  dltan     = 0,        epln      = 0,
-	       eplnn     = 0,  eta       = 0,        etal      = 0,
-         etal2     = 0,  gama      = 0,        gama_QLP  = 0,
-	       gamal     = 0,  gamal_QLP = 0,        gamal_tmp = 0,
-	       gamal2    = 0,  gamal3    = 0,        gmin      = 0,
-           gminl     = 0,  phi       = 0,        s         = 0,
-           sn        = 0,  sr1       = 0,        sr2       = 0,
-           t         = 0,  tau       = 0,        taul      = 0,
-	       taul2     = 0,  u         = 0,        u_QLP     = 0,
-           ul        = 0,  ul_QLP    = 0,        ul2       = 0,
-	       ul3       = 0,  ul4       = 0,        vepln     = 0,
-           vepln_QLP = 0,  veplnl    = 0,        veplnl2   = 0,
-	       x1last    = 0,  xnorml    = 0,        Arnorml   = 0,
-	       Anorml    = 0,  rnorml    = 0,        Acondl    = 0;
+  FloatType Axnorm = 0, beta = 0, beta1 = dnrm2_(n, &b[0], 1),
+	          betan = 0, ieps = 0.1/eps_, pnorm = 0, relAres = 0, relAresl = 0, relresl = 0,
+            t1 = 0, t2 = 0, xl2norm = 0, cr1 = -1, cr2 = -1, cs = -1,
+	          dbar = 0, dltan = 0, epln = 0, eplnn = 0, eta = 0, etal = 0,
+            etal2 = 0, gama = 0, gama_QLP = 0, gamal = 0, gamal_QLP = 0, gamal_tmp = 0,
+	          gamal2 = 0, gamal3 = 0, gmin = 0, gminl = 0, phi = 0, s = 0,
+            sn = 0, sr1 = 0, sr2 = 0, t = 0, tau = 0, taul = 0, taul2 = 0, u = 0,
+            u_QLP = 0, ul = 0, ul_QLP = 0, ul2 = 0, ul3 = 0, ul4 = 0, vepln = 0,
+            vepln_QLP = 0, veplnl = 0, veplnl2 = 0, x1last = 0, xnorml = 0, Arnorml = 0,
+	          Anorml = 0, rnorml = 0, Acondl = 0;
   int QLPiter = 0, flag0 = 0;
   bool done = false, lastiter = false, likeLS;
   const std::vector<std::string> msg = {
@@ -203,7 +193,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
          "Acond has exceeded Acondlim or 0.1/eps.                          ", //  13
          "Least-squares problem but no converged solution yet.             ", //  14
          "A null vector obtained, given rtol.                              "};//  15
-  x = zero, xl2 = zero;
+  x = zeros, xl2 = zeros;
   if (client.print)
   {
     std::cout << std::setprecision(3);
@@ -262,7 +252,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   betan = beta1, phi = beta1;
   FloatType rnorm_ = betan;
   FloatType relres = rnorm_ / (Anorm_*xnorm_ + beta1);
-  r2 = b, w = zero, wl = zero, done = false;
+  r2 = b, w = zeros, wl = zeros, done = false;
 
   // MINRESQLP iteration loop.
   while(istop_ <= flag0)
@@ -410,7 +400,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       QLPiter += 1;
       if (QLPiter == 1)
       {
-        xl2 = zero;
+        xl2 = zeros;
         if (itn_ > 1) // construct w_{k-3}, w_{k-2}, w_{k-1}
 		{
           if (itn_ > 3)
@@ -700,7 +690,8 @@ template<typename DerivedOP, typename FloatType>
 void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<FloatType> > & client) const
 {
   const int n = client.n;
-  const std::vector<std::complex<FloatType> > &b = client.b, zero(n,0);
+  const std::vector<std::complex<FloatType> > &b = client.b, zeros(n,0);
+  const std::complex<FloatType> zero = std::complex<FloatType>(0,0);
   std::vector<std::complex<FloatType> >& x = client.x;
   // local arrays and variables
   FloatType shift_, rtol_, maxxnorm_, trancond_, Acondlim_,
@@ -708,31 +699,22 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
   bool checkA_, precon_, disable_;
   int itnlim_, nout_, istop_, itn_ = 0;
   std::vector<std::complex<FloatType> > r1(n), r2(n), v(n), w(n), wl(n), wl2(n), xl2(n), y(n), vec2(2), vec3(3);
-  FloatType  Axnorm   = 0, beta    = 0, gmin    = 0,
-             gminl    = 0, pnorm   = 0, relAres = 0,
-             relAresl = 0, relresl = 0, t1      = 0,
-             t2       = 0, xl2norm = 0, cr1     =-1,
-             cr2      = -1, cs     =-1;
-
-  std::complex<FloatType>
-           dbar      = std::complex<FloatType>(0,0), dltan     = std::complex<FloatType>(0,0), eplnn     = std::complex<FloatType>(0,0),
-           eta       = std::complex<FloatType>(0,0), etal      = std::complex<FloatType>(0,0), etal2     = std::complex<FloatType>(0,0),
-           gama      = std::complex<FloatType>(0,0), gama_QLP  = std::complex<FloatType>(0,0), gamal     = std::complex<FloatType>(0,0),
-           gamal_QLP = std::complex<FloatType>(0,0), gamal_tmp = std::complex<FloatType>(0,0), gamal2    = std::complex<FloatType>(0,0),
-           s         = std::complex<FloatType>(0,0), sn        = std::complex<FloatType>(0,0), sr1       = std::complex<FloatType>(0,0),
-           sr2       = std::complex<FloatType>(0,0), t         = std::complex<FloatType>(0,0), tau       = std::complex<FloatType>(0,0),
-           taul      = std::complex<FloatType>(0,0), u         = std::complex<FloatType>(0,0), u_QLP     = std::complex<FloatType>(0,0),
-           ul        = std::complex<FloatType>(0,0), ul_QLP    = std::complex<FloatType>(0,0), ul2       = std::complex<FloatType>(0,0),
-           ul3       = std::complex<FloatType>(0,0), vepln     = std::complex<FloatType>(0,0), vepln_QLP = std::complex<FloatType>(0,0),
-           veplnl    = std::complex<FloatType>(0,0), veplnl2   = std::complex<FloatType>(0,0), x1last    = x[0];
-
+  FloatType  Axnorm = 0, beta = 0, gmin = 0, gminl = 0, pnorm = 0, relAres = 0,
+             relAresl = 0, relresl = 0, t1 = 0, t2 = 0, xl2norm = 0, cr1 = -1,
+             cr2 = -1, cs = -1;
+  std::complex<FloatType> dbar = zero, dltan = zero, eplnn = zero, eta = zero,
+                          etal = zero, etal2 = zero, gama = zero, gama_QLP = zero,
+                          gamal = zero, gamal_QLP = zero, gamal_tmp = zero,
+                          gamal2 = zero, s = zero, sn = zero, sr1 = zero,
+                          sr2 = zero, t = zero, tau = zero, taul = zero, u = zero,
+                          u_QLP = zero, ul = zero, ul_QLP = zero, ul2 = zero,
+                          ul3 = zero, vepln = zero, vepln_QLP = zero,
+                          veplnl = zero, veplnl2 = zero, x1last = x[0];
   int QLPiter = 0, flag0 = 0;
   bool done, lastiter, likeLS;
-
   // local constants
   const FloatType EPSINV  = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10))),
                   NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
-
   const std::vector<std::string> msg = {
          "beta_{k+1} < eps.                                                ", // 1
          "beta2 = 0.  If M = I, b and x are eigenvectors of A.             ", // 2
@@ -763,8 +745,8 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
 
   istop_ = flag0;
   FloatType beta1 = znrm2_(n, &b[0], 1), ieps = 0.1/eps_;
-  x = zero;
-  xl2 = zero;
+  x = zeros;
+  xl2 = zeros;
   x1last = x[0];
   y  = b;
   r1 = b;
@@ -807,8 +789,8 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
   FloatType relres = rnorm_ / (Anorm_*xnorm_ + beta1);
   relAres= 0;
   r2 = b;
-  w = zero;
-  wl = zero;
+  w = zeros;
+  wl = zeros;
   done = false;
 
   if (client.print)
@@ -987,7 +969,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       QLPiter += 1;
       if (QLPiter == 1)
       {
-        xl2 = zero; // vector
+        xl2 = zeros; // vector
         if (itn_ > 1)
         {
           // construct w_{k-3}, w_{k-2}, w_{k-1}
