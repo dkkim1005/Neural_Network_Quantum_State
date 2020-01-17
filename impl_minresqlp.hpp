@@ -433,7 +433,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
         for (int index=0; index<n; ++index)
           w[index] = sr1*wl[index] - cr1*w[index];
         wl = v;
-	  }
+      }
       x1last = x[0];
       for (int index=0; index<n; ++index)
         xl2[index] = xl2[index] + ul2*wl2[index];
@@ -504,8 +504,8 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       if (Axnorm < rtol_*Anorm_*xnorm_)
         istop_ = 15, lastiter = false;
     }
-	  if (istop_ != flag0)
-	  {
+    if (istop_ != flag0)
+    {
       done = true;
       if (istop_ == 6 || istop_ == 7 || istop_ == 12 || istop_ == 13)
         lastiter = true;
@@ -805,7 +805,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
         y[index] += -shift_*v[index];
     if (itn_ >= 2)
       for (int index=0; index<n; ++index)
-		y[index] += (-beta/betal)*r1[index];
+        y[index] += (-beta/betal)*r1[index];
     FloatType alfa = (zdotc_(n, &v[0], 1, &y[0], 1)).real();
     for (int index=0; index<n; ++index)
       y[index] += (-alfa/beta)*r2[index];
@@ -948,7 +948,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
               wl[index] = gamal_QLP*wl[index] + vepln_QLP*w[index];
           // w_{k-2}
           for (int index=0; index<n; ++index)
-			      w[index] = gama_QLP*w[index];
+            w[index] = gama_QLP*w[index];
           for (int index=0; index<n; ++index)
             xl2[index] =  x[index] - ul_QLP*wl[index] - u_QLP*w[index];
         }
@@ -1090,7 +1090,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       {
         printstate_(itn_-1, x1last, xnorml, rnorml, Arnorml, relresl, relAresl, Anorml, Acondl);
         if (itn_ == 11)
-		      std::cout << std::endl;
+          std::cout << std::endl;
       }
     }
     if (istop_ != flag0)
