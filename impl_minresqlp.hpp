@@ -150,18 +150,15 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   const int n = client.n;
   const std::vector<FloatType> &b = client.b, zeros(n,0);
   std::vector<FloatType>& x = client.x;
-
   // local constants
   const FloatType EPSINV = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10))),
 		              NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
-
   // local arrays and variables
   const FloatType shift_ = client.shift;
-  const bool   checkA_ = true, precon_ = client.useMsolve, disable_ = client.disable;
+  const bool checkA_ = true, precon_ = client.useMsolve, disable_ = client.disable;
   FloatType rtol_ = client.rtol, maxxnorm_ = std::min({client.maxxnorm, 1./eps_}),
             trancond_ = std::min({client.trancond, NORMMAX}),
             Acondlim_ = std::min({client.Acondlim, EPSINV});
-
   FloatType Arnorm_ = 0, xnorm_ = 0, Anorm_ = 0, Acond_ = 1;
   int itnlim_ = client.itnlim, istop_ = 0, itn_ = 0;
   std::vector<FloatType> r1(n), r2(n), v(n), w(n), wl(n), wl2(n), xl2(n), y(n), vec2(2), vec3(3);
@@ -225,7 +222,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
     istop_ = 11;
   if (beta1 == 0)
     istop_ = 3;
-
   beta1 = std::sqrt(beta1);
 
   if (checkA_ && precon_)
@@ -248,12 +244,10 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
     if (z > epsa)
       istop_ = 9;
   }
-
   betan = beta1, phi = beta1;
   FloatType rnorm_ = betan;
   FloatType relres = rnorm_ / (Anorm_*xnorm_ + beta1);
   r2 = b, w = zeros, wl = zeros, done = false;
-
   // MINRESQLP iteration loop.
   while(istop_ <= flag0)
   {
@@ -299,16 +293,13 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       vec3[0] = beta, vec3[1] = alfa, vec3[2] = betan;
       pnorm = dnrm2_(3, &vec3[0], 1);
     }
-
     dbar = dltan;
     FloatType dlta = cs*dbar + sn*alfa;
     epln = eplnn;
     FloatType gbar = sn*dbar - cs*alfa;
     eplnn = sn*betan, dltan = -cs*betan;
     FloatType dlta_QLP = dlta;
-
     gamal3 = gamal2, gamal2 = gamal, gamal  = gama;
-
     symortho_(gbar, betan, cs, sn, gama);
     FloatType gama_tmp = gama;
     taul2 = taul;
@@ -316,7 +307,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
     tau = cs*phi;
     phi = sn*phi;
     Axnorm = std::sqrt(std::pow(Axnorm,2) + std::pow(tau,2));
-
     // apply the previous right reflection P{k-2,k}
     if (itn_ > 2)
     {
@@ -332,7 +322,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
 
     // compute the current right reflection P{k-1,k}, P_12, P_23,...
     if (itn_ > 1)
-	{
+    {
       symortho_(gamal, dlta, cr1, sr1, gamal_tmp);
       gamal = gamal_tmp;
       vepln = sr1 * gama;
@@ -385,7 +375,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
         for (int index=0; index<n; ++index)
           w[index] = (v[index] - epln*wl2[index] - dlta_QLP*wl[index])*s;
       }
-
       if (xnorm_ < maxxnorm_)
       {
         x1last = x[0];
@@ -396,13 +385,13 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
         istop_ = 12, lastiter = true;
     }
     else
-	{
+    {
       QLPiter += 1;
       if (QLPiter == 1)
       {
         xl2 = zeros;
         if (itn_ > 1) // construct w_{k-3}, w_{k-2}, w_{k-1}
-		{
+        {
           if (itn_ > 3)
             for (int index=0; index<n; ++index)
               wl2[index] = gamal3*wl2[index] + veplnl2*wl[index] + etal*w[index];
@@ -415,7 +404,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
             xl2[index] = x[index] - ul_QLP*wl[index] - u_QLP*w[index];
         }
       }
-
       if (itn_ == 1)
       {
         wl2 =  wl;
@@ -452,7 +440,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       for (int index=0; index<n; ++index)
         x[index] = xl2[index] + ul*wl[index] + u*w[index];
     }
-
     // compute the next right reflection P{k-1,k+1}
     gamal_tmp = gamal;
     symortho_(gamal_tmp, eplnn, cr2, sr2, gamal);
@@ -466,7 +453,6 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
     FloatType abs_gama = abs(gama);
     Anorml = Anorm_;
     Anorm_ = std::max({Anorm_, pnorm, gamal, abs_gama});
-
     if (itn_ == 1)
     {
       gmin  = gama;
@@ -479,12 +465,10 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       vec3[0] = gminl2, vec3[1] = gamal, vec3[2] = abs_gama;
       gmin = std::min({gminl2, gamal, abs_gama});
     }
-
     FloatType Acondl = Acond_;
     Acond_ = Anorm_ / gmin;
     FloatType rnorml   = rnorm_;
     relresl = relres;
-
     if (istop_ != 14)
       rnorm_ = phi;
     relres = rnorm_ / (Anorm_ * xnorm_ + beta1);
@@ -492,13 +476,10 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
     FloatType rootl = dnrm2_(2, &vec2[0], 1);
     Arnorml  = rnorml * rootl;
     relAresl = rootl / Anorm_;
-
     // see if any of the stopping criteria are satisfied.
     FloatType epsx = Anorm_*xnorm_*eps_;
-
     if (istop_ == flag0 || istop_ == 14)
       t1 = 1. + relres, t2 = 1. + relAresl;
-
     if (t1 <= 1)
       istop_ = 5;
     else if (t2 <= 1)
@@ -517,40 +498,36 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       istop_ = 8;
     else if (betan < eps_)
       istop_ = 1;
-
     if (disable_ && itn_ < itnlim_)
     {
       istop_ = flag0, done = false;
       if (Axnorm < rtol_*Anorm_*xnorm_)
         istop_ = 15, lastiter = false;
     }
-
-	if (istop_ != flag0)
-	{
-	  done = true;
+	  if (istop_ != flag0)
+	  {
+      done = true;
       if (istop_ == 6 || istop_ == 7 || istop_ == 12 || istop_ == 13)
-		lastiter = true;
+        lastiter = true;
       if (lastiter)
         itn_ -= 1, Acond_ = Acondl, rnorm_ = rnorml, relres = relresl;
-        client.Aprod(n, &x[0], &r1[0]);
-        for (int index=0; index<n; ++index)
-		  r1[index] = b[index] - r1[index] + shift_*x[index];
-        client.Aprod(n, &r1[0], &wl2[0]);
-        for (int index=0; index<n; ++index)
-		  wl2[index] = wl2[index] - shift_*r1[index];
-        Arnorm_ = dnrm2_(n, &wl2[0], 1);
-        if (rnorm_ > 0 && Anorm_ > 0)
-          relAres = Arnorm_ / (Anorm_*rnorm_);
-	}
+      client.Aprod(n, &x[0], &r1[0]);
+      for (int index=0; index<n; ++index)
+        r1[index] = b[index] - r1[index] + shift_*x[index];
+      client.Aprod(n, &r1[0], &wl2[0]);
+      for (int index=0; index<n; ++index)
+        wl2[index] = wl2[index] - shift_*r1[index];
+      Arnorm_ = dnrm2_(n, &wl2[0], 1);
+      if (rnorm_ > 0 && Anorm_ > 0)
+        relAres = Arnorm_ / (Anorm_*rnorm_);
+    }
     if(client.print)
       printstate_(itn_-1, x1last, xnorml, rnorml, Arnorml, relresl, relAresl, Anorml, Acondl);
   }
-
   // end of iteration loop.
   client.istop = istop_, client.itn = itn_, client.rnorm = rnorm_;
   client.Arnorm = Arnorm_, client.xnorm = xnorm_, client.Anorm = Anorm_;
   client.Acond  = Acond_;
-
   if (client.print)
   {
     printstate_(itn_, x[0], xnorm_, rnorm_, Arnorm_, relres, relAres, Anorm_, Acond_);
@@ -605,7 +582,7 @@ std::complex<FloatType> HermitianSolver<DerivedOP, FloatType>::zdotc_(const int 
   {
     if (incx >= 0)
       ix = 1;
-	else
+    else
       ix = (-n + 1)*incx + 1;
     if (incy >= 0)
       iy = 1;
@@ -731,18 +708,16 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
          "Acond has exceeded Acondlim or 0.1/eps.                          ", // 13
          "Least-squares problem but no converged solution yet.             ", // 14
          "A null vector obtained, given rtol.                              "};// 15
-
-  shift_    = client.shift,
-  checkA_   = true;
-  disable_  = client.disable;
-  itnlim_   = client.itnlim;
-  rtol_     = client.rtol;
+  shift_ = client.shift,
+  checkA_ = true;
+  disable_ = client.disable;
+  itnlim_ = client.itnlim;
+  rtol_ = client.rtol;
   maxxnorm_ = std::min({client.maxxnorm, static_cast<FloatType>(1.0)/eps_});
   trancond_ = std::min({client.trancond, NORMMAX});
   Acondlim_ = client.Acondlim;
-  precon_   = client.useMsolve;
-  lastiter  = false;
-
+  precon_ = client.useMsolve;
+  lastiter = false;
   istop_ = flag0;
   FloatType beta1 = znrm2_(n, &b[0], 1), ieps = 0.1/eps_;
   x = zeros;
@@ -756,12 +731,10 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
   beta1 = (zdotc_(n, &b[0], 1, &y[0], 1)).real();
 
   if (beta1<0 && znrm2_(n, &y[0], 1)>eps_)
-	istop_ = 11;
+    istop_ = 11;
   if (beta1 == 0)
-	istop_ = 3;
-
+    istop_ = 3;
   beta1 = std::sqrt(beta1);
-
   if (checkA_ && precon_)
   {
     client.Msolve(n, &y[0], &r2[0]);
@@ -769,7 +742,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     t = zdotc_(n, &r1[0], 1, &r2[0], 1);
     FloatType z = std::abs(s-t), epsa = (std::abs(s) + eps_)*std::pow(eps_, 0.33333);
     if (z > epsa)
-	  istop_ = 10;
+      istop_ = 10;
   }
 
   if (checkA_)
@@ -825,35 +798,32 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     beta = betan;
     s = 1./beta;         // Normalize previous vector (in y).
     for (int index=0; index<n; ++index)
-	  v[index] = s*y[index]; // v = vk if P = I.
+      v[index] = s*y[index]; // v = vk if P = I.
     client.Aprod(n, &v[0], &y[0]);
     if (std::abs(shift_) >= realmin_)
       for (int index=0; index<n; ++index)
-		y[index] += -shift_*v[index];
+        y[index] += -shift_*v[index];
     if (itn_ >= 2)
       for (int index=0; index<n; ++index)
 		y[index] += (-beta/betal)*r1[index];
     FloatType alfa = (zdotc_(n, &v[0], 1, &y[0], 1)).real();
     for (int index=0; index<n; ++index)
-	  y[index] += (-alfa/beta)*r2[index];
+      y[index] += (-alfa/beta)*r2[index];
     r1 = r2;
     r2 = y;
-
     if (!precon_)
       betan = znrm2_(n, &y[0], 1);
     else
-	{
+    {
       client.Msolve(n, &r2[0], &y[0]);
       betan = (zdotc_(n, &r2[0], 1, &y[0], 1)).real();
       if (betan > 0)
-	  {
         betan = std::sqrt(betan);
-      }
-	  else if (znrm2_(n, &y[0], 1) > eps_)
-	  { // M must be indefinite.
+      else if (znrm2_(n, &y[0], 1) > eps_)
+      { // M must be indefinite.
         istop_ = 11;
         break;
-	  }
+      }
     }
     if (itn_ == 1)
     {
@@ -873,10 +843,9 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     std::complex<FloatType> dlta = cs*dbar + sn*alfa; // dlta1  = 0         deltak
     std::complex<FloatType> epln = eplnn;
     std::complex<FloatType> gbar = sn*dbar - cs*alfa; // gbar 1 = alfa1     gbar k
-             eplnn = sn*betan; // eplnn2 = 0         epslnk+1
-             dltan = -cs*betan; // dbar 2 = beta2     dbar k+1
-	std::complex<FloatType> dlta_QLP = dlta;
-
+                            eplnn = sn*betan; // eplnn2 = 0         epslnk+1
+                            dltan = -cs*betan; // dbar 2 = beta2     dbar k+1
+    std::complex<FloatType> dlta_QLP = dlta;
     // Compute the current left reflection Qk
     std::complex<FloatType> gamal3 = gamal2;
     gamal2 = gamal;
@@ -888,10 +857,9 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     tau = cs * phi;
     phi = sn * phi;                   //  phik
     Axnorm = std::sqrt( std::pow(Axnorm,2) + std::pow(std::abs(tau), 2));
-
     // Apply the previous right reflection P{k-2,k}
     if (itn_ > 2)
-	{
+    {
       veplnl2 = veplnl;
       etal2 = etal;
       etal = eta;
@@ -914,9 +882,9 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     std::complex<FloatType> ul4 = ul3;
     ul3 = ul2;
     if (itn_ > 2)
-	  ul2 = (taul2 - etal2 * ul4 - veplnl2 * ul3) / gamal2;
+      ul2 = (taul2 - etal2 * ul4 - veplnl2 * ul3) / gamal2;
     if (itn_ > 1)
-	  ul = (taul - etal * ul3 - veplnl * ul2) / gamal;
+      ul = (taul - etal * ul3 - veplnl * ul2) / gamal;
     vec3[0] = xl2norm, vec3[1] = ul2, vec3[2] = ul;
     FloatType xnorm_tmp = znrm2_(3, &vec3[0], 1);  // norm([xl2norm ul2 ul]);
     if (std::abs(gama) > 0  &&  xnorm_tmp < maxxnorm_)
@@ -926,7 +894,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       vec2[0] = xnorm_tmp;
       vec2[1] = u;
       if (likeLS && znrm2_(2, &vec2[0], 1) > maxxnorm_)
-	  {
+      {
         u = 0;
         istop_ = 12;
       }
@@ -936,12 +904,10 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       u = 0;
       istop_ = 14;
     }
-
     vec2[0] = xl2norm, vec2[1] = ul2;
     xl2norm = znrm2_(2, &vec2[0], 1);
     vec3[0] = xl2norm, vec3[1] = ul, vec3[2] = u;
     xnorm_  = znrm2_(3, &vec3[0], 1);
-
     if (Acond_ < trancond_ && istop_ == flag0 && QLPiter == 0) // MINRES updates
     {
       wl2 = wl;
@@ -949,7 +915,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       if (std::abs(gama_tmp) > 0)
       {
         s = static_cast<FloatType>(1.0) / gama_tmp;
-		for(int index=0; index<n; ++index)
+        for(int index=0; index<n; ++index)
           w[index] = (v[index] - epln*wl2[index] - dlta_QLP*wl[index])*s;
       }
       if (xnorm_ < maxxnorm_)
@@ -964,8 +930,8 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
         lastiter = true;
       }
     }
-	else //MINRES-QLP updates
-	{
+    else //MINRES-QLP updates
+    {
       QLPiter += 1;
       if (QLPiter == 1)
       {
@@ -974,17 +940,15 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
         {
           // construct w_{k-3}, w_{k-2}, w_{k-1}
           if (itn_ > 3)
-          {
             for (int index=0; index<n; ++index)
               wl2[index] = gamal3*wl2[index] + veplnl2*wl[index] + etal*w[index];
-		  } // w_{k-3}
-		  if (itn_ > 2)
-          {
+          // w_{k-3}
+          if (itn_ > 2)
             for (int index=0; index<n; ++index)
               wl[index] = gamal_QLP*wl[index] + vepln_QLP*w[index];
-          } // w_{k-2}
+          // w_{k-2}
           for (int index=0; index<n; ++index)
-			w[index] = gama_QLP*w[index];
+			      w[index] = gama_QLP*w[index];
           for (int index=0; index<n; ++index)
             xl2[index] =  x[index] - ul_QLP*wl[index] - u_QLP*w[index];
         }
@@ -1025,7 +989,6 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       for (int index=0; index<n; ++index)
         x[index] = xl2[index] + ul*wl[index] + u*w[index];
     }
-
     // Compute the next right reflection P{k-1,k+1}
     gamal_tmp = gamal;
     zsymortho_(gamal_tmp, eplnn, cr2, sr2, gamal);
@@ -1039,7 +1002,6 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     FloatType abs_gama = std::abs(gama);
     FloatType Anorml = Anorm_;
     Anorm_ = std::max({Anorm_, pnorm, abs(gamal), abs_gama});
-
     if (itn_ == 1)
     {
       gmin  = abs_gama;
@@ -1064,7 +1026,6 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     FloatType rootl = znrm2_(2, &vec2[0], 1);
     FloatType Arnorml = rnorml * rootl;
     relAresl = rootl / Anorm_;
-
     // See if any of the stopping criteria are satisfied.
     FloatType epsx = Anorm_*xnorm_*eps_;
     if (istop_ == flag0 || istop_ == 14)
@@ -1072,18 +1033,17 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       t1 = 1.0 + relres;
       t2 = 1.0 + relAresl;
     }
-
     if (t1 <= 1.)
       istop_ = 5;                           // Accurate Ax=b solution
-	else if (t2 <= 1)
+    else if (t2 <= 1)
       istop_ = 7;                           // Accurate LS solution
-	else if (relres   <= rtol_)
-	  istop_ = 4;                           // Good enough Ax=b solution
-	else if (relAresl <= rtol_)
+    else if (relres   <= rtol_)
+      istop_ = 4;                           // Good enough Ax=b solution
+    else if (relAresl <= rtol_)
       istop_ = 6;                           // Good enough LS solution
-	else if (epsx >= beta1)
+    else if (epsx >= beta1)
       istop_ = 2;                           // x is an eigenvector
-	else if (xnorm_ >= maxxnorm_)
+    else if (xnorm_ >= maxxnorm_)
       istop_ = 12;                          // xnorm exceeded its limit
     else if (Acond_ >= Acondlim_ || Acond_ >= ieps)
       istop_ = 13;                          // Huge Acond
@@ -1093,7 +1053,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       istop_ = 1;                           // Last iteration of Lanczos
 
     if (disable_ && itn_ < itnlim_)
-	{
+    {
       istop_ = flag0;
       done = false;
       if (Axnorm < rtol_*Anorm_*xnorm_)
@@ -1108,7 +1068,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       if (istop_ == 6 || istop_ == 7 || istop_ == 12 || istop_ == 13)
         lastiter = true;
       if (lastiter)
-	  {
+      {
         itn_ -= 1;
         Acond_ = Acondl;
         rnorm_ = rnorml;
@@ -1130,10 +1090,10 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       {
         printstate_(itn_-1, x1last, xnorml, rnorml, Arnorml, relresl, relAresl, Anorml, Acondl);
         if (itn_ == 11)
-		  std::cout << std::endl;
+		      std::cout << std::endl;
       }
     }
-	if (istop_ != flag0)
+    if (istop_ != flag0)
       break;
   } // end of iteration loop.
   client.istop = istop_, client.itn = itn_, client.rnorm = rnorm_;
@@ -1142,8 +1102,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
   if (client.print)
   {
     printstate_(itn_, x[0], xnorm_, rnorm_, Arnorm_, relres, relAres, Anorm_, Acond_);
-    std::cout << "  " << "Exit MINRES-QLP" << ": "
-			  << msg[istop_-1] << "\n\n";
+    std::cout << "  " << "Exit MINRES-QLP" << ": " << msg[istop_-1] << "\n\n";
   }
 }
 } // end namespace MINRESQLP

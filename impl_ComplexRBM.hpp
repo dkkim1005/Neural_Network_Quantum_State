@@ -80,8 +80,8 @@ void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const st
 {
   if (spinStates == NULL)
   {
-	for (int i=0; i<spinStates_.size(); ++i)
-	  spinStates_[i] = 1.0;
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = 1.0;
   }
   else
   {
@@ -94,12 +94,12 @@ void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const st
   blas::gemm(knHiddens, knChains, knInputs, kone, kone, w_, &spinStates_[0], &y_[0]);
   // ly_kj = ln(cosh(y_kj))
   for (int j=0; j<y_.size(); ++j)
-	ly_[j] = std::log(std::cosh(y_[j]));
+    ly_[j] = std::log(std::cosh(y_[j]));
   // sa_k = \sum_i a_i*spinStates_ki
   blas::gemm(1, knChains, knInputs, kone, kzero, a_, &spinStates_[0], &sa_[0]);
   // lnpsi_k = \sum_j ly_kj + sa_k
   for (int k=0; k<knChains; ++k)
-	lnpsi[k] = sa_[k];
+    lnpsi[k] = sa_[k];
   blas::gemm(1, knChains, knHiddens, kone, kone, &koneHiddens[0], &ly_[0], lnpsi);
 }
 
@@ -110,7 +110,7 @@ void ComplexRBM<FloatType>::forward(const int spinFlipIndex, std::complex<FloatT
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
     for (int j=0; j<knHiddens; ++j)
-	    ly_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-ktwo*w_[index_*knHiddens+j]*spinStates_[k*knInputs+index_]));
+      ly_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-ktwo*w_[index_*knHiddens+j]*spinStates_[k*knInputs+index_]));
   // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
   for (int k=0; k<knChains; ++k)
     lnpsi[k] = sa_[k]-ktwo*spinStates_[k*knInputs+index_]*a_[index_];
@@ -123,7 +123,7 @@ void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
-	  const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
     for (int i=0; i<knInputs; ++i)
       d_da_[kvsize+i] = spinStates_[kisize+i];
     for (int j=0; j<knHiddens; ++j)
@@ -189,10 +189,10 @@ void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string f
   {
     for (int i=0; i<knInputs; ++i)
     {
-	    for (int j=0; j<knHiddens; ++j)
+      for (int j=0; j<knHiddens; ++j)
         writer << w_[i*knHiddens+j] << " ";
       writer << std::endl;
-	  }
+    }
   }
   else if (typeInfo == RBMDataType::V)
   {

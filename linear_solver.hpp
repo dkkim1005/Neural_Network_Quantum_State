@@ -49,7 +49,7 @@ private:
   public:
     HermitianWrapper_(const int n, const std::complex<FloatType> * b, const std::complex<FloatType> * A):
       MINRESQLP::BaseInterface<HermitianWrapper_, IMAG<FloatType> >(n, b),
-	    A_(A),
+      A_(A),
       kone(std::complex<FloatType>(1.0, 0.0)),
       kzero(std::complex<FloatType>(0.0, 0.0)) {}
     void Aprod(const int n, const std::complex<FloatType> *x, std::complex<FloatType> *y) const
