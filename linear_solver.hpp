@@ -54,8 +54,8 @@ private:
       kzero(std::complex<FloatType>(0.0, 0.0)) {}
     void Aprod(const int n, const std::complex<FloatType> *x, std::complex<FloatType> *y) const
     {
-	    blas::hemv(n, kone, A_, x, kzero, y);
-	  }
+      blas::hemv(n, kone, A_, x, kzero, y);
+    }
   private:
 	  const std::complex<FloatType> * A_;
     const std::complex<FloatType> kone, kzero;
