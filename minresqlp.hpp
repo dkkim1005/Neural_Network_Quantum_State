@@ -28,7 +28,7 @@
 
   * Date:
     ver 1.0 / 27 april 2018
-	   - first realse
+     - first realise
     ver 1.1 / 16 january 2020
      - extend supports of float type of BaseInterface class
      - CRTP design

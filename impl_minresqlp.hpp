@@ -152,7 +152,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   std::vector<FloatType>& x = client.x;
   // local constants
   const FloatType EPSINV = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10))),
-		              NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
+                  NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
   // local arrays and variables
   const FloatType shift_ = client.shift;
   const bool checkA_ = true, precon_ = client.useMsolve, disable_ = client.disable;
