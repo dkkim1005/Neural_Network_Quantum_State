@@ -166,15 +166,15 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   int itnlim_ = client.itnlim, istop_ = 0, itn_ = 0;
   std::vector<FloatType> r1(n), r2(n), v(n), w(n), wl(n), wl2(n), xl2(n), y(n), vec2(2), vec3(3);
   FloatType Axnorm = 0, beta = 0, beta1 = dnrm2_(n, &b[0], 1),
-	          betan = 0, ieps = 0.1/eps_, pnorm = 0, relAres = 0, relAresl = 0, relresl = 0,
+            betan = 0, ieps = 0.1/eps_, pnorm = 0, relAres = 0, relAresl = 0, relresl = 0,
             t1 = 0, t2 = 0, xl2norm = 0, cr1 = -1, cr2 = -1, cs = -1,
-	          dbar = 0, dltan = 0, epln = 0, eplnn = 0, eta = 0, etal = 0,
+            dbar = 0, dltan = 0, epln = 0, eplnn = 0, eta = 0, etal = 0,
             etal2 = 0, gama = 0, gama_QLP = 0, gamal = 0, gamal_QLP = 0, gamal_tmp = 0,
-	          gamal2 = 0, gamal3 = 0, gmin = 0, gminl = 0, phi = 0, s = 0,
+            gamal2 = 0, gamal3 = 0, gmin = 0, gminl = 0, phi = 0, s = 0,
             sn = 0, sr1 = 0, sr2 = 0, t = 0, tau = 0, taul = 0, taul2 = 0, u = 0,
             u_QLP = 0, ul = 0, ul_QLP = 0, ul2 = 0, ul3 = 0, ul4 = 0, vepln = 0,
             vepln_QLP = 0, veplnl = 0, veplnl2 = 0, x1last = 0, xnorml = 0, Arnorml = 0,
-	          Anorml = 0, rnorml = 0, Acondl = 0;
+            Anorml = 0, rnorml = 0, Acondl = 0;
   int QLPiter = 0, flag0 = 0;
   bool done = false, lastiter = false, likeLS;
   const std::vector<std::string> msg = {
