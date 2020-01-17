@@ -4,7 +4,7 @@
 
 template <typename DerivedWFSampler, typename FloatType>
 BaseParallelVMC<DerivedWFSampler, FloatType>::BaseParallelVMC(const int nMCUnitSteps, const int nChains,
-const unsigned long seedDistance, const unsigned long seedNumber):
+  const unsigned long seedDistance, const unsigned long seedNumber):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
   updateList_(nChains),

@@ -22,16 +22,16 @@
 
   * C++ developer:
     Dongkyu Kim <dkkim1005@gmail.com>
-	Computational Many-body Physics Group
+    Computational Many-body Physics Group
     Gwangju Institute of Science and Technology(GIST)
-	Gwangju, South korea
+    Gwangju, South korea
 
   * Date:
     ver 1.0 / 27 april 2018
-	  - first realse
-	ver 1.1 / 16 january 2020
-	  - extend supports of float type of BaseInterface class
-	  - CRTP design
+	   - first realse
+    ver 1.1 / 16 january 2020
+     - extend supports of float type of BaseInterface class
+     - CRTP design
 
   Searching for detailed descriptions, see http://web.stanford.edu/group/SOL/software/minresqlp/
 */
@@ -110,8 +110,8 @@ private:
   void symortho_(const FloatType& a, const FloatType& b, FloatType &c, FloatType &s, FloatType &r) const;
   FloatType dnrm2_(const int n, const FloatType* x, const int incx) const;
   void printstate_(const int iter, const FloatType x1, const FloatType xnorm,
-			       const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
-			       const FloatType relAres, const FloatType Anorm, const FloatType Acond) const;
+    const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
+    const FloatType relAres, const FloatType Anorm, const FloatType Acond) const;
   static constexpr FloatType eps_ = std::numeric_limits<FloatType>::epsilon();
 };
 
@@ -122,12 +122,14 @@ class HermitianSolver
 public:
   void solve(BaseInterface<DerivedOP, IMAG<FloatType> > & client) const;
 private:
-  void zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b, FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const;
-  std::complex<FloatType> zdotc_(const int n, const std::complex<FloatType>* cx, const int incx, const std::complex<FloatType>* cy, const int incy) const;
+  void zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b,
+    FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const;
+  std::complex<FloatType> zdotc_(const int n, const std::complex<FloatType>* cx,
+    const int incx, const std::complex<FloatType>* cy, const int incy) const;
   FloatType znrm2_(const int n, const std::complex<FloatType>* x, const int incx) const;
   void printstate_(const int iter, const std::complex<FloatType> x1, const FloatType xnorm,
-			       const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
-			       const FloatType relAres, const FloatType Anorm, const FloatType Acond) const;
+    const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
+    const FloatType relAres, const FloatType Anorm, const FloatType Acond) const;
   static constexpr FloatType eps_ = std::numeric_limits<FloatType>::epsilon();
   static constexpr FloatType realmin_ = std::numeric_limits<FloatType>::min();
 };

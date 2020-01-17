@@ -16,7 +16,8 @@ public:
 // options : option list (option name, brief explanation on the option)
 // defaults: default value list (option name, default value)
   argsparse(const int argc, const char* const argv[],
-	          const std::vector<pair_t> & options, const std::vector<pair_t> & defaults = std::vector<pair_t>()):
+    const std::vector<pair_t> & options,
+    const std::vector<pair_t> & defaults = std::vector<pair_t>()):
     options_(options.size()), args_(options.size())
   {
     bool raiseError = false;

@@ -28,7 +28,8 @@ class TFIChain: public BaseParallelVMC<TFIChain<FloatType>, FloatType>
   using BaseParallelVMC<TFIChain<FloatType>, FloatType>::lnpsi0_;
   typedef OneSideList<int> CircularLinkedList;
 public:
-  TFIChain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  TFIChain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:

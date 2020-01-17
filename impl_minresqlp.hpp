@@ -48,7 +48,8 @@ void BaseInterface<DerivedOP, NumberType>::Msolve(const int n, const NumberType 
 
 
 template<typename DerivedOP, typename FloatType>
-void RealSolver<DerivedOP, FloatType>::symortho_(const FloatType& a, const FloatType& b, FloatType &c, FloatType &s, FloatType &r) const
+void RealSolver<DerivedOP, FloatType>::symortho_(const FloatType& a, const FloatType& b,
+  FloatType &c, FloatType &s, FloatType &r) const
 {
   FloatType t, abs_a = std::abs(a), abs_b = std::abs(b);
   if (abs_b <= eps_)
@@ -570,7 +571,8 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
 
 
 template<typename DerivedOP, typename FloatType>
-void HermitianSolver<DerivedOP, FloatType>::printstate_(const int iter, const std::complex<FloatType> x1, const FloatType xnorm,
+void HermitianSolver<DerivedOP, FloatType>::printstate_(const int iter,
+  const std::complex<FloatType> x1, const FloatType xnorm,
   const FloatType rnorm, const FloatType Arnorm, const FloatType relres,
   const FloatType relAres, const FloatType Anorm,  const FloatType Acond) const
 {
@@ -600,7 +602,7 @@ void HermitianSolver<DerivedOP, FloatType>::printstate_(const int iter, const st
 
 template<typename DerivedOP, typename FloatType>
 std::complex<FloatType> HermitianSolver<DerivedOP, FloatType>::zdotc_(const int n, const std::complex<FloatType>* cx,
-	       const int incx, const std::complex<FloatType>* cy, const int incy) const
+  const int incx, const std::complex<FloatType>* cy, const int incy) const
 {
   std::complex<FloatType> ctemp = std::complex<FloatType>(0,0);
   int ix, iy;
@@ -669,7 +671,8 @@ FloatType HermitianSolver<DerivedOP, FloatType>::znrm2_(const int n, const std::
 }
 
 template<typename DerivedOP, typename FloatType>
-void HermitianSolver<DerivedOP, FloatType>::zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b, FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const
+void HermitianSolver<DerivedOP, FloatType>::zsymortho_(const std::complex<FloatType>& a, const std::complex<FloatType>& b,
+  FloatType& c, std::complex<FloatType>& s, std::complex<FloatType>& r) const
 {
   FloatType t, abs_a = std::abs(a), abs_b = std::abs(b);
   if (abs_b <= realmin_)
@@ -728,7 +731,7 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
 
   // local constants
   const FloatType EPSINV  = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10))),
-               NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
+                  NORMMAX = std::pow(10.0, std::floor(std::log(1./eps_)/std::log(10)/2.));
 
   const std::vector<std::string> msg = {
          "beta_{k+1} < eps.                                                ", // 1

@@ -19,7 +19,8 @@ template <typename DerivedWFSampler, typename FloatType>
 class BaseParallelVMC
 {
 public:
-  BaseParallelVMC(const int nSites, const int nChains, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  BaseParallelVMC(const int nSites, const int nChains,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
   void get_htilda(std::complex<FloatType> * htilda);
@@ -43,7 +44,8 @@ class StochasticReconfiguration
 public:
   StochasticReconfiguration(const int nChains, const int nVariables);
   template <typename WFSampler>
-  void propagate(BaseParallelVMC<WFSampler, FloatType> & sampler, const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
+  void propagate(BaseParallelVMC<WFSampler, FloatType> & sampler,
+    const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
   {
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
     for (int n=0; n<nIteration; ++n)

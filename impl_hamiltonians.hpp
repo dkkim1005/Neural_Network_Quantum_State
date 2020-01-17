@@ -4,7 +4,7 @@
 
 template <typename FloatType>
 TFIChain<FloatType>::TFIChain(ComplexRBM<FloatType> & machine,
-const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
+  const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelVMC<TFIChain<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
