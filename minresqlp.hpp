@@ -7,18 +7,18 @@
 
   * Original author and contributor:
     Author:
-	  Sou-Cheng Choi <sctchoi@uchicago.edu>
-	  Computation Institute (CI)
-	  University of Chicago
-	  Chicago, IL 60637, USA
+      Sou-Cheng Choi <sctchoi@uchicago.edu>
+      Computation Institute (CI)
+      University of Chicago
+      Chicago, IL 60637, USA
 
-	  Michael Saunders <saunders@stanford.edu>
-	  Systems Optimization Laboratory (SOL)
-	  Stanford University
-	  Stanford, CA 94305-4026, USA
+      Michael Saunders <saunders@stanford.edu>
+      Systems Optimization Laboratory (SOL)
+      Stanford University
+      Stanford, CA 94305-4026, USA
 
     Contributor:
-	  Christopher Paige <paige@cs.mcgill.ca>
+      Christopher Paige <paige@cs.mcgill.ca>
 
   * C++ developer:
     Dongkyu Kim <dkkim1005@gmail.com>
@@ -30,8 +30,8 @@
     ver 1.0 / 27 april 2018
      - first realise
     ver 1.1 / 16 january 2020
+     - CRTP design is applied to BaseInterface class.
      - extend supports of float type of BaseInterface class
-     - CRTP design
 
   Searching for detailed descriptions, see http://web.stanford.edu/group/SOL/software/minresqlp/
 */
