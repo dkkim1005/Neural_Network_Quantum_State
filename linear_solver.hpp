@@ -121,10 +121,7 @@ template <typename FloatType>
 void minresqlp<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
 {
   HermitianWrapper_ zclient(kn, B, A);
-  zclient.useMsolve = false;
-  zclient.rtol = 1e-7;
-  zclient.maxxnorm  = 1e7;
-  zclient.Acondlim = 1e7;
+  zclient.rtol = 1e-9;
   solver_.solve(zclient);
   std::memcpy(B, zclient.x.data(), sizeof(std::complex<FloatType>)*kn);
 }

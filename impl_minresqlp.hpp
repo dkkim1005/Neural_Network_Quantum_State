@@ -249,23 +249,23 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
   FloatType relres = rnorm_ / (Anorm_*xnorm_ + beta1);
   r2 = b, w = zeros, wl = zeros, done = false;
   // MINRESQLP iteration loop.
-  while(istop_ <= flag0)
+  while (istop_ <= flag0)
   {
     itn_ += 1;
     FloatType betal = beta;
     beta = betan;
     s = 1./beta;
-    for(int index=0; index<n; ++index)
+    for (int index=0; index<n; ++index)
       v[index] = s*y[index];
     client.Aprod(n, &v[0], &y[0]);
     if (shift_ != 0)
-      for(int index=0; index<n; ++index)
+      for (int index=0; index<n; ++index)
         y[index] -= shift_*v[index];
     if (itn_ >= 2)
-      for(int index=0; index<n; ++index)
+      for (int index=0; index<n; ++index)
         y[index] += (-beta/betal)*r1[index];
     FloatType alfa = std::inner_product(v.begin(), v.end(), y.begin(), 0.0);
-    for(int index=0; index<n; index++)
+    for (int index=0; index<n; index++)
       y[index] = y[index] + (-alfa/beta)*r2[index];
     r1 = r2, r2 = y;
     if (!precon_)
@@ -521,7 +521,7 @@ void RealSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, REAL<Float
       if (rnorm_ > 0 && Anorm_ > 0)
         relAres = Arnorm_ / (Anorm_*rnorm_);
     }
-    if(client.print)
+    if (client.print)
       printstate_(itn_-1, x1last, xnorml, rnorml, Arnorml, relresl, relAresl, Anorml, Acondl);
   }
   // end of iteration loop.
@@ -576,7 +576,7 @@ std::complex<FloatType> HermitianSolver<DerivedOP, FloatType>::zdotc_(const int 
   if (n <= 0)
     return std::complex<FloatType>(0,0);
   if (incx == 1 && incy == 1)
-    for(int i = 0; i<n; ++i)
+    for (int i = 0; i<n; ++i)
       ctemp += std::conj(cx[i])*cy[i];
   else
   {
@@ -588,7 +588,7 @@ std::complex<FloatType> HermitianSolver<DerivedOP, FloatType>::zdotc_(const int 
       iy = 1;
     else
       iy = (-n + 1)*incy + 1;
-    for(int i=0; i<n; ++i)
+    for (int i=0; i<n; ++i)
     {
       ctemp += std::conj(cx[ix])*cy[iy];
       ix += incx;
@@ -915,13 +915,13 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
       if (std::abs(gama_tmp) > 0)
       {
         s = static_cast<FloatType>(1.0) / gama_tmp;
-        for(int index=0; index<n; ++index)
+        for (int index=0; index<n; ++index)
           w[index] = (v[index] - epln*wl2[index] - dlta_QLP*wl[index])*s;
       }
       if (xnorm_ < maxxnorm_)
       {
         x1last = x[0];
-        for(int index=0; index<n; ++index)
+        for (int index=0; index<n; ++index)
           x[index] = x[index] + tau*w[index];
       }
       else
