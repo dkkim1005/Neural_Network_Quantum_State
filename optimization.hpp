@@ -95,7 +95,7 @@ private:
   const std::vector<std::complex<FloatType> > kones;
   const std::complex<FloatType> koneOverNchains, kone, kzero, kminusOne;
   const int knChains, knVariables;
-  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
   int nIteration_;
   FloatType bp_;
   LinearSolver<FloatType> linSolver_;
