@@ -10,12 +10,12 @@
 
 namespace linearsolver
 {
-// Solve Ax=b (qr factorization)
+// Solve Ax=b (Bunch-Kaufman factorization)
 template <typename FloatType>
-class qr
+class bk
 {
 public:
-  explicit qr(const int n);
+  explicit bk(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
   const int kn;
@@ -66,12 +66,12 @@ private:
 
 
 template <typename FloatType>
-qr<FloatType>::qr(const int n):
+bk<FloatType>::bk(const int n):
   kn(n),
   ipiv_(n, 0) {}
 
 template <typename FloatType>
-void qr<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
+void bk<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
 {
   const char uplo = 'L';
   int info = 1, lwork = -1;
