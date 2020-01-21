@@ -45,4 +45,32 @@ private:
   std::vector<int> leftIdx_, rightIdx_;
 };
 
+
+// transverse field Ising model for triangular lattice.
+template <typename FloatType>
+class TFITRI: public BaseParallelVMC<TFITRI<FloatType>, FloatType>
+{
+  friend BaseParallelVMC<TFITRI<FloatType>, FloatType>;
+  using BaseParallelVMC<TFITRI<FloatType>, FloatType>::lnpsi1_;
+  using BaseParallelVMC<TFITRI<FloatType>, FloatType>::lnpsi0_;
+  typedef OneSideList<int> CircularLinkedList;
+public:
+  TFITRI(ComplexRBM<FloatType> & machine, const int L, const FloatType h, const FloatType J,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  ComplexRBM<FloatType> & machine_;
+  std::vector<CircularLinkedList> list_;
+  CircularLinkedList * idxptr_;
+  const int L_;
+  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<FloatType> > diag_;
+  std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
+};
+
 #include "impl_hamiltonians.hpp"

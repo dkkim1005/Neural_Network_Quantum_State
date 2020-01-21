@@ -108,3 +108,196 @@ void TFIChain<FloatType>::evolve(const std::complex<FloatType> * trueGradients, 
 {
   machine_.update_variables(trueGradients, learningRate);
 }
+
+
+template <typename FloatType>
+TFITRI<FloatType>::TFITRI(ComplexRBM<FloatType> & machine, const int L,
+const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
+BaseParallelVMC<TFITRI<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+L_(L),
+kh(h),
+kJ(J),
+kzero(0.0),
+ktwo(2.0),
+machine_(machine),
+list_(machine.get_nInputs()),
+diag_(machine.get_nChains()),
+lIdx_(machine.get_nInputs()),
+rIdx_(machine.get_nInputs()),
+uIdx_(machine.get_nInputs()),
+dIdx_(machine.get_nInputs()),
+pIdx_(machine.get_nInputs()),
+bIdx_(machine.get_nInputs())
+{
+  for (int i=1; i<L_-1; ++i)
+  {
+    for (int j=1; j<L_-1; ++j)
+    {
+      lIdx_[i*L_+j] = L_*(i-1)+j-1;
+      rIdx_[i*L_+j] = L_*(i-1)+j;
+      uIdx_[i*L_+j] = L_*i+j-1;
+      dIdx_[i*L_+j] = L_*i+j+1;
+      pIdx_[i*L_+j] = L_*(i+1)+j;
+      bIdx_[i*L_+j] = L_*(i+1)+j+1;
+    }
+  }
+  // case i=0, j=0
+  lIdx_[0] = L_*L_-1, rIdx_[0] = L_*(L_-1), uIdx_[0] = L_-1,
+  dIdx_[0] = 1, pIdx_[0] = L_, bIdx_[0] = L_+1;
+  // case i=0, j=L-1
+  lIdx_[L-1] = L_*L_-2, rIdx_[L-1] = L_*L_-1, uIdx_[L-1] = L_-2,
+  dIdx_[L-1] = 0, pIdx_[L-1] = L_+L_-1, bIdx_[L-1] = L_;
+  // case i=L-1, j=0
+  lIdx_[(L-1)*L_] = L_*(L_-2)+L_-1, rIdx_[(L-1)*L_] = L_*(L_-2), uIdx_[(L-1)*L_] = L_*L_-1,
+  dIdx_[(L-1)*L_] = L_*(L_-1)+1, pIdx_[(L-1)*L_] = 0, bIdx_[(L-1)*L_] = 1;
+  // case i=L-1, j=L-1
+  lIdx_[(L-1)*L_+L-1] = L_*(L_-2)+L_-2, rIdx_[(L-1)*L_+L-1] = L_*(L_-2)+L_-1, uIdx_[(L-1)*L_+L-1] = L_*L_-2,
+  dIdx_[(L-1)*L_+L-1] = L_*(L_-1), pIdx_[(L-1)*L_+L-1] = L_-1, bIdx_[(L-1)*L_+L-1] = 0;
+  // case i=0, j=1 ~ L-2
+  for (int j=1; j<L_-1; ++j)
+  {
+    lIdx_[j] = L_*(L_-1)+j-1, rIdx_[j] = L_*(L_-1)+j, uIdx_[j] = j-1,
+    dIdx_[j] = j+1, pIdx_[j] = L_+j, bIdx_[j] = L_+j+1;
+  }
+  // case i=L_-1, j=1 ~ L-2
+  for (int j=1; j<L_-1; ++j)
+  {
+    lIdx_[(L_-1)*L_+j] = L_*(L_-2)+j-1, rIdx_[(L_-1)*L_+j] = L_*(L_-2)+j, uIdx_[(L_-1)*L_+j] = L_*(L_-1)+j-1,
+    dIdx_[(L_-1)*L_+j] = L_*(L_-1)+j+1, pIdx_[(L_-1)*L_+j] = j, bIdx_[(L_-1)*L_+j] = j+1;
+  }
+  // case i= 1 ~ L-2, j=0
+  for (int i=1; i<L_-1; ++i)
+  {
+    lIdx_[i*L_] = L_*(i-1)+L_-1, rIdx_[i*L_] = L_*(i-1), uIdx_[i*L_] = L_*i+L_-1,
+    dIdx_[i*L_] = L_*i+1, pIdx_[i*L_] = L_*(i+1), bIdx_[i*L_] = L_*(i+1)+1;
+  }
+  // case i= 1 ~ L-2, j=L_-1
+  for (int i=1; i<L_-1; ++i)
+  {
+    lIdx_[i*L_+L_-1] = L_*(i-1)+L_-2, rIdx_[i*L_+L_-1] = L_*(i-1)+L_-1, uIdx_[i*L_+L_-1] = L_*i+L_-2,
+	dIdx_[i*L_+L_-1] = L_*i, pIdx_[i*L_+L_-1] = L_*(i+1)+L_-1, bIdx_[i*L_+L_-1] = L_*(i+1);
+  }
+  // Checkerboard link(To implement the MCMC update rule)
+  for (int i=0; i<L*L; ++i)
+    list_[i].set_item(i);
+  // red board: (2*i+j)%3 == 0
+  int idx0 = 0;
+  for (int i=0; i<L_; ++i)
+  {
+    for (int j=0; j<L_; ++j)
+    {
+      if ((2*i+j)%3 != 0)
+        continue;
+      const int idx1 = i*L_ + j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  }
+  // yellow board: (2*i+j)%3 == 1
+  for (int i=0; i<L_; ++i)
+  {
+    for (int j=0; j<L_; ++j)
+    {
+      if ((2*i+j)%3 != 1)
+        continue;
+      const int idx1 = i*L_ + j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  }
+  // green: (2*i+j)%3 == 2
+  for (int i=0; i<L_; ++i)
+  {
+    for (int j=0; j<L_; ++j)
+    {
+      if ((2*i+j)%3 != 2)
+        continue;
+      const int idx1 = i*L_ + j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  }
+  list_[idx0].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::initialize(std::complex<FloatType> * lnpsi)
+{
+  machine_.initialize(lnpsi);
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  // diag_ = \sum_i spin_i*spin_{i+1}
+  for (int k=0; k<nChains; ++k)
+  {
+    diag_[k] = kzero;
+    for (int i=0; i<L_; ++i)
+      for (int j=0; j<L_; ++j)
+      {
+        const int idx = i*L_+j;
+        diag_[k] += spinPtr[k*nSites+idx]*
+                   (spinPtr[k*nSites+lIdx_[idx]]+spinPtr[k*nSites+rIdx_[idx]]+
+                    spinPtr[k*nSites+uIdx_[idx]]+spinPtr[k*nSites+dIdx_[idx]]+
+                    spinPtr[k*nSites+pIdx_[idx]]+spinPtr[k*nSites+bIdx_[idx]]);
+      }
+    diag_[k] *= 0.5;
+  }
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::sampling(std::complex<FloatType> * lnpsi)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi);
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::accept_next_state(const std::vector<bool> & updateList)
+{
+  const int idx = idxptr_->get_item();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  for (int k=0; k<nChains; ++k)
+  {
+    if (updateList[k])
+      diag_[k] -= ktwo*spinPtr[k*nSites+idx]*
+                   (spinPtr[k*nSites+lIdx_[idx]] +
+                    spinPtr[k*nSites+rIdx_[idx]] +
+                    spinPtr[k*nSites+uIdx_[idx]] +
+                    spinPtr[k*nSites+dIdx_[idx]] +
+                    spinPtr[k*nSites+pIdx_[idx]] +
+                    spinPtr[k*nSites+bIdx_[idx]]);
+  }
+  machine_.spin_flip(updateList);
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::get_htilda(std::complex<FloatType> * htilda)
+{
+  /*
+     htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
+      --> J*diag + h*sum_i \frac{<(s_1, s_2,...,-s_i,...,s_n|psi>}{<(s_1, s_2,...,s_i,...,s_n|psi>}
+   */
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  for (int k=0; k<nChains; ++k)
+    htilda[k] = kJ*diag_[k];
+  for (int i=0; i<nSites; ++i)
+  {
+    machine_.forward(i, &lnpsi1_[0]);
+    #pragma omp parallel for
+    for (int k=0; k<nChains; ++k)
+      htilda[k] += kh*std::exp(lnpsi1_[k] - lnpsi0_[k]);
+  }
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+{
+  machine_.backward(lnpsiGradients);
+}
+
+template <typename FloatType>
+void TFITRI<FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients, learningRate);
+}
