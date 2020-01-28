@@ -69,7 +69,7 @@ public:
           }
           if (str.substr(1+options_[i].length(),1).compare("=") != 0)
           {
-            std::cerr << "# error(in-3) ---> The symbol '=' must be between the option and the argument. : " << str << std::endl;
+            std::cerr << "# error(in-3) ---> The symbol '=' must be in between the option and the argument. : " << str << std::endl;
             raiseError = true;
             break;
           }
