@@ -1,6 +1,6 @@
 #pragma once
 
-namespace MINRESQLP
+namespace minresqlp
 {
 template<typename DerivedOP, typename NumberType>
 BaseInterface<DerivedOP, NumberType>::BaseInterface(const int n_, const NumberType * b_,
@@ -1105,4 +1105,4 @@ void HermitianSolver<DerivedOP, FloatType>::solve(BaseInterface<DerivedOP, IMAG<
     std::cout << "  " << "Exit MINRES-QLP" << ": " << msg[istop_-1] << "\n\n";
   }
 }
-} // end namespace MINRESQLP
+} // end namespace minresqlp

@@ -12,22 +12,22 @@ namespace linearsolver
 {
 // Solve Ax=b (Bunch-Kaufman factorization)
 template <typename FloatType>
-class bkf
+class BKF
 {
 public:
-  explicit bkf(const int n);
+  explicit BKF(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
   const int kn;
   std::vector<int> ipiv_;
 };
 
-// Minimize |Ax-b|^2 (svd)
+// Minimize |Ax-b|^2 (SVD)
 template <typename FloatType>
-class svd
+class SVD
 {
 public:
-  svd(const int n);
+  SVD(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
   const int km, kn, knlvl;
@@ -35,43 +35,36 @@ private:
   std::vector<FloatType> S_, rwork_;
 };
 
-// Minimize |x| among the solutions of the psuedo inverse problem for Ax=b (MINRESQLP)
+// Minimize |x| among the solutions of the psuedo inverse problem for Ax=b (minresqlp)
 template <typename FloatType>
-class minresqlp
+class MINRESQLP
 {
 public:
-  explicit minresqlp(const int n):
-  kn(n) {}
+  MINRESQLP(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
-  class HermitianWrapper_: public MINRESQLP::BaseInterface<HermitianWrapper_, IMAG<FloatType> >
+  class HermitianOP_: public minresqlp::BaseInterface<HermitianOP_, IMAG<FloatType> >
   {
   public:
-    HermitianWrapper_(const int n, const std::complex<FloatType> * b, const std::complex<FloatType> * A):
-      MINRESQLP::BaseInterface<HermitianWrapper_, IMAG<FloatType> >(n, b),
-      A_(A),
-      kone(std::complex<FloatType>(1.0, 0.0)),
-      kzero(std::complex<FloatType>(0.0, 0.0)) {}
-    void Aprod(const int n, const std::complex<FloatType> *x, std::complex<FloatType> *y) const
-    {
-      blas::hemv(n, kone, A_, x, kzero, y);
-    }
+    HermitianOP_(const int n, const std::complex<FloatType> * b, const std::complex<FloatType> * A);
+    void Aprod(const int n, const std::complex<FloatType> *x, std::complex<FloatType> *y) const;
   private:
-	  const std::complex<FloatType> * A_;
+    const std::complex<FloatType> * A_;
     const std::complex<FloatType> kone, kzero;
   };
   const int kn;
-  MINRESQLP::HermitianSolver<HermitianWrapper_, FloatType> solver_;
+  minresqlp::HermitianSolver<HermitianOP_, FloatType> solver_;
 };
 
 
+/*== implementation of bfk class ==*/
 template <typename FloatType>
-bkf<FloatType>::bkf(const int n):
+BKF<FloatType>::BKF(const int n):
   kn(n),
   ipiv_(n, 0) {}
 
 template <typename FloatType>
-void bkf<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
+void BKF<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
 {
   const char uplo = 'L';
   int info = 1, lwork = -1;
@@ -87,8 +80,9 @@ void bkf<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> 
 }
 
 
+/*== implementation of SVD class ==*/
 template <typename FloatType>
-svd<FloatType>::svd(const int n):
+SVD<FloatType>::SVD(const int n):
   km(n),
   kn(n),
   knlvl(static_cast<int>(std::log2((n/26.0))+1))
@@ -100,7 +94,7 @@ svd<FloatType>::svd(const int n):
 }
 
 template <typename FloatType>
-void svd<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
+void SVD<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
 {
   int rank, lwork, info;
   // query mode (lwork = -1, finding an optimal workspace)
@@ -113,16 +107,34 @@ void svd<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> 
   // solve the linear least square: min_x |Ax-B|_2
   lapack::gelsd(km, kn, A, B, &S_[0], rcond, &rank, &work[0], lwork, &rwork_[0], &iwork_[0], &info);
   if (info)
-    throw std::runtime_error(" @Error! computing svd failed to converge...");
+    throw std::runtime_error(" @Error! computing SVD failed to converge...");
 }
 
 
+/*== implementation of minresqlp class ==*/
 template <typename FloatType>
-void minresqlp<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
+MINRESQLP<FloatType>::MINRESQLP(const int n):
+  kn(n) {}
+
+template <typename FloatType>
+void MINRESQLP<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
 {
-  HermitianWrapper_ zclient(kn, B, A);
+  HermitianOP_ zclient(kn, B, A);
   zclient.rtol = 1e-9;
   solver_.solve(zclient);
   std::memcpy(B, zclient.x.data(), sizeof(std::complex<FloatType>)*kn);
+}
+
+template <typename FloatType>
+MINRESQLP<FloatType>::HermitianOP_::HermitianOP_ (const int n, const std::complex<FloatType> * b, const std::complex<FloatType> * A):
+  minresqlp::BaseInterface<HermitianOP_, IMAG<FloatType> >(n, b),
+  A_(A),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  kzero(std::complex<FloatType>(0.0, 0.0)) {}
+
+template <typename FloatType>
+void MINRESQLP<FloatType>::HermitianOP_::Aprod(const int n, const std::complex<FloatType> *x, std::complex<FloatType> *y) const
+{
+  blas::hemv(n, kone, A_, x, kzero, y);
 }
 }

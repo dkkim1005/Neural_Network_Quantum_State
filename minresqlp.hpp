@@ -64,7 +64,7 @@ template <> struct NumberTypeTrait_<IMAG<double> > { typedef double FloatType; }
 template <typename NumberType>
 using NumberTypeFloat = typename NumberTypeTrait_<NumberType>::FloatType;
 
-namespace MINRESQLP
+namespace minresqlp
 {
 /*
  * Base class for the interface of MINRESQLP
@@ -134,6 +134,6 @@ private:
   static constexpr FloatType realmin_ = std::numeric_limits<FloatType>::min();
 };
 
-} // end namespace MINRESQLP
+} // end namespace minresqlp
 
 #include "impl_minresqlp.hpp"
