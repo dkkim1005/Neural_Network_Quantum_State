@@ -5,7 +5,7 @@
 template <typename FloatType>
 TFIChain<FloatType>::TFIChain(ComplexRBM<FloatType> & machine,
   const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelVMC<TFIChain<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelSampler<TFIChain, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
   kzero(0.0),
@@ -113,24 +113,23 @@ void TFIChain<FloatType>::evolve(const std::complex<FloatType> * trueGradients, 
 template <typename FloatType>
 TFITRI<FloatType>::TFITRI(ComplexRBM<FloatType> & machine, const int L,
 const FloatType h, const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
-BaseParallelVMC<TFITRI<FloatType>, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
-L_(L),
-kh(h),
-kJ(J),
-kzero(0.0),
-ktwo(2.0),
-machine_(machine),
-list_(machine.get_nInputs()),
-diag_(machine.get_nChains()),
-lIdx_(machine.get_nInputs()),
-rIdx_(machine.get_nInputs()),
-uIdx_(machine.get_nInputs()),
-dIdx_(machine.get_nInputs()),
-pIdx_(machine.get_nInputs()),
-bIdx_(machine.get_nInputs())
+  BaseParallelSampler<TFITRI, FloatType>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  L_(L),
+  kh(h),
+  kJ(J),
+  kzero(0.0),
+  ktwo(2.0),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  diag_(machine.get_nChains()),
+  lIdx_(machine.get_nInputs()),
+  rIdx_(machine.get_nInputs()),
+  uIdx_(machine.get_nInputs()),
+  dIdx_(machine.get_nInputs()),
+  pIdx_(machine.get_nInputs()),
+  bIdx_(machine.get_nInputs())
 {
   for (int i=1; i<L_-1; ++i)
-  {
     for (int j=1; j<L_-1; ++j)
     {
       lIdx_[i*L_+j] = L_*(i-1)+j-1;
@@ -140,7 +139,6 @@ bIdx_(machine.get_nInputs())
       pIdx_[i*L_+j] = L_*(i+1)+j;
       bIdx_[i*L_+j] = L_*(i+1)+j+1;
     }
-  }
   // case i=0, j=0
   lIdx_[0] = L_*L_-1, rIdx_[0] = L_*(L_-1), uIdx_[0] = L_-1,
   dIdx_[0] = 1, pIdx_[0] = L_, bIdx_[0] = L_+1;
@@ -175,7 +173,7 @@ bIdx_(machine.get_nInputs())
   for (int i=1; i<L_-1; ++i)
   {
     lIdx_[i*L_+L_-1] = L_*(i-1)+L_-2, rIdx_[i*L_+L_-1] = L_*(i-1)+L_-1, uIdx_[i*L_+L_-1] = L_*i+L_-2,
-	dIdx_[i*L_+L_-1] = L_*i, pIdx_[i*L_+L_-1] = L_*(i+1)+L_-1, bIdx_[i*L_+L_-1] = L_*(i+1);
+    dIdx_[i*L_+L_-1] = L_*i, pIdx_[i*L_+L_-1] = L_*(i+1)+L_-1, bIdx_[i*L_+L_-1] = L_*(i+1);
   }
   // Checkerboard link(To implement the MCMC update rule)
   for (int i=0; i<L*L; ++i)
@@ -183,7 +181,6 @@ bIdx_(machine.get_nInputs())
   // red board: (2*i+j)%3 == 0
   int idx0 = 0;
   for (int i=0; i<L_; ++i)
-  {
     for (int j=0; j<L_; ++j)
     {
       if ((2*i+j)%3 != 0)
@@ -192,10 +189,8 @@ bIdx_(machine.get_nInputs())
       list_[idx0].set_nextptr(&list_[idx1]);
       idx0 = idx1;
     }
-  }
   // yellow board: (2*i+j)%3 == 1
   for (int i=0; i<L_; ++i)
-  {
     for (int j=0; j<L_; ++j)
     {
       if ((2*i+j)%3 != 1)
@@ -204,10 +199,8 @@ bIdx_(machine.get_nInputs())
       list_[idx0].set_nextptr(&list_[idx1]);
       idx0 = idx1;
     }
-  }
   // green: (2*i+j)%3 == 2
   for (int i=0; i<L_; ++i)
-  {
     for (int j=0; j<L_; ++j)
     {
       if ((2*i+j)%3 != 2)
@@ -216,7 +209,6 @@ bIdx_(machine.get_nInputs())
       list_[idx0].set_nextptr(&list_[idx1]);
       idx0 = idx1;
     }
-  }
   list_[idx0].set_nextptr(&list_[0]);
   idxptr_ = &list_[0];
 }

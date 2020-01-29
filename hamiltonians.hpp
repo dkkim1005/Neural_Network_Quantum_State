@@ -4,29 +4,30 @@
 
 #include "optimization.hpp"
 #include "ComplexRBM.hpp"
+#define USING_OF_BASE_PARALLEL_SAMPLER(DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE)\
+friend BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>;\
+using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi1_;\
+using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi0_;
 
-template <typename FloatType>
-class OneSideList
+
+class OneWayLinkedIndex
 {
 public:
-  void set_item(const FloatType & item) { item_ = item; }
-  void set_nextptr(OneSideList<FloatType> * nextPtr) { nextPtr_ = nextPtr; }
-  OneSideList<FloatType> * next_ptr() const { return nextPtr_; }
-  FloatType get_item() { return item_; }
+  void set_item(const int & item) { item_ = item; }
+  void set_nextptr(OneWayLinkedIndex * nextPtr) { nextPtr_ = nextPtr; }
+  OneWayLinkedIndex * next_ptr() const { return nextPtr_; }
+  int get_item() { return item_; }
 private:
-  FloatType item_;
-  OneSideList<FloatType> * nextPtr_;
+  int item_;
+  OneWayLinkedIndex * nextPtr_;
 };
 
 
-// transverse field Ising model for 1D chain.
+// transverse field Ising model of the 1D chain
 template <typename FloatType>
-class TFIChain: public BaseParallelVMC<TFIChain<FloatType>, FloatType>
+class TFIChain: public BaseParallelSampler<TFIChain, FloatType>
 {
-  friend BaseParallelVMC<TFIChain<FloatType>, FloatType>;
-  using BaseParallelVMC<TFIChain<FloatType>, FloatType>::lnpsi1_;
-  using BaseParallelVMC<TFIChain<FloatType>, FloatType>::lnpsi0_;
-  typedef OneSideList<int> CircularLinkedList;
+  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, FloatType)
 public:
   TFIChain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
@@ -38,22 +39,19 @@ private:
   void accept_next_state(const std::vector<bool> & updateList);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
   ComplexRBM<FloatType> & machine_;
-  std::vector<CircularLinkedList> list_;
-  CircularLinkedList * idxptr_;
+  std::vector<OneWayLinkedIndex> list_;
+  OneWayLinkedIndex * idxptr_;
   const FloatType kh, kJ, kzero, ktwo;
   std::vector<std::complex<FloatType> > diag_;
   std::vector<int> leftIdx_, rightIdx_;
 };
 
 
-// transverse field Ising model for triangular lattice.
+// transverse field Ising model of the triangular lattice
 template <typename FloatType>
-class TFITRI: public BaseParallelVMC<TFITRI<FloatType>, FloatType>
+class TFITRI: public BaseParallelSampler<TFITRI, FloatType>
 {
-  friend BaseParallelVMC<TFITRI<FloatType>, FloatType>;
-  using BaseParallelVMC<TFITRI<FloatType>, FloatType>::lnpsi1_;
-  using BaseParallelVMC<TFITRI<FloatType>, FloatType>::lnpsi0_;
-  typedef OneSideList<int> CircularLinkedList;
+  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, FloatType)
 public:
   TFITRI(ComplexRBM<FloatType> & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
@@ -65,8 +63,8 @@ private:
   void accept_next_state(const std::vector<bool> & updateList);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
   ComplexRBM<FloatType> & machine_;
-  std::vector<CircularLinkedList> list_;
-  CircularLinkedList * idxptr_;
+  std::vector<OneWayLinkedIndex> list_;
+  OneWayLinkedIndex * idxptr_;
   const int L_;
   const FloatType kh, kJ, kzero, ktwo;
   std::vector<std::complex<FloatType> > diag_;

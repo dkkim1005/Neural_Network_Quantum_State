@@ -2,8 +2,8 @@
 
 #pragma once
 
-template <typename DerivedWFSampler, typename FloatType>
-BaseParallelVMC<DerivedWFSampler, FloatType>::BaseParallelVMC(const int nMCUnitSteps, const int nChains,
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+BaseParallelSampler<DerivedParallelSampler, FloatType>::BaseParallelSampler(const int nMCUnitSteps, const int nChains,
   const unsigned long seedDistance, const unsigned long seedNumber):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
@@ -21,25 +21,25 @@ BaseParallelVMC<DerivedWFSampler, FloatType>::BaseParallelVMC(const int nMCUnitS
   }
 }
 
-template <typename DerivedWFSampler, typename FloatType>
-void BaseParallelVMC<DerivedWFSampler, FloatType>::warm_up(const int nMCSteps)
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+void BaseParallelSampler<DerivedParallelSampler, FloatType>::warm_up(const int nMCSteps)
 {
   // memorize an initial state
-  static_cast<DerivedWFSampler*>(this)->initialize(&lnpsi0_[0]);
+  static_cast<DerivedParallelSampler<FloatType>*>(this)->initialize(&lnpsi0_[0]);
   for (int k=0; k<knChains; ++k)
     updateList_[k] = true;
-  static_cast<DerivedWFSampler*>(this)->accept_next_state(updateList_);
+  static_cast<DerivedParallelSampler<FloatType>*>(this)->accept_next_state(updateList_);
   // MCMC sampling for warming up
   this->do_mcmc_steps(nMCSteps);
 }
 
-template <typename DerivedWFSampler, typename FloatType>
-void BaseParallelVMC<DerivedWFSampler, FloatType>::do_mcmc_steps(const int nMCSteps)
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+void BaseParallelSampler<DerivedParallelSampler, FloatType>::do_mcmc_steps(const int nMCSteps)
 {
   // Markov chain MonteCarlo(MCMC) sampling with nskip iterations
   for (int n=0; n<(nMCSteps*knMCUnitSteps); ++n)
   {
-    static_cast<DerivedWFSampler*>(this)->sampling(&lnpsi1_[0]);
+    static_cast<DerivedParallelSampler<FloatType>*>(this)->sampling(&lnpsi1_[0]);
     #pragma omp parallel for
     for (int k=0; k<knChains; ++k)
       ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
@@ -53,26 +53,26 @@ void BaseParallelVMC<DerivedWFSampler, FloatType>::do_mcmc_steps(const int nMCSt
       else
         updateList_[k] = false;
     }
-    static_cast<DerivedWFSampler*>(this)->accept_next_state(updateList_);
+    static_cast<DerivedParallelSampler<FloatType>*>(this)->accept_next_state(updateList_);
   }
 }
 
-template <typename DerivedWFSampler, typename FloatType>
-void BaseParallelVMC<DerivedWFSampler, FloatType>::get_htilda(std::complex<FloatType> * htilda)
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+void BaseParallelSampler<DerivedParallelSampler, FloatType>::get_htilda(std::complex<FloatType> * htilda)
 {
-  static_cast<DerivedWFSampler*>(this)->get_htilda(htilda);
+  static_cast<DerivedParallelSampler<FloatType>*>(this)->get_htilda(htilda);
 }
 
-template <typename DerivedWFSampler, typename FloatType>
-void BaseParallelVMC<DerivedWFSampler, FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+void BaseParallelSampler<DerivedParallelSampler, FloatType>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  static_cast<DerivedWFSampler*>(this)->get_lnpsiGradients(lnpsiGradients);
+  static_cast<DerivedParallelSampler<FloatType>*>(this)->get_lnpsiGradients(lnpsiGradients);
 }
 
-template <typename DerivedWFSampler, typename FloatType>
-void BaseParallelVMC<DerivedWFSampler, FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+void BaseParallelSampler<DerivedParallelSampler, FloatType>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
-  static_cast<DerivedWFSampler*>(this)->evolve(trueGradients, learningRate);
+  static_cast<DerivedParallelSampler<FloatType>*>(this)->evolve(trueGradients, learningRate);
 }
 
 

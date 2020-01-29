@@ -15,11 +15,11 @@
  *  - ratio = norm(ln(\psi(x1))-ln(\psi(x0)))
  *   where x1 is a candidate of the next state and x0 is a current state.
  */
-template <typename DerivedWFSampler, typename FloatType>
-class BaseParallelVMC
+template <template<typename> class DerivedParallelSampler, typename FloatType>
+class BaseParallelSampler
 {
 public:
-  BaseParallelVMC(const int nSites, const int nChains,
+  BaseParallelSampler(const int nSites, const int nChains,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
@@ -43,8 +43,8 @@ class StochasticReconfiguration
 {
 public:
   StochasticReconfiguration(const int nChains, const int nVariables);
-  template <typename WFSampler>
-  void propagate(BaseParallelVMC<WFSampler, FloatType> & sampler,
+  template <template<typename> class Sampler>
+  void propagate(BaseParallelSampler<Sampler, FloatType> & sampler,
     const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
   {
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
