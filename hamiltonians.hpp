@@ -10,15 +10,16 @@ using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi1_;\
 using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi0_;
 
 
+template <typename FloatType = int>
 class OneWayLinkedIndex
 {
 public:
-  void set_item(const int & item) { item_ = item; }
+  void set_item(const FloatType & item) { item_ = item; }
   void set_nextptr(OneWayLinkedIndex * nextPtr) { nextPtr_ = nextPtr; }
   OneWayLinkedIndex * next_ptr() const { return nextPtr_; }
-  int get_item() { return item_; }
+  FloatType get_item() { return item_; }
 private:
-  int item_;
+  FloatType item_;
   OneWayLinkedIndex * nextPtr_;
 };
 
@@ -39,8 +40,8 @@ private:
   void accept_next_state(const std::vector<bool> & updateList);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
   ComplexRBM<FloatType> & machine_;
-  std::vector<OneWayLinkedIndex> list_;
-  OneWayLinkedIndex * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  OneWayLinkedIndex<> * idxptr_;
   const FloatType kh, kJ, kzero, ktwo;
   std::vector<std::complex<FloatType> > diag_;
   std::vector<int> leftIdx_, rightIdx_;
@@ -63,8 +64,8 @@ private:
   void accept_next_state(const std::vector<bool> & updateList);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
   ComplexRBM<FloatType> & machine_;
-  std::vector<OneWayLinkedIndex> list_;
-  OneWayLinkedIndex * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  OneWayLinkedIndex<> * idxptr_;
   const int L_;
   const FloatType kh, kJ, kzero, ktwo;
   std::vector<std::complex<FloatType> > diag_;
