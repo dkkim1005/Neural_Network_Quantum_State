@@ -111,7 +111,7 @@ void SVD<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> 
 }
 
 
-/*== implementation of minresqlp class ==*/
+/*== implementation of MINRESQLP class ==*/
 template <typename FloatType>
 MINRESQLP<FloatType>::MINRESQLP(const int n):
   kn(n) {}
