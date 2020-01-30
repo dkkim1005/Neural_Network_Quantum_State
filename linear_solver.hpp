@@ -27,7 +27,7 @@ template <typename FloatType>
 class SVD
 {
 public:
-  SVD(const int n);
+  explicit SVD(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
   const int km, kn, knlvl;
@@ -40,7 +40,7 @@ template <typename FloatType>
 class MINRESQLP
 {
 public:
-  MINRESQLP(const int n);
+  explicit MINRESQLP(const int n);
   void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
 private:
   class HermitianOP_: public minresqlp::BaseInterface<HermitianOP_, IMAG<FloatType> >

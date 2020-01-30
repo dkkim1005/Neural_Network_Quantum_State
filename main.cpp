@@ -1,8 +1,6 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
-#include "ComplexRBM.hpp"
 #include "hamiltonians.hpp"
-#include "optimization.hpp"
 #include "argparse.hpp"
 #include <chrono>
 

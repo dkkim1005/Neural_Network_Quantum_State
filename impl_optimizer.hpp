@@ -95,7 +95,7 @@ StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(co
   linSolver_(nVariables) {}
 
 template <typename FloatType, template<typename> class LinearSolver>
-FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular()
+FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular_()
 {
   bp_ *= kb;
   const FloatType lambda = klambda0*bp_;

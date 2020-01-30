@@ -62,7 +62,7 @@ public:
       // S_ij += (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_kj)/knChains
       blas::herk(knVariables, knChains, koneOverNchains, &lnpsiGradients_[0], kone, &S_[0]);
       // aOO^{reg}_ij = S_ij + lambda*\delta_ij*S_ij
-      const FloatType lambda = this->schedular();
+      const FloatType lambda = this->schedular_();
       for (int i=0; i<knVariables; ++i)
         S_[i*knVariables+i] = (1+lambda)*S_[i*knVariables+i];
       // F_i = -(\frac{1}{knChains}\sum_k std::conj(htilda_k))*aO_i
@@ -89,7 +89,7 @@ public:
     }
   }
 private:
-  FloatType schedular();
+  FloatType schedular_();
   std::vector<std::complex<FloatType> > htilda_, lnpsiGradients_;
   std::vector<std::complex<FloatType> > S_, aO_, F_;
   const std::vector<std::complex<FloatType> > kones;
@@ -101,4 +101,4 @@ private:
   LinearSolver<FloatType> linSolver_;
 };
 
-#include "impl_optimization.hpp"
+#include "impl_optimizer.hpp"
