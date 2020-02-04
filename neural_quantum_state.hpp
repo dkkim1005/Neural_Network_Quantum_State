@@ -51,4 +51,4 @@ private:
   int index_;
 };
 
-#include "impl_ComplexRBM.hpp"
+#include "impl_neural_quantum_state.hpp"

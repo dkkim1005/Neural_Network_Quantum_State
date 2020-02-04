@@ -3,7 +3,7 @@
 #pragma once
 
 #include "optimizer.hpp"
-#include "ComplexRBM.hpp"
+#include "neural_quantum_state.hpp"
 #define USING_OF_BASE_PARALLEL_SAMPLER(DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE)\
 friend BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>;\
 using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi1_;\
