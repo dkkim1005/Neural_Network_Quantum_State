@@ -63,16 +63,16 @@ namespace blas
     const scomplex *A, const scomplex *X, const scomplex beta, scomplex *y)
   {
     const char trans = 'N';
-	  const int inc = 1;
-	  cgemv_(&trans, &m, &n, &alpha, A, &m, X, &inc, &beta, y, &inc);
+    const int inc = 1;
+    cgemv_(&trans, &m, &n, &alpha, A, &m, X, &inc, &beta, y, &inc);
   }
 
   inline void gemv(const int m, const int n, const dcomplex alpha,
     const dcomplex *A, const dcomplex *X, const dcomplex beta, dcomplex *y)
   {
     const char trans = 'N';
-	  const int inc = 1;
-	  zgemv_(&trans, &m, &n, &alpha, A, &m, X, &inc, &beta, y, &inc);
+    const int inc = 1;
+    zgemv_(&trans, &m, &n, &alpha, A, &m, X, &inc, &beta, y, &inc);
   }
 
 
@@ -81,8 +81,8 @@ namespace blas
     const scomplex * A, const scomplex * B, scomplex * C)
   {
     const char trans = 'N';
-	  const int lda = m, ldb = k, ldc = m;
-	  cgemm_(&trans, &trans, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+    const int lda = m, ldb = k, ldc = m;
+    cgemm_(&trans, &trans, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
   }
 
   inline void gemm(const int m, const int n, const int k,
@@ -90,8 +90,8 @@ namespace blas
     const dcomplex * A, const dcomplex * B, dcomplex * C)
   {
     const char trans = 'N';
-	  const int lda = m, ldb = k, ldc = m;
-	  zgemm_(&trans, &trans, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+    const int lda = m, ldb = k, ldc = m;
+    zgemm_(&trans, &trans, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
   }
 
 
@@ -99,14 +99,14 @@ namespace blas
     const scomplex * x, const scomplex * y, scomplex * z)
   {
     const int inc = 1;
-	  cgeru_(&m, &n, &alpha, x, &inc, y, &inc, z, &m);
+    cgeru_(&m, &n, &alpha, x, &inc, y, &inc, z, &m);
   }
 
   inline void ger(const int m, const int n, const dcomplex & alpha,
     const dcomplex * x, const dcomplex * y, dcomplex * z)
   {
     const int inc = 1;
-	  zgeru_(&m, &n, &alpha, x, &inc, y, &inc, z, &m);
+    zgeru_(&m, &n, &alpha, x, &inc, y, &inc, z, &m);
   }
 
 
