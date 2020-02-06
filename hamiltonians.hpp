@@ -2,13 +2,8 @@
 
 #pragma once
 
-#include "optimizer.hpp"
+#include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
-#define USING_OF_BASE_PARALLEL_SAMPLER(DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE)\
-friend BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>;\
-using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi1_;\
-using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, FLOAT_TYPE>::lnpsi0_;
-
 
 template <typename FloatType = int>
 class OneWayLinkedIndex

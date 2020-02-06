@@ -1,8 +1,9 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
-#include "hamiltonians.hpp"
-#include "argparse.hpp"
 #include <chrono>
+#include "hamiltonians.hpp"
+#include "optimizer.hpp"
+#include "argparse.hpp"
 
 int main(int argc, char* argv[])
 {

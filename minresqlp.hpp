@@ -28,10 +28,10 @@
 
   * Date:
     ver 1.0 / 27 april 2018
-     - first realise
+     - first release
     ver 1.1 / 16 january 2020
-     - CRTP design is applied to BaseInterface class.
-     - extend supports of float type of BaseInterface class
+     - BaseInterface class with CRTP design
+     - extending supports of float type of BaseInterface class
 
   Searching for detailed descriptions, see http://web.stanford.edu/group/SOL/software/minresqlp/
 */
