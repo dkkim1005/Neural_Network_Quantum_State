@@ -22,14 +22,16 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
+  options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("J", "-1.0"));
   defaults.push_back(pair_t("lr", "1e-2"));
-  defaults.push_back(pair_t("path", "./"));
+  defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));
+  defaults.push_back(pair_t("ifprefix", "None"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
@@ -48,11 +50,11 @@ int main(int argc, char* argv[])
   const std::string path = parser.find<>("path") + "/",
                     nvstr = std::to_string(nInputs),
                     nhstr = std::to_string(nHiddens),
-                    vestr = std::to_string(version);
+                    vestr = std::to_string(version),
+                    ifprefix = parser.find<>("ifprefix");
   std::string hfstr = std::to_string(h);
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
-  const std::string prefix = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   // print info of the registered args
   parser.print(std::cout);
 
@@ -62,9 +64,10 @@ int main(int argc, char* argv[])
   ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
-  machine.load(RBMDataType::W, prefix + "Dw.dat");
-  machine.load(RBMDataType::V, prefix + "Da.dat");
-  machine.load(RBMDataType::H, prefix + "Db.dat");
+  const std::string prefix0 = path + ifprefix;
+  machine.load(RBMDataType::W, prefix0 + "Dw.dat");
+  machine.load(RBMDataType::V, prefix0 + "Da.dat");
+  machine.load(RBMDataType::H, prefix0 + "Db.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -85,9 +88,10 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters: w,a,b
-  machine.save(RBMDataType::W, prefix + "Dw.dat");
-  machine.save(RBMDataType::V, prefix + "Da.dat");
-  machine.save(RBMDataType::H, prefix + "Db.dat");
+  const std::string prefix1 = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  machine.save(RBMDataType::W, prefix1 + "Dw.dat");
+  machine.save(RBMDataType::V, prefix1 + "Da.dat");
+  machine.save(RBMDataType::H, prefix1 + "Db.dat");
 
   return 0;
 }

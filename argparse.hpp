@@ -163,3 +163,12 @@ public:
 private:
   std::vector<std::string> options_, args_;
 };
+
+template <typename FloatType>
+FloatType parsing_filename(const std::string & pfile, const std::string & info)
+{
+  const size_t pos = pfile.find(info);
+  const FloatType ninfo = static_cast<FloatType>(std::atof(pfile.substr(pos+info.size(), pfile.size()-pos-info.size()).c_str()));
+  std::cout << "# " << info << " : " << std::setw(5) << ninfo << "   (parsing " << pfile << ")" << std::endl << std::flush;
+  return ninfo;
+}

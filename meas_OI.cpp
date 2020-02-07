@@ -8,16 +8,6 @@
 #include "measurements.hpp"
 #include "argparse.hpp"
 
-// parsing the filename to extract information of the RBM
-template <typename FloatType>
-FloatType parsing_filename(const std::string & pfile, const std::string & info)
-{
-  const size_t pos = pfile.find(info);
-  const FloatType ninfo = static_cast<FloatType>(std::atof(pfile.substr(pos+info.size(), pfile.size()-pos-info.size()).c_str()));
-  std::cout << "# " << info << " : " << std::setw(5) << ninfo << "   (parsing " << pfile << ")" << std::endl << std::flush;
-  return ninfo;
-}
-
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
