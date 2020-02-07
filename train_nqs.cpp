@@ -64,7 +64,8 @@ int main(int argc, char* argv[])
   ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix0 = path + ifprefix;
+  const std::string prefix = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(RBMDataType::W, prefix0 + "Dw.dat");
   machine.load(RBMDataType::V, prefix0 + "Da.dat");
   machine.load(RBMDataType::H, prefix0 + "Db.dat");
@@ -88,10 +89,9 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters: w,a,b
-  const std::string prefix1 = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
-  machine.save(RBMDataType::W, prefix1 + "Dw.dat");
-  machine.save(RBMDataType::V, prefix1 + "Da.dat");
-  machine.save(RBMDataType::H, prefix1 + "Db.dat");
+  machine.save(RBMDataType::W, prefix + "Dw.dat");
+  machine.save(RBMDataType::V, prefix + "Da.dat");
+  machine.save(RBMDataType::H, prefix + "Db.dat");
 
   return 0;
 }
