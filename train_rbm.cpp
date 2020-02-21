@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nMonteCarloSteps)*
                                 static_cast<unsigned long>(nInputs);
   // Transverse Field Ising Hamiltonian with 1D chain system
-  TFIChain<double> rbmWrapper(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzProperties<Ansatz::RBM, double> > rbmWrapper(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   rbmWrapper.warm_up(nWarmup);

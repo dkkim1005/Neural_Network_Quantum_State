@@ -62,10 +62,11 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs1);
 
   // measurements of the overlap integral for the given wave functions
-  auto measPtr = std::make_unique<MeasOverlapIntegral<double> >(m1, m2, nBlocks, seed);
+  using ansatz_properties = AnsatzeProperties<Ansatz::RBM, Ansatz::RBM, double>;
+  auto measPtr = std::make_unique<MeasOverlapIntegral<ansatz_properties> >(m1, m2, nBlocks, seed);
   const auto res1 = measPtr->get_overlapIntegral(ntrials, nWarmup, nMonteCarloSteps);
   std::cout << "# C_12*<\\psi_1|\\psi_2> : " << res1 << std::endl;
-  measPtr.reset(new MeasOverlapIntegral<double>(m2, m1, nBlocks, seed));
+  measPtr.reset(new MeasOverlapIntegral<ansatz_properties>(m2, m1, nBlocks, seed));
   const auto res2 = measPtr->get_overlapIntegral(ntrials, nMonteCarloSteps);
   std::cout << "# C_21*<\\psi_2|\\psi_1> : " << res2 << std::endl;
   std::cout << "# |<\\psi_1|\\psi_2>|^2 : " << (res1*res2).real() << std::endl;

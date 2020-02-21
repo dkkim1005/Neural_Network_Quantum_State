@@ -5,6 +5,19 @@
 #include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
 
+// List up all variational wave functions here...
+enum class Ansatz {RBM, FNN};
+template <Ansatz T, typename Property> struct AnsatzType_ {};
+template <typename FloatType> struct AnsatzType_<Ansatz::RBM, FloatType> { using Name = ComplexRBM<FloatType>; };
+template <typename FloatType> struct AnsatzType_<Ansatz::FNN, FloatType> { using Name = ComplexFNN<FloatType>; };
+//
+template <Ansatz T, typename Property>
+struct AnsatzProperties
+{
+  using AnsatzType = typename AnsatzType_<T, Property>::Name;
+  using FloatType = Property;
+};
+
 template <typename FloatType = int>
 class OneWayLinkedIndex
 {
@@ -20,50 +33,54 @@ private:
 
 
 // transverse field Ising model of the 1D chain
-template <typename FloatType>
-class TFIChain: public BaseParallelSampler<TFIChain, FloatType>
+template <typename Properties>
+class TFIChain: public BaseParallelSampler<TFIChain, Properties>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, FloatType)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, Properties)
 public:
-  TFIChain(ComplexRBM<FloatType> & machine, const FloatType h, const FloatType J,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  TFIChain(typename Properties::AnsatzType & machine, const typename Properties::FloatType h,
+    const typename Properties::FloatType J, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<FloatType> * lnpsi);
-  void sampling(std::complex<FloatType> * lnpsi);
+  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
+  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
-  ComplexRBM<FloatType> & machine_;
+  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
+    const typename Properties::FloatType learningRate);
+  typename Properties::AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  const typename Properties::FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<typename Properties::FloatType> > diag_;
   std::vector<int> leftIdx_, rightIdx_;
 };
 
 
 // transverse field Ising model of the triangular lattice
-template <typename FloatType>
-class TFITRI: public BaseParallelSampler<TFITRI, FloatType>
+template <typename Properties>
+class TFITRI: public BaseParallelSampler<TFITRI, Properties>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, FloatType)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, Properties)
 public:
-  TFITRI(ComplexRBM<FloatType> & machine, const int L, const FloatType h, const FloatType J,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  TFITRI(typename Properties::AnsatzType & machine, const int L, const typename Properties::FloatType h,
+    const typename Properties::FloatType J, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<FloatType> * lnpsi);
-  void sampling(std::complex<FloatType> * lnpsi);
+  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
+  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
-  ComplexRBM<FloatType> & machine_;
+  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
+    const typename Properties::FloatType learningRate);
+  typename Properties::AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
   const int L_;
-  const FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  const typename Properties::FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<typename Properties::FloatType> > diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
 };
 

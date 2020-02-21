@@ -14,8 +14,8 @@ class StochasticReconfiguration
 {
 public:
   StochasticReconfiguration(const int nChains, const int nVariables);
-  template <template<typename> class Sampler>
-  void propagate(BaseParallelSampler<Sampler, FloatType> & sampler,
+  template <template<typename> class Sampler, typename Properties>
+  void propagate(BaseParallelSampler<Sampler, Properties> & sampler,
     const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
   {
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);

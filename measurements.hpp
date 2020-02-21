@@ -8,31 +8,40 @@
 #include "neural_quantum_state.hpp"
 #include "hamiltonians.hpp"
 
-// calculating <\psi_1|\psi_2> with MCMC sampling
-template <typename FloatType>
-class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, FloatType>
+template <Ansatz T1, Ansatz T2, typename Property>
+struct AnsatzeProperties
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, FloatType)
+  using AnsatzType1 = typename AnsatzType_<T1, Property>::Name;
+  using AnsatzType2 = typename AnsatzType_<T2, Property>::Name;
+  using FloatType = Property;
+};
+
+// calculating <\psi_1|\psi_2> with MCMC sampling
+template <typename Properties>
+class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, Properties>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, Properties)
 public:
-  MeasOverlapIntegral(ComplexRBM<FloatType> & m1, ComplexRBM<FloatType> & m2,
+  MeasOverlapIntegral(typename Properties::AnsatzType1 & m1, typename Properties::AnsatzType2 & m2,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  const std::complex<FloatType> get_overlapIntegral(const int nTrials, const int nwarms,
+  const std::complex<typename Properties::FloatType> get_overlapIntegral(const int nTrials, const int nwarms,
     const int nMCSteps = 1, const bool printStatics = false);
 private:
-  void initialize(std::complex<FloatType> * lnpsi);
-  void sampling(std::complex<FloatType> * lnpsi);
+  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
+  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  ComplexRBM<FloatType> & m1_, & m2_;
-  std::vector<std::complex<FloatType> > lnpsi2_;
+  typename Properties::AnsatzType1 & m1_;
+  typename Properties::AnsatzType2 & m2_;
+  std::vector<std::complex<typename Properties::FloatType> > lnpsi2_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
 };
 
 
-template <typename FloatType>
-MeasOverlapIntegral<FloatType>::MeasOverlapIntegral(ComplexRBM<FloatType> & m1, ComplexRBM<FloatType> & m2,
-  const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<MeasOverlapIntegral, FloatType>(m1.get_nInputs(), m1.get_nChains(), seedDistance, seedNumber),
+template <typename Properties>
+MeasOverlapIntegral<Properties>::MeasOverlapIntegral(typename Properties::AnsatzType1 & m1,
+  typename Properties::AnsatzType2 & m2, const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<MeasOverlapIntegral, Properties>(m1.get_nInputs(), m1.get_nChains(), seedDistance, seedNumber),
   m1_(m1),
   m2_(m2),
   lnpsi2_(m1.get_nChains()),
@@ -68,12 +77,12 @@ MeasOverlapIntegral<FloatType>::MeasOverlapIntegral(ComplexRBM<FloatType> & m1, 
   idxptr_ = &list_[0];
 }
 
-template <typename FloatType>
-const std::complex<FloatType> MeasOverlapIntegral<FloatType>::get_overlapIntegral(const int nTrials,
+template <typename Properties>
+const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Properties>::get_overlapIntegral(const int nTrials,
   const int nwarms, const int nMCSteps, const bool printStatics)
 {
   std::cout << "# Now we are in warming up..." << std::endl << std::flush;
-  std::vector<std::complex<FloatType> > ovl(nTrials);
+  std::vector<std::complex<typename Properties::FloatType> > ovl(nTrials);
   this->warm_up(100);
   std::cout << "# Measuring overlap integrals... " << std::flush;
   for (int n=0; n<nTrials; ++n)
@@ -83,42 +92,42 @@ const std::complex<FloatType> MeasOverlapIntegral<FloatType>::get_overlapIntegra
     m2_.initialize(&lnpsi2_[0], m1_.get_spinStates());
     for (int i=0; i<lnpsi2_.size(); ++i)
       ovl[n] += std::exp(lnpsi2_[i]-lnpsi0_[i]);
-    ovl[n] /= static_cast<FloatType>(lnpsi2_.size());
+    ovl[n] /= static_cast<typename Properties::FloatType>(lnpsi2_.size());
   }
   std::cout << "done." << std::endl;
-  const std::complex<FloatType> ovlavg = std::accumulate(ovl.begin(), ovl.end(),
-    std::complex<FloatType>(0,0))/static_cast<FloatType>(nTrials);
+  const std::complex<typename Properties::FloatType> ovlavg = std::accumulate(ovl.begin(), ovl.end(),
+    std::complex<typename Properties::FloatType>(0,0))/static_cast<typename Properties::FloatType>(nTrials);
   if (printStatics)
   {
-    FloatType realVar = 0, imagVar = 0;
+    typename Properties::FloatType realVar = 0, imagVar = 0;
     for (int n=0; n<nTrials; ++n)
     {
       realVar += std::pow(ovl[n].real()-ovlavg.real(), 2);
       imagVar += std::pow(ovl[n].imag()-ovlavg.imag(), 2);
     }
-    realVar = std::sqrt(realVar/static_cast<FloatType>(nTrials-1));
-    imagVar = std::sqrt(imagVar/static_cast<FloatType>(nTrials-1));
+    realVar = std::sqrt(realVar/static_cast<typename Properties::FloatType>(nTrials-1));
+    imagVar = std::sqrt(imagVar/static_cast<typename Properties::FloatType>(nTrials-1));
     std::cout << "# real part: " << ovlavg.real() << " +/- " << realVar << std::endl
               << "# imag part: " << ovlavg.imag() << " +/- " << imagVar << std::endl;
   }
   return ovlavg;
 }
 
-template <typename FloatType>
-void MeasOverlapIntegral<FloatType>::initialize(std::complex<FloatType> * lnpsi)
+template <typename Properties>
+void MeasOverlapIntegral<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
 {
   m1_.initialize(lnpsi);
 }
 
-template <typename FloatType>
-void MeasOverlapIntegral<FloatType>::sampling(std::complex<FloatType> * lnpsi)
+template <typename Properties>
+void MeasOverlapIntegral<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   m1_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename FloatType>
-void MeasOverlapIntegral<FloatType>::accept_next_state(const std::vector<bool> & updateList)
+template <typename Properties>
+void MeasOverlapIntegral<Properties>::accept_next_state(const std::vector<bool> & updateList)
 {
   m1_.spin_flip(updateList);
 }

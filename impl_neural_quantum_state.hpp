@@ -221,3 +221,194 @@ void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
     }
   }
 }
+
+
+template <typename FloatType>
+ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const int nChains):
+  knInputs(nInputs),
+  knHiddens(nHiddens),
+  knChains(nChains),
+  kzero(std::complex<FloatType>(0.0, 0.0)),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  ktwo(std::complex<FloatType>(2.0, 0.0)),
+  koneChains(nChains, std::complex<FloatType>(1.0, 0.0)),
+  variables_(nInputs*nHiddens + 2*nHiddens),
+  lnpsiGradients_(nChains*(nInputs*nHiddens + 2*nHiddens)),
+  spinStates_(nInputs*nChains),
+  y_(nHiddens*nChains),
+  acty_(nHiddens*nChains),
+  index_(0)
+{
+  unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937_64 ran(seed);
+  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
+                                   randb1(0, std::sqrt(1.0/nHiddens)),
+                                   randw1o(0, std::sqrt(1.0/nHiddens));
+  wi1_ = &variables_[0];
+  b1_ = &variables_[nInputs*nHiddens];
+  w1o_ = &variables_[nInputs*nHiddens + nHiddens];
+  d_dwi1_ = &lnpsiGradients_[0];
+  d_db1_ = &lnpsiGradients_[nInputs*nHiddens];
+  d_dw1o_ = &lnpsiGradients_[nInputs*nHiddens + nHiddens];
+  for (int i=0; i<nInputs*nHiddens; ++i)
+    wi1_[i] = std::complex<FloatType>(randwi1(ran), randwi1(ran));
+  for (int j=0; j<nHiddens; ++j)
+    b1_[j] = std::complex<FloatType>(randb1(ran), randb1(ran));
+  for (int j=0; j<nHiddens; ++j)
+    w1o_[j] = std::complex<FloatType>(randw1o(ran), randw1o(ran));
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate)
+{
+  for (int i=0; i<variables_.size(); ++i)
+    variables_[i] = variables_[i] - learningRate*derivativeLoss[i];
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(knHiddens, knChains, kone, b1_, &koneChains[0], &y_[0]);
+  blas::gemm(knHiddens, knChains, knInputs, kone, kone, wi1_, &spinStates_[0], &y_[0]);
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates)
+{
+  if (spinStates == NULL)
+  {
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = 1.0;
+  }
+  else
+  {
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = spinStates[i];
+  }
+  // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(knHiddens, knChains, kone, b1_, &koneChains[0], &y_[0]);
+  blas::gemm(knHiddens, knChains, knInputs, kone, kone, wi1_, &spinStates_[0], &y_[0]);
+  // acty_kj = ln(cosh(y_kj))
+  #pragma omp parallel for
+  for (int j=0; j<y_.size(); ++j)
+    acty_[j] = std::log(std::cosh(y_[j]));
+  // lnpsi_k = \sum_j acty_kj w1o_j
+  blas::gemm(1, knChains, knHiddens, kone, kzero, w1o_, &acty_[0], lnpsi);
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi)
+{
+  index_ = spinFlipIndex;
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+    for (int j=0; j<knHiddens; ++j)
+      acty_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-ktwo*wi1_[index_*knHiddens+j]*spinStates_[k*knInputs+index_]));
+  // lnpsi_k = \sum_j acty_kj w1o_j
+  blas::gemm(1, knChains, knHiddens, kone, kzero, w1o_, &acty_[0], lnpsi);
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
+{
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    for (int j=0; j<knHiddens; ++j)
+      d_dw1o_[kvsize+j] = std::log(std::cosh(y_[khsize+j]));
+    for (int j=0; j<knHiddens; ++j)
+    {
+      const std::complex<FloatType> tany_j = std::tanh(y_[khsize+j]);
+      for (int i=0; i<knInputs; ++i)
+        d_dwi1_[kvsize+i*knHiddens+j] = tany_j*spinStates_[kisize+i]*w1o_[j];
+      d_db1_[kvsize+j] = tany_j*w1o_[j];
+    }
+  }
+  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*knChains);
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string filePath)
+{
+  // read rawdata from the text file located at 'filePath'
+  std::vector<std::complex<FloatType>> rawdata;
+  std::ifstream reader(filePath);
+  if (reader.is_open())
+  {
+    std::complex<FloatType> temp;
+    while (reader >> temp)
+      rawdata.push_back(temp);
+    reader.close();
+  }
+  else
+  {
+    std::cout << "# --- file-path: " << filePath << " is not exist..." << std::endl;
+    return;
+  }
+  // insert rawdata into 'variables_'
+  if (typeInfo == FNNDataType::W1)
+  {
+    if (rawdata.size() == knInputs*knHiddens)
+      for (int i=0; i<rawdata.size(); ++i)
+        wi1_[i] = rawdata[i];
+    else
+      std::cout << " check 'w1' size... " << std::endl;
+  }
+  else if (typeInfo == FNNDataType::W2)
+  {
+    if (rawdata.size() == knHiddens)
+      for (int i=0; i<rawdata.size(); ++i)
+        w1o_[i] = rawdata[i];
+    else
+      std::cout << " check 'w2' size... " << std::endl;
+  }
+  else if (typeInfo == FNNDataType::B1)
+  {
+    if (rawdata.size() == knHiddens)
+      for (int i=0; i<rawdata.size(); ++i)
+        b1_[i] = rawdata[i];
+    else
+      std::cout << " check 'b1' size... " << std::endl;
+  }
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string filePath,
+  const int precision) const
+{
+  std::ofstream writer(filePath);
+  writer << std::setprecision(precision);
+  if (typeInfo == FNNDataType::W1)
+  {
+    for (int i=0; i<knInputs; ++i)
+    {
+      for (int j=0; j<knHiddens; ++j)
+        writer << wi1_[i*knHiddens+j] << " ";
+      writer << std::endl;
+    }
+  }
+  else if (typeInfo == FNNDataType::W2)
+  {
+    for (int j=0; j<knHiddens; ++j)
+      writer << w1o_[j] << " ";
+    writer << std::endl;
+  }
+  else if (typeInfo == FNNDataType::B1)
+    for (int j=0; j<knHiddens; ++j)
+      writer << b1_[j] << " ";
+  writer.close();
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
+{
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    if (doSpinFlip[k])
+    {
+      for (int j=0; j<knHiddens; ++j)
+        y_[k*knHiddens+j] -= ktwo*wi1_[index_*knHiddens+j]*spinStates_[k*knInputs+index_];
+      spinStates_[k*knInputs+index_] *= -1;
+    }
+  }
+}
