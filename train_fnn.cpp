@@ -76,14 +76,14 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  TFIChain<AnsatzProperties<Ansatz::FNN, double> > rbmWrapper(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzProperties<Ansatz::FNN, double> > sampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
-  rbmWrapper.warm_up(nWarmup);
+  sampler.warm_up(nWarmup);
 
   // imaginary time propagator
   StochasticReconfiguration<double, linearsolver::MINRESQLP> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(rbmWrapper, nIterations, nMonteCarloSteps, lr);
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = end-start;
