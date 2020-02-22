@@ -76,7 +76,7 @@ void BKF<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> 
   // solve linear eq Ax = B for x
   lapack::sysv(&uplo, &kn, A, &ipiv_[0], B, &work[0], &lwork, &info);
   if (info)
-    throw std::runtime_error(" @Error! No solutions for the linear eq(A*x = B). ");
+    throw std::runtime_error("No solutions for the linear eq(A*x = B).");
 }
 
 
@@ -107,7 +107,7 @@ void SVD<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> 
   // solve the linear least square: min_x |Ax-B|_2
   lapack::gelsd(km, kn, A, B, &S_[0], rcond, &rank, &work[0], lwork, &rwork_[0], &iwork_[0], &info);
   if (info)
-    throw std::runtime_error(" @Error! computing SVD failed to converge...");
+    throw std::runtime_error("Computing SVD failed to converge...");
 }
 
 
