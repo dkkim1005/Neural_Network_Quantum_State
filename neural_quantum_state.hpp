@@ -9,10 +9,7 @@
 #include <cstring>
 #include <iomanip>
 #include "blas_lapack.hpp"
-
-template <typename FloatType> struct FloatTypeTrait_ {};
-template <> struct FloatTypeTrait_<float> { static constexpr int precision = 8; };
-template <> struct FloatTypeTrait_<double> { static constexpr int precision = 15; };
+#include "common.hpp"
 
 /*
  * W : weight matrix

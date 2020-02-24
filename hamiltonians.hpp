@@ -4,33 +4,7 @@
 
 #include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
-
-// List up all variational wave functions here...
-enum class Ansatz {RBM, FNN};
-template <Ansatz T, typename Property> struct AnsatzType_ {};
-template <typename FloatType> struct AnsatzType_<Ansatz::RBM, FloatType> { using Name = ComplexRBM<FloatType>; };
-template <typename FloatType> struct AnsatzType_<Ansatz::FNN, FloatType> { using Name = ComplexFNN<FloatType>; };
-//
-template <Ansatz T, typename Property>
-struct AnsatzProperties
-{
-  using AnsatzType = typename AnsatzType_<T, Property>::Name;
-  using FloatType = Property;
-};
-
-template <typename FloatType = int>
-class OneWayLinkedIndex
-{
-public:
-  void set_item(const FloatType & item) { item_ = item; }
-  void set_nextptr(OneWayLinkedIndex * nextPtr) { nextPtr_ = nextPtr; }
-  OneWayLinkedIndex * next_ptr() const { return nextPtr_; }
-  FloatType get_item() { return item_; }
-private:
-  FloatType item_;
-  OneWayLinkedIndex * nextPtr_;
-};
-
+#include "common.hpp"
 
 // transverse field Ising model of the 1D chain
 template <typename Properties>
