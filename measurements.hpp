@@ -4,17 +4,10 @@
 
 #include <exception>
 #include <numeric>
+#include <functional>
 #include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
-#include "hamiltonians.hpp"
-
-template <Ansatz T1, Ansatz T2, typename Property>
-struct AnsatzeProperties
-{
-  using AnsatzType1 = typename AnsatzType_<T1, Property>::Name;
-  using AnsatzType2 = typename AnsatzType_<T2, Property>::Name;
-  using FloatType = Property;
-};
+#include "common.hpp"
 
 // calculating <\psi_1|\psi_2> with MCMC sampling
 template <typename Properties>
@@ -58,22 +51,12 @@ MeasOverlapIntegral<Properties>::MeasOverlapIntegral(typename Properties::Ansatz
   {
     throw std::length_error(errorMessage);
   }
-  // (checker board update) list_ : 1,3,5,...,2,4,6,...
   const int nSites = m1_.get_nInputs();
   for (int i=0; i<nSites; i++)
     list_[i].set_item(i);
-  int idx = 0;
-  for (int i=2; i<nSites; i+=2)
-  {
-    list_[idx].set_nextptr(&list_[i]);
-    idx = i;
-  }
-  for (int i=1; i<nSites; i+=2)
-  {
-    list_[idx].set_nextptr(&list_[i]);
-    idx = i;
-  }
-  list_[idx].set_nextptr(&list_[0]);
+  for (int i=0; i<nSites-1; i++)
+    list_[i].set_nextptr(&list_[i+1]);
+  list_[nSites-1].set_nextptr(&list_[0]);
   idxptr_ = &list_[0];
 }
 
@@ -130,4 +113,105 @@ template <typename Properties>
 void MeasOverlapIntegral<Properties>::accept_next_state(const std::vector<bool> & updateList)
 {
   m1_.spin_flip(updateList);
+}
+
+
+template <typename FloatType>
+struct magnetization { FloatType m1, m2, m4; };
+
+
+template <typename Properties>
+class MeasSpontaneousMagnetization : public BaseParallelSampler<MeasSpontaneousMagnetization, Properties>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, Properties)
+public:
+  MeasSpontaneousMagnetization(typename Properties::AnsatzType & machine,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void meas(const int nTrials, const int nwarms, const int nMCSteps,
+    magnetization<typename Properties::FloatType> & outputs);
+private:
+  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
+  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  typename Properties::AnsatzType & machine_;
+  const std::complex<typename Properties::FloatType> * spinStates_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  OneWayLinkedIndex<> * idxptr_;
+  const int knInputs, knChains;
+  const typename Properties::FloatType kzero;
+};
+
+template <typename Properties>
+MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(typename Properties::AnsatzType & machine,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<MeasSpontaneousMagnetization, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  knInputs(machine.get_nInputs()),
+  knChains(machine.get_nChains()),
+  kzero(static_cast<typename Properties::FloatType>(0.0))
+{
+  for (int i=0; i<knInputs; i++)
+    list_[i].set_item(i);
+  for (int i=0; i<knInputs-1; i++)
+    list_[i].set_nextptr(&list_[i+1]);
+  list_[knInputs-1].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+}
+
+template <typename Properties>
+void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials,
+  const int nwarms, const int nMCSteps, magnetization<typename Properties::FloatType> & outputs)
+{
+  std::cout << "# Now we are in warming up...(" << nwarms << ")" << std::endl << std::flush;
+  this->warm_up(nwarms);
+  std::cout << "# # of total measurements:" << nTrials*knChains << std::endl << std::flush;
+  const auto Lambda2Sum = [](typename Properties::FloatType & a,
+    typename Properties::FloatType & b)->typename Properties::FloatType {return a+(b*b);};
+  const auto Lambda4Sum = [](typename Properties::FloatType & a,
+    typename Properties::FloatType & b)->typename Properties::FloatType {return a+(b*b*b*b);};
+  std::vector<typename Properties::FloatType> m1arr(nTrials, kzero), m2arr(nTrials, kzero),
+    m4arr(nTrials, kzero), mtemp(knChains, kzero);
+  const typename Properties::FloatType invNinputs = 1/static_cast<typename Properties::FloatType>(knInputs);
+  const typename Properties::FloatType invNchains = 1/static_cast<typename Properties::FloatType>(knChains);
+  const typename Properties::FloatType invNtrials = 1/static_cast<typename Properties::FloatType>(nTrials);
+  for (int n=0; n<nTrials; ++n)
+  {
+    std::cout << "# " << (n+1) << " / " << nTrials << std::endl << std::flush;
+    this->do_mcmc_steps(nMCSteps);
+    spinStates_ = machine_.get_spinStates();
+    std::fill(mtemp.begin(), mtemp.end(), kzero);
+    #pragma omp parallel for
+    for (int k=0; k<knChains; ++k)
+    {
+      for (int i=0; i<knInputs; ++i)
+        mtemp[k] += spinStates_[k*knInputs+i].real();
+      mtemp[k] = std::abs(mtemp[k])*invNinputs;
+    }
+    m1arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero)*invNchains;
+    m2arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero, Lambda2Sum)*invNchains;
+    m4arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero, Lambda4Sum)*invNchains;
+  }
+  outputs.m1 = std::accumulate(m1arr.begin(), m1arr.end(), kzero)*invNtrials;
+  outputs.m2 = std::accumulate(m2arr.begin(), m2arr.end(), kzero)*invNtrials;
+  outputs.m4 = std::accumulate(m4arr.begin(), m4arr.end(), kzero)*invNtrials;
+}
+
+template <typename Properties>
+void MeasSpontaneousMagnetization<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+{
+  machine_.initialize(lnpsi);
+}
+
+template <typename Properties>
+void MeasSpontaneousMagnetization<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi);
+}
+
+template <typename Properties>
+void MeasSpontaneousMagnetization<Properties>::accept_next_state(const std::vector<bool> & updateList)
+{
+  machine_.spin_flip(updateList);
 }
