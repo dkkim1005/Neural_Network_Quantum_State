@@ -3,9 +3,8 @@
 #pragma once
 
 template <typename Properties>
-TFIChain<Properties>::TFIChain(typename Properties::AnsatzType & machine,
-  const typename Properties::FloatType h, const typename Properties::FloatType J,
-  const unsigned long seedDistance, const unsigned long seedNumber):
+TFIChain<Properties>::TFIChain(AnsatzType & machine, const FloatType h,
+  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelSampler<TFIChain, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
@@ -43,10 +42,10 @@ TFIChain<Properties>::TFIChain(typename Properties::AnsatzType & machine,
 }
 
 template <typename Properties>
-void TFIChain<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+void TFIChain<Properties>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   // diag_ = \sum_i spin_i*spin_{i+1}
   for (int k=0; k<nChains; ++k)
@@ -59,7 +58,7 @@ void TFIChain<Properties>::initialize(std::complex<typename Properties::FloatTyp
 }
 
 template <typename Properties>
-void TFIChain<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+void TFIChain<Properties>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
@@ -69,7 +68,7 @@ template <typename Properties>
 void TFIChain<Properties>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   for (int k=0; k<nChains; ++k)
   {
@@ -80,7 +79,7 @@ void TFIChain<Properties>::accept_next_state(const std::vector<bool> & updateLis
 }
 
 template <typename Properties>
-void TFIChain<Properties>::get_htilda(std::complex<typename Properties::FloatType> * htilda)
+void TFIChain<Properties>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -99,21 +98,21 @@ void TFIChain<Properties>::get_htilda(std::complex<typename Properties::FloatTyp
 }
 
 template <typename Properties>
-void TFIChain<Properties>::get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients)
+void TFIChain<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
 template <typename Properties>
-void TFIChain<Properties>::evolve(const std::complex<typename Properties::FloatType> * trueGradients, const typename Properties::FloatType learningRate)
+void TFIChain<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
 
 
 template <typename Properties>
-TFISQ<Properties>::TFISQ(typename Properties::AnsatzType & machine, const int L,
-  const typename Properties::FloatType h, const typename Properties::FloatType J,
+TFISQ<Properties>::TFISQ(AnsatzType & machine, const int L,
+  const FloatType h, const FloatType J,
   const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelSampler<TFISQ, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   L_(L),
@@ -169,10 +168,10 @@ TFISQ<Properties>::TFISQ(typename Properties::AnsatzType & machine, const int L,
 }
 
 template <typename Properties>
-void TFISQ<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+void TFISQ<Properties>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   // diag_ = \sum_i spin_i*spin_{i+1}
   for (int k=0; k<nChains; ++k)
@@ -191,7 +190,7 @@ void TFISQ<Properties>::initialize(std::complex<typename Properties::FloatType> 
 }
 
 template <typename Properties>
-void TFISQ<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+void TFISQ<Properties>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
@@ -201,7 +200,7 @@ template <typename Properties>
 void TFISQ<Properties>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   for (int k=0; k<nChains; ++k)
   {
@@ -216,7 +215,7 @@ void TFISQ<Properties>::accept_next_state(const std::vector<bool> & updateList)
 }
 
 template <typename Properties>
-void TFISQ<Properties>::get_htilda(std::complex<typename Properties::FloatType> * htilda)
+void TFISQ<Properties>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -235,21 +234,21 @@ void TFISQ<Properties>::get_htilda(std::complex<typename Properties::FloatType> 
 }
 
 template <typename Properties>
-void TFISQ<Properties>::get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients)
+void TFISQ<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
 template <typename Properties>
-void TFISQ<Properties>::evolve(const std::complex<typename Properties::FloatType> * trueGradients, const typename Properties::FloatType learningRate)
+void TFISQ<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
 
 
 template <typename Properties>
-TFITRI<Properties>::TFITRI(typename Properties::AnsatzType & machine, const int L,
-  const typename Properties::FloatType h, const typename Properties::FloatType J,
+TFITRI<Properties>::TFITRI(AnsatzType & machine, const int L,
+  const FloatType h, const FloatType J,
   const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelSampler<TFITRI, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   L_(L),
@@ -354,10 +353,10 @@ TFITRI<Properties>::TFITRI(typename Properties::AnsatzType & machine, const int 
 }
 
 template <typename Properties>
-void TFITRI<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+void TFITRI<Properties>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   // diag_ = \sum_i spin_i*spin_{i+1}
   for (int k=0; k<nChains; ++k)
@@ -377,7 +376,7 @@ void TFITRI<Properties>::initialize(std::complex<typename Properties::FloatType>
 }
 
 template <typename Properties>
-void TFITRI<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+void TFITRI<Properties>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
@@ -387,7 +386,7 @@ template <typename Properties>
 void TFITRI<Properties>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
-  const std::complex<typename Properties::FloatType> * spinPtr = machine_.get_spinStates();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   for (int k=0; k<nChains; ++k)
   {
@@ -404,7 +403,7 @@ void TFITRI<Properties>::accept_next_state(const std::vector<bool> & updateList)
 }
 
 template <typename Properties>
-void TFITRI<Properties>::get_htilda(std::complex<typename Properties::FloatType> * htilda)
+void TFITRI<Properties>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -423,13 +422,13 @@ void TFITRI<Properties>::get_htilda(std::complex<typename Properties::FloatType>
 }
 
 template <typename Properties>
-void TFITRI<Properties>::get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients)
+void TFITRI<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
 template <typename Properties>
-void TFITRI<Properties>::evolve(const std::complex<typename Properties::FloatType> * trueGradients, const typename Properties::FloatType learningRate)
+void TFITRI<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }

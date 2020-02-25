@@ -14,27 +14,31 @@ template <typename Properties>
 class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, Properties>
 {
   USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, Properties)
+  using AnsatzType1 = typename Properties::AnsatzType1;
+  using AnsatzType2 = typename Properties::AnsatzType2;
+  using FloatType = typename Properties::FloatType;
 public:
-  MeasOverlapIntegral(typename Properties::AnsatzType1 & m1, typename Properties::AnsatzType2 & m2,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  const std::complex<typename Properties::FloatType> get_overlapIntegral(const int nTrials, const int nwarms,
+  MeasOverlapIntegral(AnsatzType1 & m1, AnsatzType2 & m2, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  const std::complex<FloatType> get_overlapIntegral(const int nTrials, const int nwarms,
     const int nMCSteps = 1, const bool printStatics = false);
 private:
-  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
-  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  typename Properties::AnsatzType1 & m1_;
-  typename Properties::AnsatzType2 & m2_;
-  std::vector<std::complex<typename Properties::FloatType> > lnpsi2_;
+  AnsatzType1 & m1_;
+  AnsatzType2 & m2_;
+  std::vector<std::complex<FloatType> > lnpsi2_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
 };
 
 
 template <typename Properties>
-MeasOverlapIntegral<Properties>::MeasOverlapIntegral(typename Properties::AnsatzType1 & m1,
-  typename Properties::AnsatzType2 & m2, const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<MeasOverlapIntegral, Properties>(m1.get_nInputs(), m1.get_nChains(), seedDistance, seedNumber),
+MeasOverlapIntegral<Properties>::MeasOverlapIntegral(AnsatzType1 & m1, AnsatzType2 & m2,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<MeasOverlapIntegral, Properties>(m1.get_nInputs(), m1.get_nChains(),
+    seedDistance, seedNumber),
   m1_(m1),
   m2_(m2),
   lnpsi2_(m1.get_nChains()),
@@ -65,7 +69,7 @@ const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Propertie
   const int nwarms, const int nMCSteps, const bool printStatics)
 {
   std::cout << "# Now we are in warming up..." << std::endl << std::flush;
-  std::vector<std::complex<typename Properties::FloatType> > ovl(nTrials);
+  std::vector<std::complex<FloatType> > ovl(nTrials);
   this->warm_up(100);
   std::cout << "# Measuring overlap integrals... " << std::flush;
   for (int n=0; n<nTrials; ++n)
@@ -75,21 +79,21 @@ const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Propertie
     m2_.initialize(&lnpsi2_[0], m1_.get_spinStates());
     for (int i=0; i<lnpsi2_.size(); ++i)
       ovl[n] += std::exp(lnpsi2_[i]-lnpsi0_[i]);
-    ovl[n] /= static_cast<typename Properties::FloatType>(lnpsi2_.size());
+    ovl[n] /= static_cast<FloatType>(lnpsi2_.size());
   }
   std::cout << "done." << std::endl;
-  const std::complex<typename Properties::FloatType> ovlavg = std::accumulate(ovl.begin(), ovl.end(),
-    std::complex<typename Properties::FloatType>(0,0))/static_cast<typename Properties::FloatType>(nTrials);
+  const std::complex<FloatType> ovlavg = std::accumulate(ovl.begin(), ovl.end(),
+    std::complex<FloatType>(0,0))/static_cast<FloatType>(nTrials);
   if (printStatics)
   {
-    typename Properties::FloatType realVar = 0, imagVar = 0;
+    FloatType realVar = 0, imagVar = 0;
     for (int n=0; n<nTrials; ++n)
     {
       realVar += std::pow(ovl[n].real()-ovlavg.real(), 2);
       imagVar += std::pow(ovl[n].imag()-ovlavg.imag(), 2);
     }
-    realVar = std::sqrt(realVar/static_cast<typename Properties::FloatType>(nTrials-1));
-    imagVar = std::sqrt(imagVar/static_cast<typename Properties::FloatType>(nTrials-1));
+    realVar = std::sqrt(realVar/static_cast<FloatType>(nTrials-1));
+    imagVar = std::sqrt(imagVar/static_cast<FloatType>(nTrials-1));
     std::cout << "# real part: " << ovlavg.real() << " +/- " << realVar << std::endl
               << "# imag part: " << ovlavg.imag() << " +/- " << imagVar << std::endl;
   }
@@ -97,13 +101,13 @@ const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Propertie
 }
 
 template <typename Properties>
-void MeasOverlapIntegral<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+void MeasOverlapIntegral<Properties>::initialize(std::complex<FloatType> * lnpsi)
 {
   m1_.initialize(lnpsi);
 }
 
 template <typename Properties>
-void MeasOverlapIntegral<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+void MeasOverlapIntegral<Properties>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   m1_.forward(idxptr_->get_item(), lnpsi);
@@ -124,32 +128,34 @@ template <typename Properties>
 class MeasSpontaneousMagnetization : public BaseParallelSampler<MeasSpontaneousMagnetization, Properties>
 {
   USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, Properties)
+  using AnsatzType = typename Properties::AnsatzType;
+  using FloatType = typename Properties::FloatType;
 public:
-  MeasSpontaneousMagnetization(typename Properties::AnsatzType & machine,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void meas(const int nTrials, const int nwarms, const int nMCSteps,
-    magnetization<typename Properties::FloatType> & outputs);
+  MeasSpontaneousMagnetization(AnsatzType & machine, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  void meas(const int nTrials, const int nwarms, const int nMCSteps, magnetization<FloatType> & outputs);
 private:
-  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
-  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  typename Properties::AnsatzType & machine_;
-  const std::complex<typename Properties::FloatType> * spinStates_;
+  AnsatzType & machine_;
+  const std::complex<FloatType> * spinStates_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
   const int knInputs, knChains;
-  const typename Properties::FloatType kzero;
+  const FloatType kzero;
 };
 
 template <typename Properties>
-MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(typename Properties::AnsatzType & machine,
+MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(AnsatzType & machine,
   const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<MeasSpontaneousMagnetization, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelSampler<MeasSpontaneousMagnetization, Properties>(machine.get_nInputs(),
+    machine.get_nChains(), seedDistance, seedNumber),
   machine_(machine),
   list_(machine.get_nInputs()),
   knInputs(machine.get_nInputs()),
   knChains(machine.get_nChains()),
-  kzero(static_cast<typename Properties::FloatType>(0.0))
+  kzero(static_cast<FloatType>(0.0))
 {
   for (int i=0; i<knInputs; i++)
     list_[i].set_item(i);
@@ -160,21 +166,21 @@ MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(typename 
 }
 
 template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials,
-  const int nwarms, const int nMCSteps, magnetization<typename Properties::FloatType> & outputs)
+void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials, const int nwarms,
+  const int nMCSteps, magnetization<FloatType> & outputs)
 {
   std::cout << "# Now we are in warming up...(" << nwarms << ")" << std::endl << std::flush;
   this->warm_up(nwarms);
   std::cout << "# # of total measurements:" << nTrials*knChains << std::endl << std::flush;
-  const auto Lambda2Sum = [](typename Properties::FloatType & a,
-    typename Properties::FloatType & b)->typename Properties::FloatType {return a+(b*b);};
-  const auto Lambda4Sum = [](typename Properties::FloatType & a,
-    typename Properties::FloatType & b)->typename Properties::FloatType {return a+(b*b*b*b);};
-  std::vector<typename Properties::FloatType> m1arr(nTrials, kzero), m2arr(nTrials, kzero),
+  const auto Lambda2Sum = [](FloatType & a,
+    FloatType & b)->FloatType {return a+(b*b);};
+  const auto Lambda4Sum = [](FloatType & a,
+    FloatType & b)->FloatType {return a+(b*b*b*b);};
+  std::vector<FloatType> m1arr(nTrials, kzero), m2arr(nTrials, kzero),
     m4arr(nTrials, kzero), mtemp(knChains, kzero);
-  const typename Properties::FloatType invNinputs = 1/static_cast<typename Properties::FloatType>(knInputs);
-  const typename Properties::FloatType invNchains = 1/static_cast<typename Properties::FloatType>(knChains);
-  const typename Properties::FloatType invNtrials = 1/static_cast<typename Properties::FloatType>(nTrials);
+  const FloatType invNinputs = 1/static_cast<FloatType>(knInputs);
+  const FloatType invNchains = 1/static_cast<FloatType>(knChains);
+  const FloatType invNtrials = 1/static_cast<FloatType>(nTrials);
   for (int n=0; n<nTrials; ++n)
   {
     std::cout << "# " << (n+1) << " / " << nTrials << std::endl << std::flush;
@@ -198,13 +204,13 @@ void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials,
 }
 
 template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::initialize(std::complex<typename Properties::FloatType> * lnpsi)
+void MeasSpontaneousMagnetization<Properties>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
 }
 
 template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::sampling(std::complex<typename Properties::FloatType> * lnpsi)
+void MeasSpontaneousMagnetization<Properties>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);

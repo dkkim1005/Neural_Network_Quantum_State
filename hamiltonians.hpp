@@ -11,23 +11,24 @@ template <typename Properties>
 class TFIChain: public BaseParallelSampler<TFIChain, Properties>
 {
   USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, Properties)
+  using AnsatzType = typename Properties::AnsatzType;
+  using FloatType = typename Properties::FloatType;
 public:
-  TFIChain(typename Properties::AnsatzType & machine, const typename Properties::FloatType h,
-    const typename Properties::FloatType J, const unsigned long seedDistance,
+  TFIChain(AnsatzType & machine, const FloatType h, const FloatType J, const unsigned long seedDistance,
     const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
-  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
-    const typename Properties::FloatType learningRate);
-  typename Properties::AnsatzType & machine_;
+  void evolve(const std::complex<FloatType> * trueGradients,
+    const FloatType learningRate);
+  AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const typename Properties::FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<typename Properties::FloatType> > diag_;
+  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<FloatType> > diag_;
   std::vector<int> leftIdx_, rightIdx_;
 };
 
@@ -36,24 +37,25 @@ template <typename Properties>
 class TFISQ: public BaseParallelSampler<TFISQ, Properties>
 {
   USING_OF_BASE_PARALLEL_SAMPLER(TFISQ, Properties)
+  using AnsatzType = typename Properties::AnsatzType;
+  using FloatType = typename Properties::FloatType;
 public:
-  TFISQ(typename Properties::AnsatzType & machine, const int L,
-    const typename Properties::FloatType h, const typename Properties::FloatType J,
+  TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
-  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
-    const typename Properties::FloatType learningRate);
-  typename Properties::AnsatzType & machine_;
+  void evolve(const std::complex<FloatType> * trueGradients,
+    const FloatType learningRate);
+  AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
   const int L_;
-  const typename Properties::FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<typename Properties::FloatType> > diag_;
+  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<FloatType> > diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_;
 };
 
@@ -62,24 +64,25 @@ template <typename Properties>
 class TFITRI: public BaseParallelSampler<TFITRI, Properties>
 {
   USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, Properties)
+  using AnsatzType = typename Properties::AnsatzType;
+  using FloatType = typename Properties::FloatType;
 public:
-  TFITRI(typename Properties::AnsatzType & machine, const int L,
-    const typename Properties::FloatType h, const typename Properties::FloatType J,
+  TFITRI(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
-  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
 private:
-  void initialize(std::complex<typename Properties::FloatType> * lnpsi);
-  void sampling(std::complex<typename Properties::FloatType> * lnpsi);
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
-    const typename Properties::FloatType learningRate);
-  typename Properties::AnsatzType & machine_;
+  void evolve(const std::complex<FloatType> * trueGradients,
+    const FloatType learningRate);
+  AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
   const int L_;
-  const typename Properties::FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<typename Properties::FloatType> > diag_;
+  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<std::complex<FloatType> > diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
 };
 
