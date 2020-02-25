@@ -16,24 +16,25 @@
 template <template<typename> class DerivedParallelSampler, typename Properties>
 class BaseParallelSampler
 {
+  using FloatType = typename Properties::FloatType;
 public:
   BaseParallelSampler(const int nSites, const int nChains,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
-  void get_htilda(std::complex<typename Properties::FloatType> * htilda);
-  void get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   int get_nChains() const { return knChains; }
-  void evolve(const std::complex<typename Properties::FloatType> * trueGradients,
-    const typename Properties::FloatType learningRate);
+  void evolve(const std::complex<FloatType> * trueGradients,
+    const FloatType learningRate);
 private:
   const int knMCUnitSteps, knChains;
   std::vector<bool> updateList_;
-  std::vector<typename Properties::FloatType> ratio_;
+  std::vector<FloatType> ratio_;
   std::vector<trng::yarn5> randDev_;
-  trng::uniform01_dist<typename Properties::FloatType> randUniform_;
+  std::vector<trng::uniform01_dist<FloatType> > randUniform_;
 protected:
-  std::vector<std::complex<typename Properties::FloatType> > lnpsi1_, lnpsi0_;
+  std::vector<std::complex<FloatType> > lnpsi1_, lnpsi0_;
 };
 
 // macro expression to be used at derived classes

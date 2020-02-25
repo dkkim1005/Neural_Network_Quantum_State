@@ -3,15 +3,16 @@
 #pragma once
 
 template <template<typename> class DerivedParallelSampler, typename Properties>
-BaseParallelSampler<DerivedParallelSampler, Properties>::BaseParallelSampler(const int nMCUnitSteps, const int nChains,
-  const unsigned long seedDistance, const unsigned long seedNumber):
+BaseParallelSampler<DerivedParallelSampler, Properties>::BaseParallelSampler(const int nMCUnitSteps,
+  const int nChains, const unsigned long seedDistance, const unsigned long seedNumber):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
   updateList_(nChains),
   lnpsi0_(nChains),
   lnpsi1_(nChains),
   ratio_(nChains),
-  randDev_(nChains)
+  randDev_(nChains),
+  randUniform_(nChains)
 {
   // block splitting scheme for parallel Monte-Carlo
   for (int k=0; k<knChains; ++k)
@@ -42,35 +43,29 @@ void BaseParallelSampler<DerivedParallelSampler, Properties>::do_mcmc_steps(cons
     static_cast<DerivedParallelSampler<Properties>*>(this)->sampling(&lnpsi1_[0]);
     #pragma omp parallel for
     for (int k=0; k<knChains; ++k)
-      ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
-    for (int k=0; k<knChains; ++k)
     {
-      if (randUniform_(randDev_[k])<ratio_[k])
-      {
-        updateList_[k] = true;
-        lnpsi0_[k] = lnpsi1_[k];
-      }
-      else
-        updateList_[k] = false;
+      ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
+      updateList_[k] = (randUniform_[k](randDev_[k]))<ratio_[k];
+      lnpsi0_[k] = updateList_[k] ? lnpsi1_[k] : lnpsi0_[k];
     }
     static_cast<DerivedParallelSampler<Properties>*>(this)->accept_next_state(updateList_);
   }
 }
 
 template <template<typename> class DerivedParallelSampler, typename Properties>
-void BaseParallelSampler<DerivedParallelSampler, Properties>::get_htilda(std::complex<typename Properties::FloatType> * htilda)
+void BaseParallelSampler<DerivedParallelSampler, Properties>::get_htilda(std::complex<FloatType> * htilda)
 {
   static_cast<DerivedParallelSampler<Properties>*>(this)->get_htilda(htilda);
 }
 
 template <template<typename> class DerivedParallelSampler, typename Properties>
-void BaseParallelSampler<DerivedParallelSampler, Properties>::get_lnpsiGradients(std::complex<typename Properties::FloatType> * lnpsiGradients)
+void BaseParallelSampler<DerivedParallelSampler, Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   static_cast<DerivedParallelSampler<Properties>*>(this)->get_lnpsiGradients(lnpsiGradients);
 }
 
 template <template<typename> class DerivedParallelSampler, typename Properties>
-void BaseParallelSampler<DerivedParallelSampler, Properties>::evolve(const std::complex<typename Properties::FloatType> * trueGradients, const typename Properties::FloatType learningRate)
+void BaseParallelSampler<DerivedParallelSampler, Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   static_cast<DerivedParallelSampler<Properties>*>(this)->evolve(trueGradients, learningRate);
 }
