@@ -46,15 +46,15 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  ComplexRBM<double> m1(nInputs1, nHiddens1, nChains), m2(nInputs2, nHiddens2, nChains);
+  spinhalfsystem::ComplexRBM<double> m1(nInputs1, nHiddens1, nChains), m2(nInputs2, nHiddens2, nChains);
 
   // load parameters: w,a,b
-  m1.load(RBMDataType::W, pfile1 + "Dw.dat");
-  m1.load(RBMDataType::V, pfile1 + "Da.dat");
-  m1.load(RBMDataType::H, pfile1 + "Db.dat");
-  m2.load(RBMDataType::W, pfile2 + "Dw.dat");
-  m2.load(RBMDataType::V, pfile2 + "Da.dat");
-  m2.load(RBMDataType::H, pfile2 + "Db.dat");
+  m1.load(spinhalfsystem::RBMDataType::W, pfile1 + "Dw.dat");
+  m1.load(spinhalfsystem::RBMDataType::V, pfile1 + "Da.dat");
+  m1.load(spinhalfsystem::RBMDataType::H, pfile1 + "Db.dat");
+  m2.load(spinhalfsystem::RBMDataType::W, pfile2 + "Dw.dat");
+  m2.load(spinhalfsystem::RBMDataType::V, pfile2 + "Da.dat");
+  m2.load(spinhalfsystem::RBMDataType::H, pfile2 + "Db.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(ntrials)*
@@ -62,11 +62,11 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs1);
 
   // measurements of the overlap integral for the given wave functions
-  using ansatz_properties = AnsatzeProperties<Ansatz::RBM, Ansatz::RBM, double>;
-  auto measPtr = std::make_unique<MeasOverlapIntegral<ansatz_properties> >(m1, m2, nBlocks, seed);
+  using ansatz_traits = AnsatzeTraits<Ansatz::RBM_SH, Ansatz::RBM_SH, double>;
+  auto measPtr = std::make_unique<MeasOverlapIntegral<ansatz_traits> >(m1, m2, nBlocks, seed);
   const auto res1 = measPtr->get_overlapIntegral(ntrials, nWarmup, nMonteCarloSteps);
   std::cout << "# C_12*<\\psi_1|\\psi_2> : " << res1 << std::endl;
-  measPtr.reset(new MeasOverlapIntegral<ansatz_properties>(m2, m1, nBlocks, seed));
+  measPtr.reset(new MeasOverlapIntegral<ansatz_traits>(m2, m1, nBlocks, seed));
   const auto res2 = measPtr->get_overlapIntegral(ntrials, nMonteCarloSteps);
   std::cout << "# C_21*<\\psi_2|\\psi_1> : " << res2 << std::endl;
   std::cout << "# |<\\psi_1|\\psi_2>|^2 : " << (res1*res2).real() << std::endl;

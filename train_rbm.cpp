@@ -61,21 +61,21 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  ComplexRBM<double> machine(nInputs, nHiddens, nChains);
+  spinhalfsystem::ComplexRBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
   const std::string prefix = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(RBMDataType::W, prefix0 + "Dw.dat");
-  machine.load(RBMDataType::V, prefix0 + "Da.dat");
-  machine.load(RBMDataType::H, prefix0 + "Db.dat");
+  machine.load(spinhalfsystem::RBMDataType::W, prefix0 + "Dw.dat");
+  machine.load(spinhalfsystem::RBMDataType::V, prefix0 + "Da.dat");
+  machine.load(spinhalfsystem::RBMDataType::H, prefix0 + "Db.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
                                 static_cast<unsigned long>(nMonteCarloSteps)*
                                 static_cast<unsigned long>(nInputs);
   // Transverse Field Ising Hamiltonian with 1D chain system
-  TFIChain<AnsatzProperties<Ansatz::RBM, double> > rbmWrapper(machine, h, J, nBlocks, seed);
+  spinhalfsystem::TFIChain<AnsatzTraits<Ansatz::RBM_SH, double> > rbmWrapper(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   rbmWrapper.warm_up(nWarmup);
@@ -89,9 +89,9 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters: w,a,b
-  machine.save(RBMDataType::W, prefix + "Dw.dat");
-  machine.save(RBMDataType::V, prefix + "Da.dat");
-  machine.save(RBMDataType::H, prefix + "Db.dat");
+  machine.save(spinhalfsystem::RBMDataType::W, prefix + "Dw.dat");
+  machine.save(spinhalfsystem::RBMDataType::V, prefix + "Da.dat");
+  machine.save(spinhalfsystem::RBMDataType::H, prefix + "Db.dat");
 
   return 0;
 }

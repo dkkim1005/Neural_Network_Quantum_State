@@ -61,14 +61,14 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  spinhalfsystem::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
   const std::string prefix = path + "Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(FNNDataType::W1, prefix0 + "Dw1.dat");
-  machine.load(FNNDataType::W2, prefix0 + "Dw2.dat");
-  machine.load(FNNDataType::B1, prefix0 + "Db1.dat");
+  machine.load(spinhalfsystem::FNNDataType::W1, prefix0 + "Dw1.dat");
+  machine.load(spinhalfsystem::FNNDataType::W2, prefix0 + "Dw2.dat");
+  machine.load(spinhalfsystem::FNNDataType::B1, prefix0 + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  TFIChain<AnsatzProperties<Ansatz::FNN, double> > sampler(machine, h, J, nBlocks, seed);
+  spinhalfsystem::TFIChain<AnsatzTraits<Ansatz::FNN_SH, double> > sampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   sampler.warm_up(nWarmup);
@@ -90,9 +90,9 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters
-  machine.save(FNNDataType::W1, prefix + "Dw1.dat");
-  machine.save(FNNDataType::W2, prefix + "Dw2.dat");
-  machine.save(FNNDataType::B1, prefix + "Db1.dat");
+  machine.save(spinhalfsystem::FNNDataType::W1, prefix + "Dw1.dat");
+  machine.save(spinhalfsystem::FNNDataType::W2, prefix + "Dw2.dat");
+  machine.save(spinhalfsystem::FNNDataType::B1, prefix + "Db1.dat");
 
   return 0;
 }

@@ -11,6 +11,8 @@
 #include "blas_lapack.hpp"
 #include "common.hpp"
 
+namespace spinhalfsystem
+{
 /*
  * W : weight matrix
  * V : vector for visible units
@@ -85,5 +87,5 @@ private:
   std::complex<FloatType> * wi1_, * w1o_, * b1_, * d_dwi1_, * d_dw1o_, * d_db1_;
   int index_;
 };
-
+} // namespace spinhalfsystem
 #include "impl_neural_quantum_state.hpp"

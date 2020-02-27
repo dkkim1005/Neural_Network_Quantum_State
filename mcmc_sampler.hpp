@@ -13,10 +13,10 @@
  *  - ratio = norm(ln(\psi(x1))-ln(\psi(x0)))
  *   where x1 is a candidate of the next state and x0 is a current state.
  */
-template <template<typename> class DerivedParallelSampler, typename Properties>
+template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 class BaseParallelSampler
 {
-  using FloatType = typename Properties::FloatType;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   BaseParallelSampler(const int nSites, const int nChains,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);

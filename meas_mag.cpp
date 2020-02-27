@@ -57,12 +57,12 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  spinhalfsystem::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
-  machine.load(FNNDataType::W1, path + "/" + prefix + "Dw1.dat");
-  machine.load(FNNDataType::W2, path + "/" + prefix + "Dw2.dat");
-  machine.load(FNNDataType::B1, path + "/" + prefix + "Db1.dat");
+  machine.load(spinhalfsystem::FNNDataType::W1, path + "/" + prefix + "Dw1.dat");
+  machine.load(spinhalfsystem::FNNDataType::W2, path + "/" + prefix + "Dw2.dat");
+  machine.load(spinhalfsystem::FNNDataType::B1, path + "/" + prefix + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nTrials)*
@@ -70,8 +70,9 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs);
 
   // measurements of the spontaneous magnetization with the given wave functions
-  magnetization<double> outputs;
-  MeasSpontaneousMagnetization<AnsatzProperties<Ansatz::FNN, double> > sampler(machine, nBlocks, seed);
+  spinhalfsystem::magnetization<double> outputs;
+  spinhalfsystem::MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FNN_SH, double> >
+    sampler(machine, nBlocks, seed);
   sampler.meas(nTrials, nWarmup, nMonteCarloSteps, outputs);
 
   std::cout << "# measurements outputs:" << std::endl

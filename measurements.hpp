@@ -10,13 +10,13 @@
 #include "common.hpp"
 
 // calculating <\psi_1|\psi_2> with MCMC sampling
-template <typename Properties>
-class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, Properties>
+template <typename TraitsClass>
+class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, Properties)
-  using AnsatzType1 = typename Properties::AnsatzType1;
-  using AnsatzType2 = typename Properties::AnsatzType2;
-  using FloatType = typename Properties::FloatType;
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, TraitsClass)
+  using AnsatzType1 = typename TraitsClass::AnsatzType1;
+  using AnsatzType2 = typename TraitsClass::AnsatzType2;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   MeasOverlapIntegral(AnsatzType1 & m1, AnsatzType2 & m2, const unsigned long seedDistance,
     const unsigned long seedNumber = 0);
@@ -34,10 +34,10 @@ private:
 };
 
 
-template <typename Properties>
-MeasOverlapIntegral<Properties>::MeasOverlapIntegral(AnsatzType1 & m1, AnsatzType2 & m2,
+template <typename TraitsClass>
+MeasOverlapIntegral<TraitsClass>::MeasOverlapIntegral(AnsatzType1 & m1, AnsatzType2 & m2,
   const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<MeasOverlapIntegral, Properties>(m1.get_nInputs(), m1.get_nChains(),
+  BaseParallelSampler<MeasOverlapIntegral, TraitsClass>(m1.get_nInputs(), m1.get_nChains(),
     seedDistance, seedNumber),
   m1_(m1),
   m2_(m2),
@@ -64,8 +64,8 @@ MeasOverlapIntegral<Properties>::MeasOverlapIntegral(AnsatzType1 & m1, AnsatzTyp
   idxptr_ = &list_[0];
 }
 
-template <typename Properties>
-const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Properties>::get_overlapIntegral(const int nTrials,
+template <typename TraitsClass>
+const std::complex<typename TraitsClass::FloatType> MeasOverlapIntegral<TraitsClass>::get_overlapIntegral(const int nTrials,
   const int nwarms, const int nMCSteps, const bool printStatics)
 {
   std::cout << "# Now we are in warming up..." << std::endl << std::flush;
@@ -100,36 +100,38 @@ const std::complex<typename Properties::FloatType> MeasOverlapIntegral<Propertie
   return ovlavg;
 }
 
-template <typename Properties>
-void MeasOverlapIntegral<Properties>::initialize(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void MeasOverlapIntegral<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
 {
   m1_.initialize(lnpsi);
 }
 
-template <typename Properties>
-void MeasOverlapIntegral<Properties>::sampling(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void MeasOverlapIntegral<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   m1_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename Properties>
-void MeasOverlapIntegral<Properties>::accept_next_state(const std::vector<bool> & updateList)
+template <typename TraitsClass>
+void MeasOverlapIntegral<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   m1_.spin_flip(updateList);
 }
 
 
+namespace spinhalfsystem
+{
 template <typename FloatType>
 struct magnetization { FloatType m1, m2, m4; };
 
 
-template <typename Properties>
-class MeasSpontaneousMagnetization : public BaseParallelSampler<MeasSpontaneousMagnetization, Properties>
+template <typename TraitsClass>
+class MeasSpontaneousMagnetization : public BaseParallelSampler<MeasSpontaneousMagnetization, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, Properties)
-  using AnsatzType = typename Properties::AnsatzType;
-  using FloatType = typename Properties::FloatType;
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   MeasSpontaneousMagnetization(AnsatzType & machine, const unsigned long seedDistance,
     const unsigned long seedNumber = 0);
@@ -146,10 +148,10 @@ private:
   const FloatType kzero;
 };
 
-template <typename Properties>
-MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(AnsatzType & machine,
+template <typename TraitsClass>
+MeasSpontaneousMagnetization<TraitsClass>::MeasSpontaneousMagnetization(AnsatzType & machine,
   const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<MeasSpontaneousMagnetization, Properties>(machine.get_nInputs(),
+  BaseParallelSampler<MeasSpontaneousMagnetization, TraitsClass>(machine.get_nInputs(),
     machine.get_nChains(), seedDistance, seedNumber),
   machine_(machine),
   list_(machine.get_nInputs()),
@@ -165,8 +167,8 @@ MeasSpontaneousMagnetization<Properties>::MeasSpontaneousMagnetization(AnsatzTyp
   idxptr_ = &list_[0];
 }
 
-template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials, const int nwarms,
+template <typename TraitsClass>
+void MeasSpontaneousMagnetization<TraitsClass>::meas(const int nTrials, const int nwarms,
   const int nMCSteps, magnetization<FloatType> & outputs)
 {
   std::cout << "# Now we are in warming up...(" << nwarms << ")" << std::endl << std::flush;
@@ -203,21 +205,22 @@ void MeasSpontaneousMagnetization<Properties>::meas(const int nTrials, const int
   outputs.m4 = std::accumulate(m4arr.begin(), m4arr.end(), kzero)*invNtrials;
 }
 
-template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::initialize(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void MeasSpontaneousMagnetization<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
 }
 
-template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::sampling(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void MeasSpontaneousMagnetization<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename Properties>
-void MeasSpontaneousMagnetization<Properties>::accept_next_state(const std::vector<bool> & updateList)
+template <typename TraitsClass>
+void MeasSpontaneousMagnetization<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   machine_.spin_flip(updateList);
 }
+} // namespace spinhalfsystem

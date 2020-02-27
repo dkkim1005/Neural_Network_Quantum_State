@@ -2,10 +2,12 @@
 
 #pragma once
 
-template <typename Properties>
-TFIChain<Properties>::TFIChain(AnsatzType & machine, const FloatType h,
+namespace spinhalfsystem
+{
+template <typename TraitsClass>
+TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const FloatType h,
   const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<TFIChain, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelSampler<TFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kh(h),
   kJ(J),
   kzero(0.0),
@@ -41,8 +43,8 @@ TFIChain<Properties>::TFIChain(AnsatzType & machine, const FloatType h,
   }
 }
 
-template <typename Properties>
-void TFIChain<Properties>::initialize(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -57,15 +59,15 @@ void TFIChain<Properties>::initialize(std::complex<FloatType> * lnpsi)
   }
 }
 
-template <typename Properties>
-void TFIChain<Properties>::sampling(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename Properties>
-void TFIChain<Properties>::accept_next_state(const std::vector<bool> & updateList)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -78,8 +80,8 @@ void TFIChain<Properties>::accept_next_state(const std::vector<bool> & updateLis
   machine_.spin_flip(updateList);
 }
 
-template <typename Properties>
-void TFIChain<Properties>::get_htilda(std::complex<FloatType> * htilda)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -97,24 +99,24 @@ void TFIChain<Properties>::get_htilda(std::complex<FloatType> * htilda)
   }
 }
 
-template <typename Properties>
-void TFIChain<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
-template <typename Properties>
-void TFIChain<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
 
 
-template <typename Properties>
-TFISQ<Properties>::TFISQ(AnsatzType & machine, const int L,
+template <typename TraitsClass>
+TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
   const FloatType h, const FloatType J,
   const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<TFISQ, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelSampler<TFISQ, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   L_(L),
   kh(h),
   kJ(J),
@@ -167,8 +169,8 @@ TFISQ<Properties>::TFISQ(AnsatzType & machine, const int L,
   idxptr_ = &list_[0];
 }
 
-template <typename Properties>
-void TFISQ<Properties>::initialize(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -189,15 +191,15 @@ void TFISQ<Properties>::initialize(std::complex<FloatType> * lnpsi)
   }
 }
 
-template <typename Properties>
-void TFISQ<Properties>::sampling(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename Properties>
-void TFISQ<Properties>::accept_next_state(const std::vector<bool> & updateList)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -214,8 +216,8 @@ void TFISQ<Properties>::accept_next_state(const std::vector<bool> & updateList)
   machine_.spin_flip(updateList);
 }
 
-template <typename Properties>
-void TFISQ<Properties>::get_htilda(std::complex<FloatType> * htilda)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -233,24 +235,24 @@ void TFISQ<Properties>::get_htilda(std::complex<FloatType> * htilda)
   }
 }
 
-template <typename Properties>
-void TFISQ<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
-template <typename Properties>
-void TFISQ<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+template <typename TraitsClass>
+void TFISQ<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
 
 
-template <typename Properties>
-TFITRI<Properties>::TFITRI(AnsatzType & machine, const int L,
+template <typename TraitsClass>
+TFITRI<TraitsClass>::TFITRI(AnsatzType & machine, const int L,
   const FloatType h, const FloatType J,
   const unsigned long seedDistance, const unsigned long seedNumber):
-  BaseParallelSampler<TFITRI, Properties>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  BaseParallelSampler<TFITRI, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   L_(L),
   kh(h),
   kJ(J),
@@ -352,8 +354,8 @@ TFITRI<Properties>::TFITRI(AnsatzType & machine, const int L,
   idxptr_ = &list_[0];
 }
 
-template <typename Properties>
-void TFITRI<Properties>::initialize(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
 {
   machine_.initialize(lnpsi);
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -375,15 +377,15 @@ void TFITRI<Properties>::initialize(std::complex<FloatType> * lnpsi)
   }
 }
 
-template <typename Properties>
-void TFITRI<Properties>::sampling(std::complex<FloatType> * lnpsi)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi);
 }
 
-template <typename Properties>
-void TFITRI<Properties>::accept_next_state(const std::vector<bool> & updateList)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   const int idx = idxptr_->get_item();
   const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
@@ -402,8 +404,8 @@ void TFITRI<Properties>::accept_next_state(const std::vector<bool> & updateList)
   machine_.spin_flip(updateList);
 }
 
-template <typename Properties>
-void TFITRI<Properties>::get_htilda(std::complex<FloatType> * htilda)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -421,14 +423,15 @@ void TFITRI<Properties>::get_htilda(std::complex<FloatType> * htilda)
   }
 }
 
-template <typename Properties>
-void TFITRI<Properties>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
   machine_.backward(lnpsiGradients);
 }
 
-template <typename Properties>
-void TFITRI<Properties>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+template <typename TraitsClass>
+void TFITRI<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
+} // namespace spinhalfsystem

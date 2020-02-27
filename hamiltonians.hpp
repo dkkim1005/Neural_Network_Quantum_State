@@ -6,13 +6,15 @@
 #include "neural_quantum_state.hpp"
 #include "common.hpp"
 
-// transverse field Ising model of the 1D chain
-template <typename Properties>
-class TFIChain: public BaseParallelSampler<TFIChain, Properties>
+namespace spinhalfsystem
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, Properties)
-  using AnsatzType = typename Properties::AnsatzType;
-  using FloatType = typename Properties::FloatType;
+// transverse field Ising model of the 1D chain
+template <typename TraitsClass>
+class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   TFIChain(AnsatzType & machine, const FloatType h, const FloatType J, const unsigned long seedDistance,
     const unsigned long seedNumber = 0);
@@ -33,12 +35,12 @@ private:
 };
 
 // transverse field Ising model of the square lattice
-template <typename Properties>
-class TFISQ: public BaseParallelSampler<TFISQ, Properties>
+template <typename TraitsClass>
+class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFISQ, Properties)
-  using AnsatzType = typename Properties::AnsatzType;
-  using FloatType = typename Properties::FloatType;
+  USING_OF_BASE_PARALLEL_SAMPLER(TFISQ, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
@@ -60,12 +62,12 @@ private:
 };
 
 // transverse field Ising model of the triangular lattice
-template <typename Properties>
-class TFITRI: public BaseParallelSampler<TFITRI, Properties>
+template <typename TraitsClass>
+class TFITRI: public BaseParallelSampler<TFITRI, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, Properties)
-  using AnsatzType = typename Properties::AnsatzType;
-  using FloatType = typename Properties::FloatType;
+  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
 public:
   TFITRI(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
@@ -85,5 +87,6 @@ private:
   std::vector<std::complex<FloatType> > diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
 };
+} //  namespace spinhalfsystem
 
 #include "impl_hamiltonians.hpp"

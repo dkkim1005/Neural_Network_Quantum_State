@@ -17,6 +17,8 @@ void print(const FloatType * data, const int m, const int n)
   }
 }
 
+namespace spinhalfsystem
+{
 /*
  1. Index notation
   - i : index for the input layer
@@ -412,3 +414,4 @@ void ComplexFNN<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
     }
   }
 }
+} // namespace spinhalfsystem
