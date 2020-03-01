@@ -4,6 +4,7 @@
 
 #include <omp.h>
 #include <vector>
+#include <array>
 #include <complex>
 #include <chrono>
 #include <cstring>
@@ -42,7 +43,9 @@ public:
 private:
   const int knInputs, knHiddens, knChains;
   const std::vector<std::complex<FloatType> > koneChains, koneHiddens;
-  const std::complex<FloatType> kzero, kone, ktwo;
+  const std::array<std::complex<FloatType>, 2> ktwoTrueFalse;
+  const std::complex<FloatType> kzero, kone;
+  const FloatType ktwo;
   std::vector<std::complex<FloatType> > variables_, lnpsiGradients_;
   std::vector<std::complex<FloatType> > spinStates_;
   std::vector<std::complex<FloatType> > y_, ly_, sa_;
@@ -79,8 +82,10 @@ public:
   int get_nVariables() const { return variables_.size(); }
 private:
   const int knInputs, knHiddens, knChains;
-  const std::complex<FloatType> kzero, kone, ktwo;
+  const std::complex<FloatType> kzero, kone;
+  const FloatType ktwo;
   const std::vector<std::complex<FloatType> > koneChains;
+  const std::array<FloatType, 2> ktwoTrueFalse;
   std::vector<std::complex<FloatType> > variables_, lnpsiGradients_;
   std::vector<std::complex<FloatType> > spinStates_;
   std::vector<std::complex<FloatType> > y_, acty_;
