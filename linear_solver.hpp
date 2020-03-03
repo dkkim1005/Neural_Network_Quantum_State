@@ -2,6 +2,15 @@
 
 #pragma once
 
+#ifdef __NVCC__
+#include <cuda_runtime.h>
+#define CUDA_ERROR_CHECK(CUDA_STATUS, SUCCESS_STATUS) do {\
+  if ((CUDA_STATUS) != SUCCESS_STATUS) {\
+    std::cerr << "# -- CUDA ERROR (FILE: " << __FILE__ << " , LINE: " << __LINE__ << ")" << std::endl;\
+    exit(1);\
+  }\
+} while(false)
+#endif
 #include <vector>
 #include <exception>
 #include <cmath>
@@ -55,6 +64,23 @@ private:
   const int kn;
   minresqlp::HermitianSolver<HermitianOP_, FloatType> solver_;
 };
+
+#ifdef __NVCC__
+// Solve Ax=B (LU factorization with CUDA acceleration)
+template <typename FloatType>
+class cuLUF
+{
+public:
+  explicit cuLUF(const int n);
+  ~cuLUF();
+  void solve(std::complex<FloatType> * A, std::complex<FloatType> * B);
+private:
+  cusolverDnHandle_t cusolverH_;
+  std::complex<FloatType> * A_dev_, * B_dev_, * workspace_dev_;
+  const int n_;
+  int lwork_, * ipiv_dev_, * info_dev_;
+};
+#endif
 
 
 /*== implementation of bfk class ==*/
@@ -137,4 +163,42 @@ void MINRESQLP<FloatType>::HermitianOP_::Aprod(const int n, const std::complex<F
 {
   blas::hemv(n, kone, A_, x, kzero, y);
 }
+
+
+#ifdef __NVCC__
+template <typename FloatType>
+cuLUF<FloatType>::cuLUF(const int n):
+  n_(n)
+{
+  // create cusolver for the dense matrix.
+  CUDA_ERROR_CHECK( cusolverDnCreate(&cusolverH_), CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cudaMalloc(&A_dev_, sizeof(std::complex<FloatType>)*n_*n_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaMalloc(&B_dev_, sizeof(std::complex<FloatType>)*n_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaMalloc(&info_dev_, sizeof(int)), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaMalloc(&ipiv_dev_, sizeof(int)*n_), cudaSuccess);
+}
+
+template <typename FloatType>
+cuLUF<FloatType>::~cuLUF()
+{
+  CUDA_ERROR_CHECK( cusolverDnDestroy(cusolverH_),CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cudaFree(A_dev_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaFree(B_dev_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaFree(info_dev_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaFree(ipiv_dev_), cudaSuccess);
+}
+
+template <typename FloatType>
+void cuLUF<FloatType>::solve(std::complex<FloatType> * A, std::complex<FloatType> * B)
+{
+  CUDA_ERROR_CHECK( cudaMemcpy(A_dev_, A, sizeof(std::complex<FloatType>)*n_*n_, cudaMemcpyHostToDevice), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaMemcpy(B_dev_, B, sizeof(std::complex<FloatType>)*n_, cudaMemcpyHostToDevice), cudaSuccess);
+  CUDA_ERROR_CHECK( cusolver::cusolverDnTgetrf_bufferSize(cusolverH_, n_, A_dev_, &lwork_), CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cudaMalloc(&workspace_dev_, sizeof(std::complex<FloatType>)*lwork_), cudaSuccess);
+  CUDA_ERROR_CHECK( cusolver::cusolverDnTgetrf(cusolverH_, n_, A_dev_, workspace_dev_, ipiv_dev_, info_dev_), CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cusolver::cusolverDnTgetrs(cusolverH_, n_, A_dev_, ipiv_dev_, B_dev_, info_dev_), CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cudaFree(workspace_dev_), cudaSuccess);
+  CUDA_ERROR_CHECK( cudaMemcpy(B, B_dev_, sizeof(std::complex<FloatType>)*n_, cudaMemcpyDeviceToHost), cudaSuccess);
+}
+#endif
 }

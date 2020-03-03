@@ -3,6 +3,9 @@
 #pragma once
 
 #include <complex>
+#ifdef __NVCC__
+#include <cusolverDn.h>
+#endif
 
 typedef std::complex<float>  scomplex;
 typedef std::complex<double> dcomplex;
@@ -192,3 +195,48 @@ namespace lapack
     zgelsd_(&m, &n, &nrhs, A, &m, B, &ldb, S, &rcond, rank, work, &lwork, rwork, iwork, info);
   }
 }
+
+#ifdef __NVCC__
+namespace cusolver
+{
+inline cusolverStatus_t cusolverDnTgetrf_bufferSize(const cusolverDnHandle_t & cusolverH,
+  const int & n, const scomplex * A_dev, int * lwork)
+{
+  return cusolverDnCgetrf_bufferSize(cusolverH, n, n, (cuFloatComplex*)A_dev, n, lwork);
+}
+
+inline cusolverStatus_t cusolverDnTgetrf_bufferSize(const cusolverDnHandle_t & cusolverH,
+  const int n, dcomplex * A_dev, int * lwork)
+{
+  return cusolverDnZgetrf_bufferSize(cusolverH, n, n, (cuDoubleComplex*)A_dev, n, lwork);
+}
+
+inline cusolverStatus_t cusolverDnTgetrf(const cusolverDnHandle_t & cusolverH, const int n,
+  scomplex * A_dev, scomplex * workspace_dev, int * ipiv_dev, int * info_dev)
+{
+  return cusolverDnCgetrf(cusolverH, n, n, (cuFloatComplex*)A_dev, n,
+    (cuFloatComplex*)workspace_dev, ipiv_dev, info_dev);
+}
+
+inline cusolverStatus_t cusolverDnTgetrf(const cusolverDnHandle_t & cusolverH, const int n,
+  dcomplex * A_dev, dcomplex * workspace_dev, int * ipiv_dev, int * info_dev)
+{
+  return cusolverDnZgetrf(cusolverH, n, n, (cuDoubleComplex*)A_dev, n,
+    (cuDoubleComplex*)workspace_dev, ipiv_dev, info_dev);
+}
+
+inline cusolverStatus_t cusolverDnTgetrs(const cusolverDnHandle_t & cusolverH, const int n,
+  scomplex * A_dev, const int * ipiv_dev, scomplex * B_dev, int * info_dev)
+{
+  return cusolverDnCgetrs(cusolverH, CUBLAS_OP_N, n, 1,
+    (cuFloatComplex*)A_dev, n, ipiv_dev, (cuFloatComplex*)B_dev, n, info_dev);
+}
+
+inline cusolverStatus_t cusolverDnTgetrs(const cusolverDnHandle_t & cusolverH, const int n,
+  dcomplex * A_dev, const int * ipiv_dev, dcomplex * B_dev, int * info_dev)
+{
+  return cusolverDnZgetrs(cusolverH, CUBLAS_OP_N, n, 1,
+    (cuDoubleComplex*)A_dev, n, ipiv_dev, (cuDoubleComplex*)B_dev, n, info_dev);
+}
+} // namespace cusolver
+#endif
