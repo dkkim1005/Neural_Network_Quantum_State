@@ -11,8 +11,7 @@ BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(co
   lnpsi0_(nChains),
   lnpsi1_(nChains),
   ratio_(nChains),
-  randDev_(nChains),
-  randUniform_(nChains)
+  randDev_(nChains)
 {
   // block splitting scheme for parallel Monte-Carlo
   for (int k=0; k<knChains; ++k)
@@ -43,9 +42,10 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling(&lnpsi1_[0]);
     #pragma omp parallel for
     for (int k=0; k<knChains; ++k)
-    {
       ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
-      updateList_[k] = (randUniform_[k](randDev_[k]))<ratio_[k];
+    for (int k=0; k<knChains; ++k)
+    {
+      updateList_[k] = (randUniform_(randDev_[k]))<ratio_[k];
       lnpsi0_[k] = updateList_[k] ? lnpsi1_[k] : lnpsi0_[k];
     }
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state(updateList_);

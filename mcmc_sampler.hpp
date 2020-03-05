@@ -32,7 +32,7 @@ private:
   std::vector<bool> updateList_;
   std::vector<FloatType> ratio_;
   std::vector<trng::yarn5> randDev_;
-  std::vector<trng::uniform01_dist<FloatType> > randUniform_;
+  trng::uniform01_dist<FloatType> randUniform_;
 protected:
   std::vector<std::complex<FloatType> > lnpsi1_, lnpsi0_;
 };
