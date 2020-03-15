@@ -120,6 +120,30 @@ void MeasOverlapIntegral<TraitsClass>::accept_next_state(const std::vector<bool>
 }
 
 
+template <template<typename> class Sampler, typename TraitsClass>
+typename TraitsClass::FloatType meas_energy(BaseParallelSampler<Sampler, TraitsClass> & sampler,
+  const int nTrials, const int nwarms, const int nMCSteps = 1)
+{
+  using FloatType = typename TraitsClass::FloatType;
+  const int nChains = sampler.get_nChains();
+  const std::complex<FloatType> zero(0.0, 0.0);
+  FloatType etemp = zero.real();
+  std::vector<std::complex<FloatType> > htilda(nChains);
+  std::cout << "# warming up..." << std::endl << std::flush;
+  sampler.warm_up(nwarms);
+  std::cout << "# # of total measurements:" << nTrials*nChains << std::endl << std::flush;
+  for (int n=0; n<nTrials; ++n)
+  {
+    std::cout << "# " << (n+1) << " / " << nTrials << std::endl << std::flush;
+    sampler.do_mcmc_steps(nMCSteps);
+    sampler.get_htilda(&htilda[0]);
+    etemp = etemp + std::accumulate(htilda.begin(), htilda.end(), zero).real();
+  }
+  etemp = etemp/(nChains*nTrials);
+  return etemp;
+}
+
+
 namespace spinhalfsystem
 {
 template <typename FloatType>
