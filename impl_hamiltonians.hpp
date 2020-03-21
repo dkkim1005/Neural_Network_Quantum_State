@@ -75,7 +75,7 @@ void TFIChain<TraitsClass>::accept_next_state(const std::vector<bool> & updateLi
   for (int k=0; k<nChains; ++k)
   {
     if (updateList[k])
-      diag_[k] -= ktwo*spinPtr[k*nSites+idx]*(spinPtr[k*nSites+leftIdx_[idx]]+spinPtr[k*nSites+rightIdx_[idx]]);
+      diag_[k] -= ktwo*spinPtr[k*nSites+idx].real()*(spinPtr[k*nSites+leftIdx_[idx]].real()+spinPtr[k*nSites+rightIdx_[idx]].real());
   }
   machine_.spin_flip(updateList);
 }
@@ -89,7 +89,7 @@ void TFIChain<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
    */
   const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
   for (int k=0; k<nChains; ++k)
-    htilda[k] = kJ*diag_[k];
+    htilda[k] = kJ*diag_[k].real();
   for (int i=0; i<nSites; ++i)
   {
     machine_.forward(i, &lnpsi1_[0]);
@@ -431,6 +431,244 @@ void TFITRI<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGrad
 
 template <typename TraitsClass>
 void TFITRI<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients, learningRate);
+}
+
+
+template <typename TraitsClass>
+TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
+  const FloatType h, const std::array<FloatType, 2> Jarr,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
+  kL(L),
+  kh(h),
+  kJ1(Jarr[0]),
+  kJ2(Jarr[1]),
+  kzero(0.0),
+  ktwo(2.0),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  diag_(machine.get_nChains()),
+  Jmatrix_(machine.get_nInputs(), {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
+  nnidx_(machine.get_nInputs(), {0, 0, 0, 0, 0, 0, 0, 0})
+{
+  if (kL*kL != machine.get_nInputs())
+    throw std::length_error("machine.get_nInputs() is not the same as L*L!");
+  if (kL < 4 && kL%2 == 1)
+    throw std::invalid_argument("The width of system is not adequate for constructing the checker board lattice.");
+  /*
+    index rule of nearest neighbors
+       6  0  4
+       2  x  3
+       5  1  7
+  */
+  // open boundary condition
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      const int idx = i*kL+j;
+      Jmatrix_[idx][0] = (i == 0) ? kzero : kJ1; // up
+      Jmatrix_[idx][1] = (i == kL-1) ? kzero : kJ1; // down
+      Jmatrix_[idx][2] = (j == 0) ? kzero : kJ1; // left
+      Jmatrix_[idx][3] = (j == kL-1) ? kzero : kJ1; // right
+      if ((i+j)%2 == 0)
+      {
+        Jmatrix_[idx][4] = (i == 0 || j == kL-1) ? kzero : kJ2; // up-right
+        Jmatrix_[idx][5] = (i == kL-1 || j == 0) ? kzero : kJ2; // down-left
+      }
+      else
+      {
+        Jmatrix_[idx][6] = (i == 0 || j == 0) ? kzero : kJ2; // up-left
+        Jmatrix_[idx][7] = (i == kL-1 || j == kL-1) ? kzero : kJ2; // down-right
+      }
+    }
+  // table of the index for nearest-neighbor sites
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      const int idx = i*kL+j;
+      nnidx_[idx][0] = (i == 0) ? (kL-1)*kL+j : (i-1)*kL+j; // up
+      nnidx_[idx][1] = (i == kL-1) ? j : (i+1)*kL+j; // down
+      nnidx_[idx][2] = (j == 0) ? i*kL+kL-1 : i*kL+j-1; // left
+      nnidx_[idx][3] = (j == kL-1) ? i*kL : i*kL+j+1; // right
+    }
+  for (int i=1; i<kL-1; ++i)
+    for (int j=1; j<kL-1; ++j)
+    {
+      const int idx = i*kL+j;
+      nnidx_[idx][4] = (i-1)*kL+j+1; // up-right
+      nnidx_[idx][5] = (i+1)*kL+j-1; // down-left
+      nnidx_[idx][6] = (i-1)*kL+j-1; // up-left
+      nnidx_[idx][7] = (i+1)*kL+j+1; // down-right
+    }
+  // i == 0, 1 <= j <= kL-2
+  for (int j=1; j<kL-1; ++j)
+  {
+    const int idx = j;
+    nnidx_[j][4] = (kL-1)*kL+j+1; // up-right
+    nnidx_[j][5] = kL+j-1; // down-left
+    nnidx_[j][6] = (kL-1)*kL+j-1; // up-left
+    nnidx_[j][7] = kL+j+1; // down-right
+  }
+  // i == kL-1, 1 <= j <= kL-2
+  for (int j=1; j<kL-1; ++j)
+  {
+    const int idx = (kL-1)*kL+j;
+    nnidx_[idx][4] = (kL-2)*kL+j+1; // up-right
+    nnidx_[idx][5] = j-1; // down-left
+    nnidx_[idx][6] = (kL-2)*kL+j-1; // up-left
+    nnidx_[idx][7] = j+1; // down-right
+  }
+  // 1 <= i <= kL-2, j == 0
+  for (int i=1; i<kL-1; ++i)
+  {
+    const int idx = i*kL;
+    nnidx_[idx][4] = (i-1)*kL+1; // up-right
+    nnidx_[idx][5] = (i+1)*kL+kL-1; // down-left
+    nnidx_[idx][6] = (i-1)*kL+kL-1; // up-left
+    nnidx_[idx][7] = (i+1)*kL+1; // down-right
+  }
+  // 1 <= i <= kL-2, j == kL-1
+  for (int i=1; i<kL-1; ++i)
+  {
+    const int idx = i*kL+kL-1;
+    nnidx_[idx][4] = (i-1)*kL; // up-right
+    nnidx_[idx][5] = (i+1)*kL+kL-2; // down-left
+    nnidx_[idx][6] = (i-1)*kL+kL-2; // up-left
+    nnidx_[idx][7] = (i+1)*kL; // down-right
+  }
+  // i == 0, j == 0
+  nnidx_[0][4] = (kL-1)*kL+1; // up-right
+  nnidx_[0][5] = kL+kL-1; // down-left
+  nnidx_[0][6] = (kL-1)*kL+kL-1; // up-left
+  nnidx_[0][7] = kL+1; // down-right
+  // i == 0, j == kL-1
+  nnidx_[kL-1][4] = (kL-1)*kL; // up-right
+  nnidx_[kL-1][5] = kL+kL-2; // down-left
+  nnidx_[kL-1][6] = (kL-1)*kL+kL-2; // up-left
+  nnidx_[kL-1][7] = kL; // down-right
+  // i == kL-1, j == 0
+  nnidx_[(kL-1)*kL][4] = (kL-2)*kL+1; // up-right
+  nnidx_[(kL-1)*kL][5] = kL-1; // down-left
+  nnidx_[(kL-1)*kL][6] = (kL-2)*kL+kL-1; // up-left
+  nnidx_[(kL-1)*kL][7] = 1; // down-right
+  // i == kL-1, j == kL-1
+  nnidx_[(kL-1)*kL+kL-1][4] = (kL-2)*kL; // up-right
+  nnidx_[(kL-1)*kL+kL-1][5] = kL-2; // down-left
+  nnidx_[(kL-1)*kL+kL-1][6] = (kL-2)*kL+kL-2; // up-left
+  nnidx_[(kL-1)*kL+kL-1][7] = 0; // down-right
+  // Checkerboard link(To implement the MCMC update rule)
+  for (int i=0; i<kL*kL; ++i)
+    list_[i].set_item(i);
+  // white board: (i+j)%2 == 0
+  int idx0 = 0;
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      if ((i+j)%2 == 1)
+        continue;
+      const int idx1 = i*kL + j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      if ((i+j)%2 == 0)
+        continue;
+      const int idx1 = i*kL + j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  list_[idx0].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
+{
+  machine_.initialize(lnpsi);
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  // diag_ = \sum_i spin_i*spin_{i+1}
+  for (int k=0; k<nChains; ++k)
+  {
+    diag_[k] = kzero;
+    for (int i=0; i<kL; ++i)
+      for (int j=0; j<kL; ++j)
+      {
+        const int idx = i*kL+j;
+        diag_[k] += spinPtr[k*nSites+idx]*
+                   (spinPtr[k*nSites+nnidx_[idx][0]]*Jmatrix_[idx][0]+
+                    spinPtr[k*nSites+nnidx_[idx][1]]*Jmatrix_[idx][1]+
+                    spinPtr[k*nSites+nnidx_[idx][2]]*Jmatrix_[idx][2]+
+                    spinPtr[k*nSites+nnidx_[idx][3]]*Jmatrix_[idx][3]+
+                    spinPtr[k*nSites+nnidx_[idx][4]]*Jmatrix_[idx][4]+
+                    spinPtr[k*nSites+nnidx_[idx][5]]*Jmatrix_[idx][5]+
+                    spinPtr[k*nSites+nnidx_[idx][6]]*Jmatrix_[idx][6]+
+                    spinPtr[k*nSites+nnidx_[idx][7]]*Jmatrix_[idx][7]);
+      }
+    diag_[k] *= 0.5;
+  }
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi);
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
+{
+  const int idx = idxptr_->get_item();
+  const std::complex<FloatType> * spinPtr = machine_.get_spinStates();
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  for (int k=0; k<nChains; ++k)
+  {
+    if (updateList[k])
+      diag_[k] -= ktwo*spinPtr[k*nSites+idx].real()*
+                 (spinPtr[k*nSites+nnidx_[idx][0]].real()*Jmatrix_[idx][0]+
+                  spinPtr[k*nSites+nnidx_[idx][1]].real()*Jmatrix_[idx][1]+
+                  spinPtr[k*nSites+nnidx_[idx][2]].real()*Jmatrix_[idx][2]+
+                  spinPtr[k*nSites+nnidx_[idx][3]].real()*Jmatrix_[idx][3]+
+                  spinPtr[k*nSites+nnidx_[idx][4]].real()*Jmatrix_[idx][4]+
+                  spinPtr[k*nSites+nnidx_[idx][5]].real()*Jmatrix_[idx][5]+
+                  spinPtr[k*nSites+nnidx_[idx][6]].real()*Jmatrix_[idx][6]+
+                  spinPtr[k*nSites+nnidx_[idx][7]].real()*Jmatrix_[idx][7]);
+  }
+  machine_.spin_flip(updateList);
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
+{
+  /*
+     htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
+      --> J*diag + h*sum_i \frac{<(s_1, s_2,...,-s_i,...,s_n|psi>}{<(s_1, s_2,...,s_i,...,s_n|psi>}
+   */
+  const int nChains = machine_.get_nChains(), nSites = machine_.get_nInputs();
+  for (int k=0; k<nChains; ++k)
+    htilda[k] = diag_[k].real();
+  for (int i=0; i<nSites; ++i)
+  {
+    machine_.forward(i, &lnpsi1_[0]);
+    #pragma omp parallel for
+    for (int k=0; k<nChains; ++k)
+      htilda[k] += kh*std::exp(lnpsi1_[k] - lnpsi0_[k]);
+  }
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+{
+  machine_.backward(lnpsiGradients);
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
 }
