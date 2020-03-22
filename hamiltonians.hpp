@@ -8,7 +8,7 @@
 
 namespace spinhalfsystem
 {
-// transverse field Ising model of the 1D chain
+// transverse field Ising model on the 1D chain
 template <typename TraitsClass>
 class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
 {
@@ -30,11 +30,11 @@ private:
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
   const FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  std::vector<FloatType> diag_;
   std::vector<int> leftIdx_, rightIdx_;
 };
 
-// transverse field Ising model of the square lattice
+// transverse field Ising model on the square lattice
 template <typename TraitsClass>
 class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
 {
@@ -55,13 +55,13 @@ private:
   AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const int L_;
+  const int kL;
   const FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  std::vector<FloatType> diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_;
 };
 
-// transverse field Ising model of the triangular lattice
+// transverse field Ising model on the triangular lattice
 template <typename TraitsClass>
 class TFITRI: public BaseParallelSampler<TFITRI, TraitsClass>
 {
@@ -82,13 +82,13 @@ private:
   AnsatzType & machine_;
   std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const int L_;
+  const int kL;
   const FloatType kh, kJ, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  std::vector<FloatType> diag_;
   std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
 };
 
-
+// transverse field Ising model on the checker board lattice
 template <typename TraitsClass>
 class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
 {
@@ -110,7 +110,7 @@ private:
   OneWayLinkedIndex<> * idxptr_;
   const int kL;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
-  std::vector<std::complex<FloatType> > diag_;
+  std::vector<FloatType> diag_;
   std::vector<std::array<FloatType, 8> > Jmatrix_;
   std::vector<std::array<int, 8> > nnidx_;
 };
