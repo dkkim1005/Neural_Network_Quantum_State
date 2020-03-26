@@ -12,7 +12,7 @@
 #include "blas_lapack.hpp"
 #include "common.hpp"
 
-namespace spinhalfsystem
+namespace spinhalf
 {
 /*
  * W : weight matrix
@@ -32,10 +32,12 @@ public:
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
+  void backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
   void load(const RBMDataType typeInfo, const std::string filePath);
   void save(const RBMDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip);
+  void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
@@ -72,10 +74,12 @@ public:
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
+  void backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
   void load(const FNNDataType typeInfo, const std::string filePath);
   void save(const FNNDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip);
+  void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
@@ -92,5 +96,5 @@ private:
   std::complex<FloatType> * wi1_, * w1o_, * b1_, * d_dwi1_, * d_dw1o_, * d_db1_;
   int index_;
 };
-} // namespace spinhalfsystem
+} // namespace spinhalf
 #include "impl_neural_quantum_state.hpp"

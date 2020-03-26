@@ -7,7 +7,6 @@ StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(co
   htilda_(nChains),
   lnpsiGradients_(nChains*nVariables),
   kones(nChains, std::complex<FloatType>(1.0, 0.0)),
-  koneOverNchains(std::complex<FloatType>(1.0/static_cast<FloatType>(nChains), 0.0)),
   kone(std::complex<FloatType>(1.0, 0.0)),
   kzero(std::complex<FloatType>(0.0, 0.0)),
   kminusOne(std::complex<FloatType>(-1.0, 0.0)),

@@ -6,7 +6,7 @@
 #include "neural_quantum_state.hpp"
 #include "common.hpp"
 
-namespace spinhalfsystem
+namespace spinhalf
 {
 // transverse field Ising model on the 1D chain
 template <typename TraitsClass>
@@ -20,18 +20,18 @@ public:
     const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients,
-    const FloatType learningRate);
   AnsatzType & machine_;
-  std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<OneWayLinkedIndex<> > list_;
   std::vector<FloatType> diag_;
-  std::vector<int> leftIdx_, rightIdx_;
+  std::vector<std::array<int, 2> > nnidx_;
+  const int knSites, knChains;
+  const FloatType kh, kJ, kzero, ktwo;
 };
 
 // transverse field Ising model on the square lattice
@@ -46,19 +46,18 @@ public:
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients,
-    const FloatType learningRate);
   AnsatzType & machine_;
-  std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
-  const int kL;
-  const FloatType kh, kJ, kzero, ktwo;
+  std::vector<OneWayLinkedIndex<> > list_;
   std::vector<FloatType> diag_;
-  std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_;
+  std::vector<std::array<int, 4> > nnidx_;
+  const int kL, knSites, knChains;
+  const FloatType kh, kJ, kzero, ktwo;
 };
 
 // transverse field Ising model on the triangular lattice
@@ -73,19 +72,18 @@ public:
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients,
-    const FloatType learningRate);
   AnsatzType & machine_;
-  std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  std::vector<FloatType> diag_;
+  std::vector<std::array<int, 6> > nnidx_;
   const int kL;
   const FloatType kh, kJ, kzero, ktwo;
-  std::vector<FloatType> diag_;
-  std::vector<int> lIdx_, rIdx_, uIdx_, dIdx_, pIdx_, bIdx_;
 };
 
 // transverse field Ising model on the checker board lattice
@@ -100,20 +98,81 @@ public:
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
-  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
   AnsatzType & machine_;
-  std::vector<OneWayLinkedIndex<> > list_;
   OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  std::vector<FloatType> diag_;
+  std::vector<std::array<int, 8> > nnidx_;
+  std::vector<std::array<FloatType, 8> > Jmatrix_;
   const int kL;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
-  std::vector<FloatType> diag_;
-  std::vector<std::array<FloatType, 8> > Jmatrix_;
-  std::vector<std::array<int, 8> > nnidx_;
 };
-} //  namespace spinhalfsystem
+} //  namespace spinhalf
+
+namespace paralleltempering
+{
+namespace spinhalf
+{
+// transverse field Ising model on the 1D chain
+template <typename TraitsClass>
+class TFIChain: public BaseParallelTemperingSampler<TFIChain, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFIChain, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  TFIChain(AnsatzType & machine, const int nChainsPerBeta, const int nBeta, const FloatType h,
+    const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  void swap_states(const int & k1, const int & k2);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  std::vector<FloatType> diag_;
+  std::vector<std::array<int, 2> > nnidx_;
+  const int knSites, knTotChains, knChainsPerBeta, knBeta;
+  const FloatType kh, kJ, kzero, ktwo;
+};
+
+// transverse field Ising model on the triangular lattice
+template <typename TraitsClass>
+class TFITRI: public BaseParallelTemperingSampler<TFITRI, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFITRI, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  TFITRI(AnsatzType & machine, const int L, const int nChainsPerBeta, const int nBeta,
+    const FloatType h, const FloatType J, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  void swap_states(const int & k1, const int & k2);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  std::vector<FloatType> diag_;
+  std::vector<std::array<int, 6> > nnidx_;
+  const int kL, knSites, knTotChains, knChainsPerBeta, knBeta;
+  const FloatType kh, kJ, kzero, ktwo;
+};
+} // namespace spinhalf
+} // namespace paralleltempering
 
 #include "impl_hamiltonians.hpp"

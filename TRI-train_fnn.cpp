@@ -9,11 +9,11 @@ int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("nv", "# of visible nodes"));
+  options.push_back(pair_t("L", "# of lattice sites"));
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("na", "# of iterations to average out observables"));
-  options.push_back(pair_t("niter", "# of iterations to train RBM"));
+  options.push_back(pair_t("niter", "# of iterations to train FNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("J", "-1.0"));
-  defaults.push_back(pair_t("lr", "1e-2"));
+  defaults.push_back(pair_t("lr", "5e-3"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));
@@ -36,7 +36,8 @@ int main(int argc, char* argv[])
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
-  const int nInputs = parser.find<int>("nv"),
+  const int L = parser.find<int>("L"),
+            nInputs = L*L,
             nHiddens = parser.find<int>("nh"),
             nChains = parser.find<int>("ns"),
             nAccumulation = parser.find<int>("na"),
@@ -50,7 +51,7 @@ int main(int argc, char* argv[])
                lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
-                    nvstr = std::to_string(nInputs),
+                    nistr = std::to_string(nInputs),
                     nhstr = std::to_string(nHiddens),
                     vestr = std::to_string(version),
                     ifprefix = parser.find<>("ifprefix");
@@ -63,14 +64,14 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBM<double> machine(nInputs, nHiddens, nChains);
+  spinhalf::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
-  // load parameters: w,a,b
-  const std::string prefix = path + "Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  // load parameters
+  const std::string prefix = path + "TRI-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(spinhalf::RBMDataType::W, prefix0 + "Dw.dat");
-  machine.load(spinhalf::RBMDataType::V, prefix0 + "Da.dat");
-  machine.load(spinhalf::RBMDataType::H, prefix0 + "Db.dat");
+  machine.load(spinhalf::FNNDataType::W1, prefix0 + "Dw1.dat");
+  machine.load(spinhalf::FNNDataType::W2, prefix0 + "Dw2.dat");
+  machine.load(spinhalf::FNNDataType::B1, prefix0 + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -79,23 +80,23 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBM_SH, double> > rbmWrapper(machine, h, J, nBlocks, seed);
+  spinhalf::TFITRI<AnsatzTraits<Ansatz::FNN_SH, double> > sampler(machine, L, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
-  rbmWrapper.warm_up(nWarmup);
+  sampler.warm_up(nWarmup);
 
   // imaginary time propagator
   StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(rbmWrapper, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = end-start;
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
-  // save parameters: w,a,b
-  machine.save(spinhalf::RBMDataType::W, prefix + "Dw.dat");
-  machine.save(spinhalf::RBMDataType::V, prefix + "Da.dat");
-  machine.save(spinhalf::RBMDataType::H, prefix + "Db.dat");
+  // save parameters
+  machine.save(spinhalf::FNNDataType::W1, prefix + "Dw1.dat");
+  machine.save(spinhalf::FNNDataType::W2, prefix + "Dw2.dat");
+  machine.save(spinhalf::FNNDataType::B1, prefix + "Db1.dat");
 
   return 0;
 }

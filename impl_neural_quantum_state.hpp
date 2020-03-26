@@ -17,7 +17,7 @@ void print(const FloatType * data, const int m, const int n)
   }
 }
 
-namespace spinhalfsystem
+namespace spinhalf
 {
 /*
  1. Index notation
@@ -139,6 +139,24 @@ void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
 }
 
 template <typename FloatType>
+void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
+{
+  #pragma omp parallel for
+  for (int k=0; k<nChains; ++k)
+  {
+    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    for (int i=0; i<knInputs; ++i)
+      d_da_[kvsize+i] = spinStates_[kisize+i];
+    for (int j=0; j<knHiddens; ++j)
+      d_db_[kvsize+j] = std::tanh(y_[khsize+j]);
+    for (int i=0; i<knInputs; ++i)
+      for (int j=0; j<knHiddens; ++j)
+        d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i].real()*d_db_[kvsize+j];
+  }
+  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*nChains);
+}
+
+template <typename FloatType>
 void ComplexRBM<FloatType>::load(const RBMDataType typeInfo, const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
@@ -220,6 +238,16 @@ void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
     sa_[k] = sa_[k]-(ktwoTrueFalse[doSpinFlip[k]]*spinStates_[k*knInputs+index_].real())*a_[index_];
     spinStates_[k*knInputs+index_] = (kone.real()-ktwoTrueFalse[doSpinFlip[k]])*spinStates_[k*knInputs+index_].real();
   }
+}
+
+template <typename FloatType>
+void ComplexRBM<FloatType>::swap_states(const int & k1, const int & k2)
+{
+  for (int i=0; i<knInputs; ++i)
+    std::swap(spinStates_[k1*knInputs+i], spinStates_[k2*knInputs+i]);
+  for (int j=0; j<knHiddens; ++j)
+    std::swap(y_[k1*knHiddens+j], y_[k2*knHiddens+j]);
+  std::swap(sa_[k1], sa_[k2]);
 }
 
 
@@ -328,6 +356,26 @@ void ComplexFNN<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
 }
 
 template <typename FloatType>
+void ComplexFNN<FloatType>::backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
+{
+  #pragma omp parallel for
+  for (int k=0; k<nChains; ++k)
+  {
+    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    for (int j=0; j<knHiddens; ++j)
+      d_dw1o_[kvsize+j] = std::log(std::cosh(y_[khsize+j]));
+    for (int j=0; j<knHiddens; ++j)
+    {
+      const std::complex<FloatType> tany_j = std::tanh(y_[khsize+j]);
+      for (int i=0; i<knInputs; ++i)
+        d_dwi1_[kvsize+i*knHiddens+j] = tany_j*spinStates_[kisize+i].real()*w1o_[j];
+      d_db1_[kvsize+j] = tany_j*w1o_[j];
+    }
+  }
+  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*nChains);
+}
+
+template <typename FloatType>
 void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
@@ -410,4 +458,13 @@ void ComplexFNN<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
     spinStates_[k*knInputs+index_] = (kone.real()-ktwoTrueFalse[doSpinFlip[k]])*spinStates_[k*knInputs+index_].real();
   }
 }
-} // namespace spinhalfsystem
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::swap_states(const int & k1, const int & k2)
+{
+  for (int i=0; i<knInputs; ++i)
+    std::swap(spinStates_[k1*knInputs+i], spinStates_[k2*knInputs+i]);
+  for (int j=0; j<knHiddens; ++j)
+    std::swap(y_[k1*knHiddens+j], y_[k2*knHiddens+j]);
+}
+} // namespace spinhalf

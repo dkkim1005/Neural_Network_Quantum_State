@@ -4,14 +4,14 @@
 
 // List up all variational wave functions here...
 enum class Ansatz {RBM_SH, FNN_SH};
-namespace spinhalfsystem
+namespace spinhalf
 {
 template <typename FloatType> class ComplexRBM;
 template <typename FloatType> class ComplexFNN;
-} // namespace spinhalfsystem
+} // namespace spinhalf
 template <Ansatz T, typename Property> struct AnsatzType_;
-template <typename FloatType> struct AnsatzType_<Ansatz::RBM_SH, FloatType> { using Name = spinhalfsystem::ComplexRBM<FloatType>; };
-template <typename FloatType> struct AnsatzType_<Ansatz::FNN_SH, FloatType> { using Name = spinhalfsystem::ComplexFNN<FloatType>; };
+template <typename FloatType> struct AnsatzType_<Ansatz::RBM_SH, FloatType> { using Name = spinhalf::ComplexRBM<FloatType>; };
+template <typename FloatType> struct AnsatzType_<Ansatz::FNN_SH, FloatType> { using Name = spinhalf::ComplexFNN<FloatType>; };
 //
 template <Ansatz T, typename Property>
 struct AnsatzTraits

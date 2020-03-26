@@ -181,7 +181,7 @@ cuLUF<FloatType>::cuLUF(const int n):
 template <typename FloatType>
 cuLUF<FloatType>::~cuLUF()
 {
-  CUDA_ERROR_CHECK( cusolverDnDestroy(cusolverH_),CUSOLVER_STATUS_SUCCESS);
+  CUDA_ERROR_CHECK( cusolverDnDestroy(cusolverH_), CUSOLVER_STATUS_SUCCESS);
   CUDA_ERROR_CHECK( cudaFree(A_dev_), cudaSuccess);
   CUDA_ERROR_CHECK( cudaFree(B_dev_), cudaSuccess);
   CUDA_ERROR_CHECK( cudaFree(info_dev_), cudaSuccess);

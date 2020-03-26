@@ -144,7 +144,7 @@ typename TraitsClass::FloatType meas_energy(BaseParallelSampler<Sampler, TraitsC
 }
 
 
-namespace spinhalfsystem
+namespace spinhalf
 {
 template <typename FloatType>
 struct magnetization { FloatType m1, m2, m4; };
@@ -247,4 +247,4 @@ void MeasSpontaneousMagnetization<TraitsClass>::accept_next_state(const std::vec
 {
   machine_.spin_flip(updateList);
 }
-} // namespace spinhalfsystem
+} // namespace spinhalf

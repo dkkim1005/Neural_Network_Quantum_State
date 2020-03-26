@@ -57,20 +57,21 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalfsystem::ComplexFNN<double> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains);
+  spinhalf::ComplexFNN<double> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains);
 
   // load parameters: w,a,b
-  m1.load(spinhalfsystem::FNNDataType::W1, path1 + "Dw1.dat");
-  m1.load(spinhalfsystem::FNNDataType::W2, path1 + "Dw2.dat");
-  m1.load(spinhalfsystem::FNNDataType::B1, path1 + "Db1.dat");
-  m2.load(spinhalfsystem::FNNDataType::W1, path2 + "Dw1.dat");
-  m2.load(spinhalfsystem::FNNDataType::W2, path2 + "Dw2.dat");
-  m2.load(spinhalfsystem::FNNDataType::B1, path2 + "Db1.dat");
+  m1.load(spinhalf::FNNDataType::W1, path1 + "Dw1.dat");
+  m1.load(spinhalf::FNNDataType::W2, path1 + "Dw2.dat");
+  m1.load(spinhalf::FNNDataType::B1, path1 + "Db1.dat");
+  m2.load(spinhalf::FNNDataType::W1, path2 + "Dw1.dat");
+  m2.load(spinhalf::FNNDataType::W2, path2 + "Dw2.dat");
+  m2.load(spinhalf::FNNDataType::B1, path2 + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(ntrials)*
                                 static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs);
+                                static_cast<unsigned long>(nInputs)*
+                                static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
   using ansatz_traits = AnsatzeTraits<Ansatz::FNN_SH, Ansatz::FNN_SH, double>;
