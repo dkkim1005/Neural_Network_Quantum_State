@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("J", "-1.0"));
-  defaults.push_back(pair_t("lr", "1e-2"));
+  defaults.push_back(pair_t("lr", "5e-3"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));

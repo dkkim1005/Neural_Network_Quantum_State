@@ -82,7 +82,7 @@ private:
   std::vector<OneWayLinkedIndex<> > list_;
   std::vector<FloatType> diag_;
   std::vector<std::array<int, 6> > nnidx_;
-  const int kL;
+  const int kL, knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
 };
 
@@ -109,7 +109,7 @@ private:
   std::vector<FloatType> diag_;
   std::vector<std::array<int, 8> > nnidx_;
   std::vector<std::array<FloatType, 8> > Jmatrix_;
-  const int kL;
+  const int kL, knSites, knChains;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
 };
 } //  namespace spinhalf
@@ -171,6 +171,35 @@ private:
   std::vector<std::array<int, 6> > nnidx_;
   const int kL, knSites, knTotChains, knChainsPerBeta, knBeta;
   const FloatType kh, kJ, kzero, ktwo;
+};
+
+// transverse field Ising model on the checker board lattice
+template <typename TraitsClass>
+class TFICheckerBoard: public BaseParallelTemperingSampler<TFICheckerBoard, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFICheckerBoard, TraitsClass)
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  TFICheckerBoard(AnsatzType & machine, const int L, const int nChainsPerBeta, const int nBeta,
+    const FloatType h, const std::array<FloatType, 2> Jarr, const unsigned long seedDistance,
+    const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  void swap_states(const int & k1, const int & k2);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  std::vector<FloatType> diag_;
+  std::vector<std::array<int, 8> > nnidx_;
+  std::vector<std::array<FloatType, 8> > Jmatrix_;
+  const int kL, knSites, knTotChains, knChainsPerBeta, knBeta;
+  const FloatType kh, kJ1, kJ2, kzero, ktwo;
 };
 } // namespace spinhalf
 } // namespace paralleltempering
