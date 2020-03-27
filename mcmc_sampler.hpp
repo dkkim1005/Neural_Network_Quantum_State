@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include <iostream>
 #include <vector>
 #include <complex>
+#include <numeric>
 #include <trng/yarn2.hpp>
 #include <trng/yarn5.hpp>
 #include <trng/yarn5s.hpp>
@@ -30,11 +32,15 @@ public:
   int get_nChains() const { return knChains; }
   void evolve(const std::complex<FloatType> * trueGradients,
     const FloatType learningRate);
+  FloatType meas_acceptance_ratio();
 private:
   const int knMCUnitSteps, knChains;
+  unsigned long totalMeasurements_;
+  FloatType totalAcceptanceRatio_;
   std::vector<bool> updateList_;
   std::vector<FloatType> ratio_;
   std::vector<RandEngineType> randDev_;
+  std::vector<unsigned long> acceptanceRatio_;
   trng::uniform01_dist<FloatType> randUniform_;
 protected:
   std::vector<std::complex<FloatType> > lnpsi1_, lnpsi0_;
@@ -60,6 +66,7 @@ public:
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+  std::string meas_acceptance_ratio() const { return "None"; }
 private:
   const int knMCUnitSteps, knTotChains, knChainsPerBeta, knBeta;
   std::vector<bool> updateList_;

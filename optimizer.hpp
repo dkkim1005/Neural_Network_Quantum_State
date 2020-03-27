@@ -20,7 +20,7 @@ public:
   {
     const std::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains*naccumulation);
     std::vector<std::complex<FloatType> > conjHavgArr(naccumulation, kzero);
-    std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
+    std::cout << "# of loop\t" << "<H>\t" << "acceptance ratio" << std::endl << std::setprecision(7);
     for (int n=0; n<nIteration; ++n)
     {
       std::cout << std::setw(5) << (n+1) << std::setw(16);
@@ -66,7 +66,8 @@ public:
       // F_ = S_^{-1}*F_
       linSolver_.solve(&S_[0], &F_[0]);
       sampler.evolve(&F_[0], deltaTau);
-      std::cout << (conjHavg.real()) << std::endl << std::flush;
+      std::cout << (conjHavg.real()) << std::setw(16) << sampler.meas_acceptance_ratio()
+        << std::endl << std::flush;
     }
   }
 private:

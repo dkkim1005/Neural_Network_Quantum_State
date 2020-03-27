@@ -11,7 +11,10 @@ BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(co
   lnpsi0_(nChains),
   lnpsi1_(nChains),
   ratio_(nChains),
-  randDev_(nChains)
+  randDev_(nChains),
+  totalAcceptanceRatio_(0l),
+  totalMeasurements_(0l),
+  acceptanceRatio_(nChains)
 {
   // block splitting scheme for parallel Monte-Carlo
   for (int k=0; k<knChains; ++k)
@@ -46,9 +49,11 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
       ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
       updateList_[k] = (randUniform_(randDev_[k]))<ratio_[k];
       lnpsi0_[k] = updateList_[k] ? lnpsi1_[k] : lnpsi0_[k];
+      acceptanceRatio_[k] = acceptanceRatio_[k] + updateList_[k];
     }
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state(updateList_);
   }
+  totalMeasurements_ = totalMeasurements_ + static_cast<unsigned long>(nMCSteps*knMCUnitSteps*knChains);
 }
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
@@ -67,6 +72,16 @@ template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   static_cast<DerivedParallelSampler<TraitsClass>*>(this)->evolve(trueGradients, learningRate);
+}
+
+template <template<typename> class DerivedParallelSampler, typename TraitsClass>
+typename TraitsClass::FloatType BaseParallelSampler<DerivedParallelSampler, TraitsClass>::meas_acceptance_ratio()
+{
+  const FloatType acceptanceRatio = std::accumulate(acceptanceRatio_.begin(), acceptanceRatio_.end(), 0l)
+    /static_cast<FloatType>(totalMeasurements_);
+  std::fill(acceptanceRatio_.begin(), acceptanceRatio_.end(), 0l);
+  totalMeasurements_ = 0l;
+  return acceptanceRatio;
 }
 
 
