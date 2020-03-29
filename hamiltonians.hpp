@@ -12,7 +12,7 @@ namespace spinhalf
 template <typename TraitsClass>
 class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFIChain, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -38,7 +38,7 @@ private:
 template <typename TraitsClass>
 class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFISQ, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFISQ, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -64,7 +64,7 @@ private:
 template <typename TraitsClass>
 class TFITRI: public BaseParallelSampler<TFITRI, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFITRI, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -90,11 +90,12 @@ private:
 template <typename TraitsClass>
 class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(TFICheckerBoard, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(TFICheckerBoard, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h, const std::array<FloatType, 2> Jarr,
+  TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
+    const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
@@ -122,7 +123,7 @@ namespace spinhalf
 template <typename TraitsClass>
 class TFIChain: public BaseParallelTemperingSampler<TFIChain, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFIChain, TraitsClass)
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFIChain, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -149,7 +150,7 @@ private:
 template <typename TraitsClass>
 class TFITRI: public BaseParallelTemperingSampler<TFITRI, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFITRI, TraitsClass)
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFITRI, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -177,13 +178,13 @@ private:
 template <typename TraitsClass>
 class TFICheckerBoard: public BaseParallelTemperingSampler<TFICheckerBoard, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFICheckerBoard, TraitsClass)
+  USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(TFICheckerBoard, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const int nChainsPerBeta, const int nBeta,
-    const FloatType h, const std::array<FloatType, 2> Jarr, const unsigned long seedDistance,
-    const unsigned long seedNumber = 0);
+    const FloatType h, const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);

@@ -50,7 +50,7 @@ protected:
 #define USING_OF_BASE_PARALLEL_SAMPLER(DERIVED_PARALLEL_SAMPLER, PROPERTIES)\
 friend BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, PROPERTIES>;\
 using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, PROPERTIES>::lnpsi1_;\
-using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, PROPERTIES>::lnpsi0_;
+using BaseParallelSampler<DERIVED_PARALLEL_SAMPLER, PROPERTIES>::lnpsi0_
 
 
 template <template<typename> class DerivedParallelTemperingSampler, typename TraitsClass>
@@ -81,6 +81,6 @@ protected:
 #define USING_OF_BASE_PARALLEL_TEMPERING_SAMPLER(DERIVED_SAMPLER, PROPERTIES)\
 friend BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>;\
 using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi1_;\
-using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi0_;
+using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi0_
 
 #include "impl_mcmc_sampler.hpp"

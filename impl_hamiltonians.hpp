@@ -468,7 +468,7 @@ void TFITRI<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, 
 
 template <typename TraitsClass>
 TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
-  const FloatType h, const std::array<FloatType, 2> Jarr,
+  const FloatType h, const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
   const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kL(L),
@@ -500,19 +500,19 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
     for (int j=0; j<kL; ++j)
     {
       const int idx = i*kL+j;
-      Jmatrix_[idx][0] = (i == 0) ? kzero : kJ1; // up
-      Jmatrix_[idx][1] = (i == kL-1) ? kzero : kJ1; // down
-      Jmatrix_[idx][2] = (j == 0) ? kzero : kJ1; // left
-      Jmatrix_[idx][3] = (j == kL-1) ? kzero : kJ1; // right
+      Jmatrix_[idx][0] = (i == 0) ? (kJ1*isPeriodicBoundary) : kJ1; // up
+      Jmatrix_[idx][1] = (i == kL-1) ? (kJ1*isPeriodicBoundary) : kJ1; // down
+      Jmatrix_[idx][2] = (j == 0) ? (kJ1*isPeriodicBoundary) : kJ1; // left
+      Jmatrix_[idx][3] = (j == kL-1) ? (kJ1*isPeriodicBoundary) : kJ1; // right
       if ((i+j)%2 == 0)
       {
-        Jmatrix_[idx][4] = (i == 0 || j == kL-1) ? kzero : kJ2; // up-right
-        Jmatrix_[idx][5] = (i == kL-1 || j == 0) ? kzero : kJ2; // down-left
+        Jmatrix_[idx][4] = (i == 0 || j == kL-1) ? (kJ2*isPeriodicBoundary) : kJ2; // up-right
+        Jmatrix_[idx][5] = (i == kL-1 || j == 0) ? (kJ2*isPeriodicBoundary) : kJ2; // down-left
       }
       else
       {
-        Jmatrix_[idx][6] = (i == 0 || j == 0) ? kzero : kJ2; // up-left
-        Jmatrix_[idx][7] = (i == kL-1 || j == kL-1) ? kzero : kJ2; // down-right
+        Jmatrix_[idx][6] = (i == 0 || j == 0) ? (kJ2*isPeriodicBoundary) : kJ2; // up-left
+        Jmatrix_[idx][7] = (i == kL-1 || j == kL-1) ? (kJ2*isPeriodicBoundary) : kJ2; // down-right
       }
     }
   // table of the index for the nearest-neighbor sites
@@ -1062,7 +1062,8 @@ void TFITRI<TraitsClass>::swap_states(const int & k1, const int & k2)
 template <typename TraitsClass>
 TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
   const int nChainsPerBeta, const int nBeta, const FloatType h,
-  const std::array<FloatType, 2> Jarr, const unsigned long seedDistance, const unsigned long seedNumber):
+  const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+  const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelTemperingSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), nChainsPerBeta, nBeta, seedDistance, seedNumber),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -1095,19 +1096,19 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
     for (int j=0; j<kL; ++j)
     {
       const int idx = i*kL+j;
-      Jmatrix_[idx][0] = (i == 0) ? kzero : kJ1; // up
-      Jmatrix_[idx][1] = (i == kL-1) ? kzero : kJ1; // down
-      Jmatrix_[idx][2] = (j == 0) ? kzero : kJ1; // left
-      Jmatrix_[idx][3] = (j == kL-1) ? kzero : kJ1; // right
+      Jmatrix_[idx][0] = (i == 0) ? (kJ1*isPeriodicBoundary) : kJ1; // up
+      Jmatrix_[idx][1] = (i == kL-1) ? (kJ1*isPeriodicBoundary) : kJ1; // down
+      Jmatrix_[idx][2] = (j == 0) ? (kJ1*isPeriodicBoundary) : kJ1; // left
+      Jmatrix_[idx][3] = (j == kL-1) ? (kJ1*isPeriodicBoundary) : kJ1; // right
       if ((i+j)%2 == 0)
       {
-        Jmatrix_[idx][4] = (i == 0 || j == kL-1) ? kzero : kJ2; // up-right
-        Jmatrix_[idx][5] = (i == kL-1 || j == 0) ? kzero : kJ2; // down-left
+        Jmatrix_[idx][4] = (i == 0 || j == kL-1) ? (kJ2*isPeriodicBoundary) : kJ2; // up-right
+        Jmatrix_[idx][5] = (i == kL-1 || j == 0) ? (kJ2*isPeriodicBoundary) : kJ2; // down-left
       }
       else
       {
-        Jmatrix_[idx][6] = (i == 0 || j == 0) ? kzero : kJ2; // up-left
-        Jmatrix_[idx][7] = (i == kL-1 || j == kL-1) ? kzero : kJ2; // down-right
+        Jmatrix_[idx][6] = (i == 0 || j == 0) ? (kJ2*isPeriodicBoundary) : kJ2; // up-left
+        Jmatrix_[idx][7] = (i == kL-1 || j == kL-1) ? (kJ2*isPeriodicBoundary) : kJ2; // down-right
       }
     }
   // table of the index for the nearest-neighbor sites
