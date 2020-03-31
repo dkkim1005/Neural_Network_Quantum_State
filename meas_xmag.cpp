@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
   options.push_back(pair_t("path", "directory to load and save files"));
-  options.push_back(pair_t("lattice", "lattice info"));
+  options.push_back(pair_t("lattice", "lattice type(=CH,SQ,TRI,CB)"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
