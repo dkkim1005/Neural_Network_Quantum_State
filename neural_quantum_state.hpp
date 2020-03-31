@@ -36,7 +36,7 @@ public:
   void load(const RBMDataType typeInfo, const std::string filePath);
   void save(const RBMDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
-  void spin_flip(const std::vector<bool> & doSpinFlip);
+  void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
   void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
@@ -78,7 +78,7 @@ public:
   void load(const FNNDataType typeInfo, const std::string filePath);
   void save(const FNNDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
-  void spin_flip(const std::vector<bool> & doSpinFlip);
+  void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
   void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }

@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
   options.push_back(pair_t("path", "directory to load and save files"));
+  options.push_back(pair_t("lattice", "lattice info"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
@@ -50,7 +51,8 @@ int main(int argc, char* argv[])
   std::string hfstr = std::to_string(h);
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
-  const std::string prefix = "Ni" + nstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  const std::string lattice = parser.find<>("lattice") + "-",
+                    prefix = lattice + "Ni" + nstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
 
   parser.print(std::cout);
 
@@ -72,16 +74,14 @@ int main(int argc, char* argv[])
 
   // measurements of the spontaneous magnetization with the given wave functions
   spinhalf::magnetization<double> outputs;
-  spinhalf::MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FNN_SH, double> >
-    sampler(machine, nBlocks, seed);
+  spinhalf::MeasMagnetizationX<AnsatzTraits<Ansatz::FNN_SH, double> > sampler(machine, nBlocks, seed);
   sampler.meas(nTrials, nWarmup, nMonteCarloSteps, outputs);
 
   std::cout << "# measurements outputs:" << std::endl
             << " -- m1: " << outputs.m1 << std::endl
-            << " -- m2: " << outputs.m2 << std::endl
-            << " -- m4: " << outputs.m4 << std::endl;
+            << " -- m2: " << outputs.m2 << std::endl;
 
-  const std::string fileName = path + "/mag-N" + nstr + ".dat";
+  const std::string fileName = path + "/xmag-N" + nstr + ".dat";
   std::ofstream writer;
   if (!std::ifstream(fileName).is_open())
   {
@@ -95,8 +95,8 @@ int main(int argc, char* argv[])
   writer << std::setprecision(6);
   writer << std::setw(5) << h << " "
          << std::setw(10) << outputs.m1 << " "
-	 << std::setw(10) << ((outputs.m2 - outputs.m1*outputs.m1)*nInputs) << " "
-	 << std::setw(10) << (1.0 - outputs.m4/(3*outputs.m2*outputs.m2)) << std::endl;
+	 << std::setw(10) << ((outputs.m2 - outputs.m1*outputs.m1)*nInputs)
+         << std::endl;
   writer.close();
   return 0;
 }

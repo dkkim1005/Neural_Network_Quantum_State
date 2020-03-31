@@ -13,7 +13,7 @@
 template <typename TraitsClass>
 class MeasOverlapIntegral : public BaseParallelSampler<MeasOverlapIntegral, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasOverlapIntegral, TraitsClass);
   using AnsatzType1 = typename TraitsClass::AnsatzType1;
   using AnsatzType2 = typename TraitsClass::AnsatzType2;
   using FloatType = typename TraitsClass::FloatType;
@@ -153,7 +153,7 @@ struct magnetization { FloatType m1, m2, m4; };
 template <typename TraitsClass>
 class MeasSpontaneousMagnetization : public BaseParallelSampler<MeasSpontaneousMagnetization, TraitsClass>
 {
-  USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, TraitsClass)
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasSpontaneousMagnetization, TraitsClass);
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
@@ -244,6 +244,113 @@ void MeasSpontaneousMagnetization<TraitsClass>::sampling(std::complex<FloatType>
 
 template <typename TraitsClass>
 void MeasSpontaneousMagnetization<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
+{
+  machine_.spin_flip(updateList);
+}
+
+
+template <typename TraitsClass>
+class MeasMagnetizationX : public BaseParallelSampler<MeasMagnetizationX, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasMagnetizationX, TraitsClass);
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasMagnetizationX(AnsatzType & machine, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void meas(const int nTrials, const int nwarms, const int nMCSteps, magnetization<FloatType> & outputs);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  const std::complex<FloatType> * spinStates_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  OneWayLinkedIndex<> * idxptr_;
+  const int knInputs, knChains;
+  const FloatType kzero;
+};
+
+template <typename TraitsClass>
+MeasMagnetizationX<TraitsClass>::MeasMagnetizationX(AnsatzType & machine,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<MeasMagnetizationX, TraitsClass>(machine.get_nInputs(),
+    machine.get_nChains(), seedDistance, seedNumber),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  knInputs(machine.get_nInputs()),
+  knChains(machine.get_nChains()),
+  kzero(static_cast<FloatType>(0.0))
+{
+  for (int i=0; i<knInputs; i++)
+    list_[i].set_item(i);
+  for (int i=0; i<knInputs-1; i++)
+    list_[i].set_nextptr(&list_[i+1]);
+  list_[knInputs-1].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+}
+
+template <typename TraitsClass>
+void MeasMagnetizationX<TraitsClass>::meas(const int nTrials, const int nwarms,
+  const int nMCSteps, magnetization<FloatType> & outputs)
+{
+  std::cout << "# Now we are in warming up...(" << nwarms << ")" << std::endl << std::flush;
+  this->warm_up(nwarms);
+  std::cout << "# # of total measurements:" << nTrials*knChains << std::endl << std::flush;
+  FloatType mx1 = kzero, mx2 = kzero;
+  std::vector<FloatType> mx1temp(knChains, kzero), mx2temp(knChains, kzero);
+  const FloatType invNinputs = 1/static_cast<FloatType>(knInputs);
+  const FloatType invNchains = 1/static_cast<FloatType>(knChains);
+  const FloatType invNtrials = 1/static_cast<FloatType>(nTrials);
+  const std::vector<bool> doSpinFlip(knChains, true);
+  for (int n=0; n<nTrials; ++n)
+  {
+    std::cout << "# " << (n+1) << " / " << nTrials << std::endl << std::flush;
+    this->do_mcmc_steps(nMCSteps);
+    std::fill(mx1temp.begin(), mx1temp.end(), kzero);
+    std::fill(mx2temp.begin(), mx2temp.end(), kzero);
+    for (int i=0; i<knInputs; ++i)
+    {
+      machine_.forward(i, &lnpsi1_[0]);
+      #pragma omp parallel for
+      for (int k=0; k<knChains; ++k)
+        mx1temp[k] += std::exp(lnpsi1_[k]-lnpsi0_[k]).real();
+    }
+    for (int i=0; i<knInputs; ++i)
+    {
+      machine_.spin_flip(doSpinFlip, i);
+      for (int j=0; j<knInputs; ++j)
+      {
+        machine_.forward(j, &lnpsi1_[0]);
+        #pragma omp parallel for
+        for (int k=0; k<knChains; ++k)
+          mx2temp[k] += std::exp(lnpsi1_[k]-lnpsi0_[k]).real();
+      }
+      machine_.spin_flip(doSpinFlip, i);
+    }
+    mx1 += std::accumulate(mx1temp.begin(), mx1temp.end(), kzero);
+    mx2 += std::accumulate(mx2temp.begin(), mx2temp.end(), kzero);
+  }
+  mx1 *= (invNinputs*invNchains*invNtrials);
+  mx2 *= (std::pow(invNinputs, 2)*invNchains*invNtrials);
+  outputs.m1 = mx1;
+  outputs.m2 = mx2;
+}
+
+template <typename TraitsClass>
+void MeasMagnetizationX<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
+{
+  machine_.initialize(lnpsi);
+}
+
+template <typename TraitsClass>
+void MeasMagnetizationX<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi);
+}
+
+template <typename TraitsClass>
+void MeasMagnetizationX<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
 {
   machine_.spin_flip(updateList);
 }

@@ -228,8 +228,9 @@ void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
+void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex)
 {
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
@@ -448,8 +449,9 @@ void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip)
+void ComplexFNN<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex)
 {
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
