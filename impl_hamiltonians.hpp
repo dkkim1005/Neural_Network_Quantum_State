@@ -114,6 +114,58 @@ void TFIChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients
 
 
 template <typename TraitsClass>
+TFIChainDropOut<TraitsClass>::TFIChainDropOut(AnsatzType & machine, const FloatType h,
+  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
+  TFIChain<TraitsClass>(machine, h, J, seedDistance, seedNumber),
+  indexOfHiddenNodes_(machine.get_nHiddens()),
+  batchIndexOfHiddenNodes_(machine.get_nHiddens()/static_cast<int>(machine.get_nHiddens()*dropOutRate)+
+    (machine.get_nHiddens()%static_cast<int>(machine.get_nHiddens()*dropOutRate)!=0)),
+  batchIdx_(0)
+{
+  // set batch arrays for the dropout implementation
+  const int totalSize = indexOfHiddenNodes_.size(),
+    partialSize = static_cast<int>(totalSize*dropOutRate);
+  if (partialSize == 0)
+    std::invalid_argument("(indexOfHiddenNodes.size()*dropOutRate)<1");
+  for (int j=0; j<indexOfHiddenNodes_.size(); ++j)
+    indexOfHiddenNodes_[j] = j;
+  std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
+  for (int i=0; i<batchIndexOfHiddenNodes_.size()-1; ++i)
+    batchIndexOfHiddenNodes_[i].assign(partialSize, 0);
+  if (totalSize%partialSize != 0)
+    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(totalSize%partialSize, 0);
+  else
+    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(partialSize, 0);
+  int nodeIdx = 0;
+  for (auto & batch : batchIndexOfHiddenNodes_)
+    for (auto & item : batch)
+      item = indexOfHiddenNodes_[nodeIdx++];
+}
+
+template <typename TraitsClass>
+void TFIChainDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+{
+  machine_.partial_backward(lnpsiGradients, batchIndexOfHiddenNodes_[batchIdx_]);
+}
+
+template <typename TraitsClass>
+void TFIChainDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+{
+  machine_.update_partial_variables(trueGradients, learningRate, batchIndexOfHiddenNodes_[batchIdx_++]);
+  // shuffle the hidden node index to reset the dropout operation
+  if (batchIdx_ == batchIndexOfHiddenNodes_.size())
+  {
+    batchIdx_ = 0;
+    std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
+    int nodeIdx = 0;
+    for (auto & batch : batchIndexOfHiddenNodes_)
+      for (auto & item : batch)
+        item = indexOfHiddenNodes_[nodeIdx++];
+  }
+}
+
+
+template <typename TraitsClass>
 TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
   const FloatType h, const FloatType J,
   const unsigned long seedDistance, const unsigned long seedNumber):
@@ -245,6 +297,58 @@ template <typename TraitsClass>
 void TFISQ<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients, learningRate);
+}
+
+
+template <typename TraitsClass>
+TFISQDropOut<TraitsClass>::TFISQDropOut(AnsatzType & machine, const int L, const FloatType h,
+  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
+  TFISQ<TraitsClass>(machine, L, h, J, seedDistance, seedNumber),
+  indexOfHiddenNodes_(machine.get_nHiddens()),
+  batchIndexOfHiddenNodes_(machine.get_nHiddens()/static_cast<int>(machine.get_nHiddens()*dropOutRate)+
+    (machine.get_nHiddens()%static_cast<int>(machine.get_nHiddens()*dropOutRate)!=0)),
+  batchIdx_(0)
+{
+  // set batch arrays for the dropout implementation
+  const int totalSize = indexOfHiddenNodes_.size(),
+    partialSize = static_cast<int>(totalSize*dropOutRate);
+  if (partialSize == 0)
+    std::invalid_argument("(indexOfHiddenNodes.size()*dropOutRate)<1");
+  for (int j=0; j<indexOfHiddenNodes_.size(); ++j)
+    indexOfHiddenNodes_[j] = j;
+  std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
+  for (int i=0; i<batchIndexOfHiddenNodes_.size()-1; ++i)
+    batchIndexOfHiddenNodes_[i].assign(partialSize, 0);
+  if (totalSize%partialSize != 0)
+    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(totalSize%partialSize, 0);
+  else
+    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(partialSize, 0);
+  int nodeIdx = 0;
+  for (auto & batch : batchIndexOfHiddenNodes_)
+    for (auto & item : batch)
+      item = indexOfHiddenNodes_[nodeIdx++];
+}
+
+template <typename TraitsClass>
+void TFISQDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+{
+  machine_.partial_backward(lnpsiGradients, batchIndexOfHiddenNodes_[batchIdx_]);
+}
+
+template <typename TraitsClass>
+void TFISQDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+{
+  machine_.update_partial_variables(trueGradients, learningRate, batchIndexOfHiddenNodes_[batchIdx_++]);
+  // shuffle the hidden node index to reset the dropout operation
+  if (batchIdx_ == batchIndexOfHiddenNodes_.size())
+  {
+    batchIdx_ = 0;
+    std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
+    int nodeIdx = 0;
+    for (auto & batch : batchIndexOfHiddenNodes_)
+      for (auto & item : batch)
+        item = indexOfHiddenNodes_[nodeIdx++];
+  }
 }
 
 
@@ -468,15 +572,15 @@ void TFITRI<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, 
 
 template <typename TraitsClass>
 TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
-  const FloatType h, const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+  const FloatType h, const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
   const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kL(L),
   knSites(machine.get_nInputs()),
   knChains(machine.get_nChains()),
   kh(h),
-  kJ1(Jarr[0]),
-  kJ2(Jarr[1]),
+  kJ1(J1_J2[0]),
+  kJ2(J1_J2[1]),
   kzero(0.0),
   ktwo(2.0),
   machine_(machine),
@@ -1062,7 +1166,7 @@ void TFITRI<TraitsClass>::swap_states(const int & k1, const int & k2)
 template <typename TraitsClass>
 TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
   const int nChainsPerBeta, const int nBeta, const FloatType h,
-  const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+  const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
   const unsigned long seedDistance, const unsigned long seedNumber):
   BaseParallelTemperingSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), nChainsPerBeta, nBeta, seedDistance, seedNumber),
   kL(L),
@@ -1071,8 +1175,8 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
   knChainsPerBeta(nChainsPerBeta),
   knBeta(nBeta),
   kh(h),
-  kJ1(Jarr[0]),
-  kJ2(Jarr[1]),
+  kJ1(J1_J2[0]),
+  kJ2(J1_J2[1]),
   kzero(0.0),
   ktwo(2.0),
   machine_(machine),

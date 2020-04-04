@@ -79,6 +79,29 @@ void ComplexRBM<FloatType>::update_variables(const std::complex<FloatType> * der
 }
 
 template <typename FloatType>
+void ComplexRBM<FloatType>::update_partial_variables(const std::complex<FloatType> * derivativeLoss,
+  const FloatType learningRate, const std::vector<int> & hiddenNodes)
+{
+  // * index notation
+  // hiddenNodes = [j_0, j_1, j_2, ...]
+  // derivativeLoss = [a_0, a_1, a_2,... b_j_1, b_j_2, b_j_3,..., w_0j_0, w_0j_1, w_0j_2,..., w_1j_0, w_1j_1, w_1j_2,...]
+  int idx = 0;
+  for (int i=0; i<knInputs; ++i)
+    a_[i] = a_[i]-learningRate*derivativeLoss[idx++];
+  for (const auto & j : hiddenNodes)
+    b_[j] = b_[j]-learningRate*derivativeLoss[idx++];
+  for (int i=0; i<knInputs; ++i)
+    for (const auto & j : hiddenNodes)
+      w_[i*knHiddens+j] = w_[i*knHiddens+j]-learningRate*derivativeLoss[idx++];
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(knHiddens, knChains, kone, b_, &koneChains[0], &y_[0]);
+  blas::gemm(knHiddens, knChains, knInputs, kone, kone, w_, &spinStates_[0], &y_[0]);
+  // sa_k = \sum_i a_i*spinStates_ki
+  blas::gemm(1, knChains, knInputs, kone, kzero, a_, &spinStates_[0], &sa_[0]);
+}
+
+template <typename FloatType>
 void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates)
 {
   if (spinStates == NULL)
@@ -126,34 +149,68 @@ void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
-    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
     for (int i=0; i<knInputs; ++i)
-      d_da_[kvsize+i] = spinStates_[kisize+i];
+      d_da_[kvSize+i] = spinStates_[kiSize+i];
     for (int j=0; j<knHiddens; ++j)
-      d_db_[kvsize+j] = std::tanh(y_[khsize+j]);
+      d_db_[kvSize+j] = std::tanh(y_[khSize+j]);
     for (int i=0; i<knInputs; ++i)
       for (int j=0; j<knHiddens; ++j)
-        d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i].real()*d_db_[kvsize+j];
+        d_dw_[kvSize+i*knHiddens+j] = spinStates_[kiSize+i].real()*d_db_[kvSize+j];
   }
   std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*knChains);
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
+void ComplexRBM<FloatType>::partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
 {
   #pragma omp parallel for
   for (int k=0; k<nChains; ++k)
   {
-    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
     for (int i=0; i<knInputs; ++i)
-      d_da_[kvsize+i] = spinStates_[kisize+i];
+      d_da_[kvSize+i] = spinStates_[kiSize+i];
     for (int j=0; j<knHiddens; ++j)
-      d_db_[kvsize+j] = std::tanh(y_[khsize+j]);
+      d_db_[kvSize+j] = std::tanh(y_[khSize+j]);
     for (int i=0; i<knInputs; ++i)
       for (int j=0; j<knHiddens; ++j)
-        d_dw_[kvsize+i*knHiddens+j] = spinStates_[kisize+i].real()*d_db_[kvsize+j];
+        d_dw_[kvSize+i*knHiddens+j] = spinStates_[kiSize+i].real()*d_db_[kvSize+j];
   }
   std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*nChains);
+}
+
+template <typename FloatType>
+void ComplexRBM<FloatType>::partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes)
+{
+  /* index notation
+     hiddenNodes = [j_0, j_1, j_2, ...]
+     lnpsiGradients_k = [d_da_k0, d_da_k1, d_da_k2,... d_db_kj_0, d_db_kj_1, d_db_kj_2,...,
+                         d_dw_k0j_0, d_dw_k0j_1, d_dw_k0j_2,..., d_dw_k1j_0, d_dw_k1j_2,...] */
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
+    for (int i=0; i<knInputs; ++i)
+      d_da_[kvSize+i] = spinStates_[kiSize+i];
+    for (const auto & j : hiddenNodes)
+      d_db_[kvSize+j] = std::tanh(y_[khSize+j]);
+    for (int i=0; i<knInputs; ++i)
+      for (const auto & j : hiddenNodes)
+        d_dw_[kvSize+i*knHiddens+j] = spinStates_[kiSize+i].real()*d_db_[kvSize+j];
+  }
+  // save the results into lnpsiGradients
+  int idx = 0;
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
+    for (int i=0; i<knInputs; ++i)
+      lnpsiGradients[idx++] = d_da_[kvSize+i];
+    for (const auto & j : hiddenNodes)
+      lnpsiGradients[idx++] = d_db_[kvSize+j];
+    for (int i=0; i<knInputs; ++i)
+      for (const auto & j : hiddenNodes)
+        lnpsiGradients[idx++] = d_dw_[kvSize+i*knHiddens+j];
+  }
 }
 
 template <typename FloatType>
@@ -300,6 +357,27 @@ void ComplexFNN<FloatType>::update_variables(const std::complex<FloatType> * der
 }
 
 template <typename FloatType>
+void ComplexFNN<FloatType>::update_partial_variables(const std::complex<FloatType> * derivativeLoss,
+  const FloatType learningRate, const std::vector<int> & hiddenNodes)
+{
+  // * index notation
+  // hiddenNodes = [j_0, j_1, j_2, ...]
+  // derivativeLoss = [wi1_0j_0, wi1_1j_0, wi1_2j_0,... wi1_0j_1, wi1_1j_1, wi1_2j_1,..., b1_j_0, b1_j_1, b1_j_2,..., w1o_j_0, w1o_j_1, w1o_j_2]
+  int idx = 0;
+  for (const int & j : hiddenNodes)
+    for (int i=0; i<knInputs; ++i)
+      wi1_[i*knHiddens+j] = wi1_[i*knHiddens+j]-learningRate*derivativeLoss[idx++];
+  for (const int & j : hiddenNodes)
+    b1_[j] = b1_[j]-learningRate*derivativeLoss[idx++];
+  for (const int & j : hiddenNodes)
+    w1o_[j] = w1o_[j]-learningRate*derivativeLoss[idx++];
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(knHiddens, knChains, kone, b1_, &koneChains[0], &y_[0]);
+  blas::gemm(knHiddens, knChains, knInputs, kone, kone, wi1_, &spinStates_[0], &y_[0]);
+}
+
+template <typename FloatType>
 void ComplexFNN<FloatType>::initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates)
 {
   if (spinStates == NULL)
@@ -342,38 +420,73 @@ void ComplexFNN<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
   {
-    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
     for (int j=0; j<knHiddens; ++j)
-      d_dw1o_[kvsize+j] = std::log(std::cosh(y_[khsize+j]));
+      d_dw1o_[kvSize+j] = std::log(std::cosh(y_[khSize+j]));
     for (int j=0; j<knHiddens; ++j)
     {
-      const std::complex<FloatType> tany_j = std::tanh(y_[khsize+j]);
+      const std::complex<FloatType> tany_j = std::tanh(y_[khSize+j]);
       for (int i=0; i<knInputs; ++i)
-        d_dwi1_[kvsize+i*knHiddens+j] = tany_j*spinStates_[kisize+i].real()*w1o_[j];
-      d_db1_[kvsize+j] = tany_j*w1o_[j];
+        d_dwi1_[kvSize+i*knHiddens+j] = tany_j*spinStates_[kiSize+i].real()*w1o_[j];
+      d_db1_[kvSize+j] = tany_j*w1o_[j];
     }
   }
   std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*knChains);
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
+void ComplexFNN<FloatType>::partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains)
 {
   #pragma omp parallel for
   for (int k=0; k<nChains; ++k)
   {
-    const int kvsize = k*variables_.size(), kisize = k*knInputs, khsize = k*knHiddens;
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
     for (int j=0; j<knHiddens; ++j)
-      d_dw1o_[kvsize+j] = std::log(std::cosh(y_[khsize+j]));
+      d_dw1o_[kvSize+j] = std::log(std::cosh(y_[khSize+j]));
     for (int j=0; j<knHiddens; ++j)
     {
-      const std::complex<FloatType> tany_j = std::tanh(y_[khsize+j]);
+      const std::complex<FloatType> tany_j = std::tanh(y_[khSize+j]);
       for (int i=0; i<knInputs; ++i)
-        d_dwi1_[kvsize+i*knHiddens+j] = tany_j*spinStates_[kisize+i].real()*w1o_[j];
-      d_db1_[kvsize+j] = tany_j*w1o_[j];
+        d_dwi1_[kvSize+i*knHiddens+j] = tany_j*spinStates_[kiSize+i].real()*w1o_[j];
+      d_db1_[kvSize+j] = tany_j*w1o_[j];
     }
   }
   std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*variables_.size()*nChains);
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes)
+{
+  /* index notation
+     hiddenNodes = [j_0, j_1, j_2, ...]
+     lnpsiGradients_k = [d_dwi1_k0j_0, d_dwi1_k1j_0, d_dwi1_k2j_0,... d_dwi1_k0j_1, d_dwi1_k1j_1, d_dwi1_k2j_1,...,
+                         d_db1_kj_0, d_db1_kj_1, d_db1_kj_2,..., d_dw1o_kj_0, d_dw1o_kj_1, d_dw1o_kj_2,...] */
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
+    for (const int & j : hiddenNodes)
+    {
+      const std::complex<FloatType> & tany_j = std::tanh(y_[khSize+j]);
+      for (int i=0; i<knInputs; ++i)
+        d_dwi1_[kvSize+i*knHiddens+j] = tany_j*spinStates_[kiSize+i].real()*w1o_[j];
+      d_db1_[kvSize+j] = tany_j*w1o_[j];
+      d_dw1o_[kvSize+j] = std::log(std::cosh(y_[khSize+j]));
+    }
+  }
+  // save the results into lnpsiGradients
+  int idx = 0;
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs, khSize = k*knHiddens;
+    for (const int & j : hiddenNodes)
+      for (int i=0; i<knInputs; ++i)
+        lnpsiGradients[idx++] = d_dwi1_[kvSize+i*knHiddens+j];
+    for (const int & j : hiddenNodes)
+      lnpsiGradients[idx++] = d_db1_[kvSize+j];
+    for (const int & j : hiddenNodes)
+      lnpsiGradients[idx++] = d_dw1o_[kvSize+j];
+  }
 }
 
 template <typename FloatType>
@@ -422,8 +535,7 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string filePath,
-  const int precision) const
+void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string filePath, const int precision) const
 {
   std::ofstream writer(filePath);
   writer << std::setprecision(precision);

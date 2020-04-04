@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <random>
 #include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
 #include "common.hpp"
@@ -21,7 +22,7 @@ public:
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
-private:
+protected:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
@@ -32,6 +33,26 @@ private:
   std::vector<std::array<int, 2> > nnidx_;
   const int knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
+};
+
+// TFIChain with dropout operation
+template <typename TraitsClass>
+class TFIChainDropOut: public TFIChain<TraitsClass>
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+  using RandEngineType = trng::yarn2;
+  using TFIChain<TraitsClass>::machine_;
+public:
+  TFIChainDropOut(AnsatzType & machine, const FloatType h, const FloatType J,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0, const FloatType dropOutRate = 5e-1);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+private:
+  std::vector<int> indexOfHiddenNodes_;
+  std::vector<std::vector<int> > batchIndexOfHiddenNodes_;
+  int batchIdx_;
+  RandEngineType rng_;
 };
 
 // transverse field Ising model on the square lattice
@@ -47,7 +68,7 @@ public:
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
-private:
+protected:
   void initialize(std::complex<FloatType> * lnpsi);
   void sampling(std::complex<FloatType> * lnpsi);
   void accept_next_state(const std::vector<bool> & updateList);
@@ -58,6 +79,26 @@ private:
   std::vector<std::array<int, 4> > nnidx_;
   const int kL, knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
+};
+
+// TFISQ with dropout operation
+template <typename TraitsClass>
+class TFISQDropOut: public TFISQ<TraitsClass>
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+  using RandEngineType = trng::yarn2;
+  using TFISQ<TraitsClass>::machine_;
+public:
+  TFISQDropOut(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0, const FloatType dropOutRate = 5e-1);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+private:
+  std::vector<int> indexOfHiddenNodes_;
+  std::vector<std::vector<int> > batchIndexOfHiddenNodes_;
+  int batchIdx_;
+  RandEngineType rng_;
 };
 
 // transverse field Ising model on the triangular lattice
@@ -95,7 +136,7 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
-    const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+    const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
@@ -183,7 +224,7 @@ class TFICheckerBoard: public BaseParallelTemperingSampler<TFICheckerBoard, Trai
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const int nChainsPerBeta, const int nBeta,
-    const FloatType h, const std::array<FloatType, 2> Jarr, const bool isPeriodicBoundary,
+    const FloatType h, const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);

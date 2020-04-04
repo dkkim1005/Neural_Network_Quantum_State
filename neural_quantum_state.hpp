@@ -29,10 +29,13 @@ public:
   ComplexRBM(const ComplexRBM & rhs) = delete;
   ComplexRBM & operator=(const ComplexRBM & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
+  void update_partial_variables(const std::complex<FloatType> * derivativeLoss,
+    const FloatType learningRate, const std::vector<int> & hiddenNodes);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
-  void backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
+  void partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
+  void partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes);
   void load(const RBMDataType typeInfo, const std::string filePath);
   void save(const RBMDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
@@ -41,6 +44,7 @@ public:
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
+  int get_nHiddens() const { return knHiddens; }
   int get_nVariables() const { return variables_.size(); }
 private:
   const int knInputs, knHiddens, knChains;
@@ -71,10 +75,13 @@ public:
   ComplexFNN(const ComplexFNN & rhs) = delete;
   ComplexFNN & operator=(const ComplexFNN & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
+  void update_partial_variables(const std::complex<FloatType> * derivativeLoss,
+    const FloatType learningRate, const std::vector<int> & hiddenNodes);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
-  void backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
+  void partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
+  void partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes);
   void load(const FNNDataType typeInfo, const std::string filePath);
   void save(const FNNDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
@@ -83,6 +90,7 @@ public:
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
+  int get_nHiddens() const { return knHiddens; }
   int get_nVariables() const { return variables_.size(); }
 private:
   const int knInputs, knHiddens, knChains;
