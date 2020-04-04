@@ -1146,7 +1146,7 @@ void TFITRI<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 template <typename TraitsClass>
 void TFITRI<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.backward(lnpsiGradients, knChainsPerBeta);
+  machine_.partial_backward(lnpsiGradients, knChainsPerBeta);
 }
 
 template <typename TraitsClass>
@@ -1398,7 +1398,7 @@ void TFICheckerBoard<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 template <typename TraitsClass>
 void TFICheckerBoard<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.backward(lnpsiGradients, knChainsPerBeta);
+  machine_.partial_backward(lnpsiGradients, knChainsPerBeta);
 }
 
 template <typename TraitsClass>
