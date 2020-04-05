@@ -6,6 +6,8 @@
 #include <vector>
 #include <complex>
 #include <numeric>
+#include <random>
+#include <exception>
 #include <trng/yarn2.hpp>
 #include <trng/yarn5.hpp>
 #include <trng/yarn5s.hpp>
@@ -82,5 +84,22 @@ protected:
 friend BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>;\
 using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi1_;\
 using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi0_
+
+/*
+ * return a randomly shuffled array: [0,1,2,3,4,5,...] => [[4,0,1,...],[2,3,5,...],[...],...]
+ */
+template <typename RandEngineType>
+class RandomBatchIndexing
+{
+public:
+  RandomBatchIndexing(const int size, const double rate);
+  const std::vector<int> & get_miniBatch() const;
+  void next();
+private:
+  std::vector<int> indexOfFullBatch_;
+  std::vector<std::vector<int> > indexOfMiniBatch_;
+  int batchSetIdx_;
+  RandEngineType rng_;
+};
 
 #include "impl_mcmc_sampler.hpp"

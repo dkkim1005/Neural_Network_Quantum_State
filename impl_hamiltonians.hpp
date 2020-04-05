@@ -117,51 +117,19 @@ template <typename TraitsClass>
 TFIChainDropOut<TraitsClass>::TFIChainDropOut(AnsatzType & machine, const FloatType h,
   const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
   TFIChain<TraitsClass>(machine, h, J, seedDistance, seedNumber),
-  indexOfHiddenNodes_(machine.get_nHiddens()),
-  batchIndexOfHiddenNodes_(machine.get_nHiddens()/static_cast<int>(machine.get_nHiddens()*dropOutRate)+
-    (machine.get_nHiddens()%static_cast<int>(machine.get_nHiddens()*dropOutRate)!=0)),
-  batchIdx_(0)
-{
-  // set batch arrays for the dropout implementation
-  const int totalSize = indexOfHiddenNodes_.size(),
-    partialSize = static_cast<int>(totalSize*dropOutRate);
-  if (partialSize == 0)
-    std::invalid_argument("(indexOfHiddenNodes.size()*dropOutRate)<1");
-  for (int j=0; j<indexOfHiddenNodes_.size(); ++j)
-    indexOfHiddenNodes_[j] = j;
-  std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
-  for (int i=0; i<batchIndexOfHiddenNodes_.size()-1; ++i)
-    batchIndexOfHiddenNodes_[i].assign(partialSize, 0);
-  if (totalSize%partialSize != 0)
-    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(totalSize%partialSize, 0);
-  else
-    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(partialSize, 0);
-  int nodeIdx = 0;
-  for (auto & batch : batchIndexOfHiddenNodes_)
-    for (auto & item : batch)
-      item = indexOfHiddenNodes_[nodeIdx++];
-}
+  batchAllocater_(machine.get_nHiddens(), dropOutRate) {}
 
 template <typename TraitsClass>
 void TFIChainDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.partial_backward(lnpsiGradients, batchIndexOfHiddenNodes_[batchIdx_]);
+  machine_.partial_backward(lnpsiGradients, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
 void TFIChainDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
-  machine_.update_partial_variables(trueGradients, learningRate, batchIndexOfHiddenNodes_[batchIdx_++]);
-  // shuffle the hidden node index to reset the dropout operation
-  if (batchIdx_ == batchIndexOfHiddenNodes_.size())
-  {
-    batchIdx_ = 0;
-    std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
-    int nodeIdx = 0;
-    for (auto & batch : batchIndexOfHiddenNodes_)
-      for (auto & item : batch)
-        item = indexOfHiddenNodes_[nodeIdx++];
-  }
+  machine_.update_partial_variables(trueGradients, learningRate, batchAllocater_.get_miniBatch());
+  batchAllocater_.next();
 }
 
 
@@ -304,51 +272,19 @@ template <typename TraitsClass>
 TFISQDropOut<TraitsClass>::TFISQDropOut(AnsatzType & machine, const int L, const FloatType h,
   const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
   TFISQ<TraitsClass>(machine, L, h, J, seedDistance, seedNumber),
-  indexOfHiddenNodes_(machine.get_nHiddens()),
-  batchIndexOfHiddenNodes_(machine.get_nHiddens()/static_cast<int>(machine.get_nHiddens()*dropOutRate)+
-    (machine.get_nHiddens()%static_cast<int>(machine.get_nHiddens()*dropOutRate)!=0)),
-  batchIdx_(0)
-{
-  // set batch arrays for the dropout implementation
-  const int totalSize = indexOfHiddenNodes_.size(),
-    partialSize = static_cast<int>(totalSize*dropOutRate);
-  if (partialSize == 0)
-    std::invalid_argument("(indexOfHiddenNodes.size()*dropOutRate)<1");
-  for (int j=0; j<indexOfHiddenNodes_.size(); ++j)
-    indexOfHiddenNodes_[j] = j;
-  std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
-  for (int i=0; i<batchIndexOfHiddenNodes_.size()-1; ++i)
-    batchIndexOfHiddenNodes_[i].assign(partialSize, 0);
-  if (totalSize%partialSize != 0)
-    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(totalSize%partialSize, 0);
-  else
-    batchIndexOfHiddenNodes_[batchIndexOfHiddenNodes_.size()-1].assign(partialSize, 0);
-  int nodeIdx = 0;
-  for (auto & batch : batchIndexOfHiddenNodes_)
-    for (auto & item : batch)
-      item = indexOfHiddenNodes_[nodeIdx++];
-}
+  batchAllocater_(machine.get_nHiddens(), dropOutRate) {}
 
 template <typename TraitsClass>
 void TFISQDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.partial_backward(lnpsiGradients, batchIndexOfHiddenNodes_[batchIdx_]);
+  machine_.partial_backward(lnpsiGradients, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
 void TFISQDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
-  machine_.update_partial_variables(trueGradients, learningRate, batchIndexOfHiddenNodes_[batchIdx_++]);
-  // shuffle the hidden node index to reset the dropout operation
-  if (batchIdx_ == batchIndexOfHiddenNodes_.size())
-  {
-    batchIdx_ = 0;
-    std::random_shuffle(indexOfHiddenNodes_.begin(), indexOfHiddenNodes_.end(), rng_);
-    int nodeIdx = 0;
-    for (auto & batch : batchIndexOfHiddenNodes_)
-      for (auto & item : batch)
-        item = indexOfHiddenNodes_[nodeIdx++];
-  }
+  machine_.update_partial_variables(trueGradients, learningRate, batchAllocater_.get_miniBatch());
+  batchAllocater_.next();
 }
 
 

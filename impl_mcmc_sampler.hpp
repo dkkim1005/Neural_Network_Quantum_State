@@ -200,3 +200,49 @@ void BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>:
 {
   static_cast<DerivedParallelTemperingSampler<TraitsClass>*>(this)->evolve(trueGradients, learningRate);
 }
+
+
+template <typename RandEngineType>
+RandomBatchIndexing<RandEngineType>::RandomBatchIndexing(const int size, const double rate):
+  indexOfFullBatch_(size),
+  indexOfMiniBatch_(size/static_cast<int>(size*rate)+(size%static_cast<int>(size*rate)!=0)),
+  batchSetIdx_(0)
+{
+  const int partialSize = static_cast<int>(size*rate);
+  if (partialSize == 0)
+    std::invalid_argument("(size*rate)<1");
+  for (int j=0; j<indexOfFullBatch_.size(); ++j)
+    indexOfFullBatch_[j] = j;
+  std::random_shuffle(indexOfFullBatch_.begin(), indexOfFullBatch_.end(), rng_);
+  for (int i=0; i<indexOfMiniBatch_.size()-1; ++i)
+    indexOfMiniBatch_[i].assign(partialSize, 0);
+  if (size%partialSize != 0)
+    indexOfMiniBatch_[indexOfMiniBatch_.size()-1].assign(size%partialSize, 0);
+  else
+    indexOfMiniBatch_[indexOfMiniBatch_.size()-1].assign(partialSize, 0);
+  int nodeIdx = 0;
+  for (auto & index : indexOfMiniBatch_)
+    for (auto & item : index)
+      item = indexOfFullBatch_[nodeIdx++];
+}
+
+template <typename RandEngineType>
+const std::vector<int> & RandomBatchIndexing<RandEngineType>::get_miniBatch() const
+{
+  return indexOfMiniBatch_[batchSetIdx_];
+}
+
+template <typename RandEngineType>
+void RandomBatchIndexing<RandEngineType>::next()
+{
+  batchSetIdx_ += 1;
+  if (batchSetIdx_ == indexOfMiniBatch_.size())
+  {
+    batchSetIdx_ = 0;
+    std::random_shuffle(indexOfFullBatch_.begin(), indexOfFullBatch_.end(), rng_);
+    int nodeIdx = 0;
+    for (auto & index : indexOfMiniBatch_)
+      for (auto & item : index)
+        item = indexOfFullBatch_[nodeIdx++];
+  }
+}

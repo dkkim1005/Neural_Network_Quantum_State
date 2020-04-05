@@ -49,10 +49,7 @@ public:
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
-  std::vector<int> indexOfHiddenNodes_;
-  std::vector<std::vector<int> > batchIndexOfHiddenNodes_;
-  int batchIdx_;
-  RandEngineType rng_;
+  RandomBatchIndexing<RandEngineType> batchAllocater_;
 };
 
 // transverse field Ising model on the square lattice
@@ -95,10 +92,7 @@ public:
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
 private:
-  std::vector<int> indexOfHiddenNodes_;
-  std::vector<std::vector<int> > batchIndexOfHiddenNodes_;
-  int batchIdx_;
-  RandEngineType rng_;
+  RandomBatchIndexing<RandEngineType> batchAllocater_;
 };
 
 // transverse field Ising model on the triangular lattice
