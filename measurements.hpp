@@ -354,4 +354,130 @@ void MeasMagnetizationX<TraitsClass>::accept_next_state(const std::vector<bool> 
 {
   machine_.spin_flip(updateList);
 }
+
+
+template <typename TraitsClass>
+class MeasNeelOrder : public BaseParallelSampler<MeasNeelOrder, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(MeasNeelOrder, TraitsClass);
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasNeelOrder(AnsatzType & machine, const int L,
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void meas(const int nTrials, const int nwarms, const int nMCSteps, magnetization<FloatType> & outputs);
+private:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  const std::complex<FloatType> * spinStates_;
+  std::vector<OneWayLinkedIndex<> > list_;
+  OneWayLinkedIndex<> * idxptr_;
+  const int knInputs, knChains, kL;
+  const FloatType kzero;
+  std::vector<FloatType> coeff_;
+};
+
+template <typename TraitsClass>
+MeasNeelOrder<TraitsClass>::MeasNeelOrder(AnsatzType & machine, const int L,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<MeasNeelOrder, TraitsClass>(machine.get_nInputs(),
+    machine.get_nChains(), seedDistance, seedNumber),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  knInputs(machine.get_nInputs()),
+  knChains(machine.get_nChains()),
+  kL(L),
+  kzero(static_cast<FloatType>(0.0)),
+  coeff_(L*L)
+{
+  if (knInputs != L*L)
+    std::invalid_argument("machine.get_nInputs() != L*L");
+  for (int i=0; i<knInputs; i++)
+    list_[i].set_item(i);
+  // black board(+1): (i+j)%2 == 0
+  int idx0 = 0;
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      if ((i+j)%2 == 1)
+        continue;
+      const int idx1 = (i*kL+j);
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  // white board(-1): (i+j)%2 == 1
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+    {
+      if ((i+j)%2 == 0)
+        continue;
+      const int idx1 = i*kL+j;
+      list_[idx0].set_nextptr(&list_[idx1]);
+      idx0 = idx1;
+    }
+  list_[idx0].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+  for (int i=0; i<kL; ++i)
+    for (int j=0; j<kL; ++j)
+      coeff_[i*kL+j] = ((i+j)%2 == 0) ? 1 : -1;
+}
+
+template <typename TraitsClass>
+void MeasNeelOrder<TraitsClass>::meas(const int nTrials, const int nwarms,
+  const int nMCSteps, magnetization<FloatType> & outputs)
+{
+  std::cout << "# Now we are in warming up...(" << nwarms << ")" << std::endl << std::flush;
+  this->warm_up(nwarms);
+  std::cout << "# # of total measurements:" << nTrials*knChains << std::endl << std::flush;
+  const auto Lambda2Sum = [](FloatType & a,
+    FloatType & b)->FloatType {return a+(b*b);};
+  const auto Lambda4Sum = [](FloatType & a,
+    FloatType & b)->FloatType {return a+(b*b*b*b);};
+  std::vector<FloatType> m1arr(nTrials, kzero), m2arr(nTrials, kzero),
+    m4arr(nTrials, kzero), mtemp(knChains, kzero);
+  const FloatType invNinputs = 1/static_cast<FloatType>(knInputs);
+  const FloatType invNchains = 1/static_cast<FloatType>(knChains);
+  const FloatType invNtrials = 1/static_cast<FloatType>(nTrials);
+  for (int n=0; n<nTrials; ++n)
+  {
+    std::cout << "# " << (n+1) << " / " << nTrials << std::endl << std::flush;
+    this->do_mcmc_steps(nMCSteps);
+    spinStates_ = machine_.get_spinStates();
+    std::fill(mtemp.begin(), mtemp.end(), kzero);
+    #pragma omp parallel for
+    for (int k=0; k<knChains; ++k)
+    {
+      for (int i=0; i<knInputs; ++i)
+        mtemp[k] += (spinStates_[k*knInputs+i].real()*coeff_[i]);
+      mtemp[k] = std::abs(mtemp[k])*invNinputs;
+    }
+    m1arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero)*invNchains;
+    m2arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero, Lambda2Sum)*invNchains;
+    m4arr[n] = std::accumulate(mtemp.begin(), mtemp.end(), kzero, Lambda4Sum)*invNchains;
+  }
+  outputs.m1 = std::accumulate(m1arr.begin(), m1arr.end(), kzero)*invNtrials;
+  outputs.m2 = std::accumulate(m2arr.begin(), m2arr.end(), kzero)*invNtrials;
+  outputs.m4 = std::accumulate(m4arr.begin(), m4arr.end(), kzero)*invNtrials;
+}
+
+template <typename TraitsClass>
+void MeasNeelOrder<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
+{
+  machine_.initialize(lnpsi);
+}
+
+template <typename TraitsClass>
+void MeasNeelOrder<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi);
+}
+
+template <typename TraitsClass>
+void MeasNeelOrder<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
+{
+  machine_.spin_flip(updateList);
+}
 } // namespace spinhalf
