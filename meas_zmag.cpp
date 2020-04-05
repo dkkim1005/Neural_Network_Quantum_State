@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
             << " -- m2: " << outputs.m2 << std::endl
             << " -- m4: " << outputs.m4 << std::endl;
 
-  const std::string fileName = path + "/mag-N" + nstr + ".dat";
+  const std::string fileName = path + "/zmag-N" + nstr + ".dat";
   std::ofstream writer;
   if (!std::ifstream(fileName).is_open())
   {
