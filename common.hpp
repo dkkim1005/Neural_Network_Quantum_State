@@ -3,29 +3,29 @@
 #pragma once
 
 // List up all variational wave functions here...
-enum class Ansatz {RBM_SH, FNN_SH};
+enum class Ansatz {RBM, FNN};
 namespace spinhalf
 {
 template <typename FloatType> class ComplexRBM;
 template <typename FloatType> class ComplexFNN;
 } // namespace spinhalf
-template <Ansatz T, typename Property> struct AnsatzType_;
-template <typename FloatType> struct AnsatzType_<Ansatz::RBM_SH, FloatType> { using Name = spinhalf::ComplexRBM<FloatType>; };
-template <typename FloatType> struct AnsatzType_<Ansatz::FNN_SH, FloatType> { using Name = spinhalf::ComplexFNN<FloatType>; };
+template <Ansatz T, typename Property> struct Ansatz_;
+template <typename FloatType> struct Ansatz_<Ansatz::RBM, FloatType> { using T = spinhalf::ComplexRBM<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::FNN, FloatType> { using T = spinhalf::ComplexFNN<FloatType>; };
 //
-template <Ansatz T, typename Property>
+template <Ansatz T, typename FT>
 struct AnsatzTraits
 {
-  using AnsatzType = typename AnsatzType_<T, Property>::Name;
-  using FloatType = Property;
+  using AnsatzType = typename Ansatz_<T, FT>::T;
+  using FloatType = FT;
 };
 //
-template <Ansatz T1, Ansatz T2, typename Property>
+template <Ansatz T1, Ansatz T2, typename FT>
 struct AnsatzeTraits
 {
-  using AnsatzType1 = typename AnsatzType_<T1, Property>::Name;
-  using AnsatzType2 = typename AnsatzType_<T2, Property>::Name;
-  using FloatType = Property;
+  using AnsatzType1 = typename Ansatz_<T1, FT>::T;
+  using AnsatzType2 = typename Ansatz_<T2, FT>::T;
+  using FloatType = FT;
 };
 
 // digits of the numeric precision w.r.t. FloatType

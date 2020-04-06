@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChainsPerBeta*nBeta);
 
   // Transverse Field Ising Hamiltonian on the triangular lattice
-  paralleltempering::spinhalf::TFITRI<AnsatzTraits<Ansatz::FNN_SH, double> >
+  paralleltempering::spinhalf::TFITRI<AnsatzTraits<Ansatz::FNN, double> >
     sampler(machine, L, nChainsPerBeta, nBeta, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 

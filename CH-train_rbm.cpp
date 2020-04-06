@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBM_SH, double> > rbmWrapper(machine, h, J, nBlocks, seed);
+  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBM, double> > rbmWrapper(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   rbmWrapper.warm_up(nWarmup);

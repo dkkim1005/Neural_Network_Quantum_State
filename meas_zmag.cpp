@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 
   // measurements of the spontaneous magnetization with the given wave functions
   spinhalf::magnetization<double> outputs;
-  spinhalf::MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FNN_SH, double> >
+  spinhalf::MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FNN, double> >
     sampler(machine, nBlocks, seed);
   sampler.meas(nTrials, nWarmup, nMonteCarloSteps, outputs);
 

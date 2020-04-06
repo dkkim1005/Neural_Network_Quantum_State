@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian on the checkerboard lattce
-  spinhalf::TFICheckerBoard<AnsatzTraits<Ansatz::FNN_SH, double> >
+  spinhalf::TFICheckerBoard<AnsatzTraits<Ansatz::FNN, double> >
     sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 

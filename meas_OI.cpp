@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  using ansatz_traits = AnsatzeTraits<Ansatz::FNN_SH, Ansatz::FNN_SH, double>;
+  using ansatz_traits = AnsatzeTraits<Ansatz::FNN, Ansatz::FNN, double>;
   auto measPtr = std::make_unique<MeasOverlapIntegral<ansatz_traits> >(m1, m2, nBlocks, seed);
   const auto res1 = measPtr->get_overlapIntegral(ntrials, nWarmup, nMonteCarloSteps);
   std::cout << "# C_12*<\\psi_1|\\psi_2> : " << res1 << std::endl;
