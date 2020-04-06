@@ -210,7 +210,7 @@ RandomBatchIndexing<RandEngineType>::RandomBatchIndexing(const int size, const d
 {
   const int partialSize = static_cast<int>(size*rate);
   if (partialSize == 0)
-    std::invalid_argument("(size*rate)<1");
+    throw std::invalid_argument("(size*rate)<1");
   for (int j=0; j<indexOfFullBatch_.size(); ++j)
     indexOfFullBatch_[j] = j;
   std::random_shuffle(indexOfFullBatch_.begin(), indexOfFullBatch_.end(), rng_);
