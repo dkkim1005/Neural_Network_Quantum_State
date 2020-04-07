@@ -86,6 +86,7 @@ private:
 };
 
 
+// ignoring off-diagonal terms of S_ij matrix
 template <typename FloatType>
 class StochasticGradientDescent
 {
@@ -103,7 +104,7 @@ public:
       std::cout << std::setw(5) << (n+1) << std::setw(16);
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
       std::fill(aO_.begin(), aO_.end(), kzero);
-      // S_i = (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_ki)*oneOverTotalMeas - (aO_i)^+ * aO_i
+      // S_i = (\sum_k |lnpsiGradients_ki|^2)*oneOverTotalMeas - |aO_i|^2 (:= delta_ij*S_ij)
       std::fill(S_.begin(), S_.end(), kzero);
       // F_i = (\sum_k std::conj(htilda_k) * lnpsiGradients_ki)*oneOverTotalMeas - conjHavg*aO_i
       std::fill(F_.begin(), F_.end(), kzero);
@@ -114,7 +115,7 @@ public:
         sampler.get_lnpsiGradients(&lnpsiGradients_[0]);
         // (1) aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
         blas::gemv(knVariables, knChains, oneOverTotalMeas, &lnpsiGradients_[0], &kones[0], kone, &aO_[0]);
-        // (1) S_i = (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_ki)*oneOverTotalMeas
+        // (1) S_i = (\sum_k |lnpsiGradients_ki|^2)*oneOverTotalMeas
         for (int i=0; i<knVariables; ++i)
           for (int k=0; k<knChains; ++k)
             S_[i] += std::norm(lnpsiGradients_[k*knVariables+i]);
@@ -124,15 +125,15 @@ public:
         blas::gemv(knVariables, knChains, oneOverTotalMeas, &lnpsiGradients_[0], &htilda_[0], kone, &F_[0]);
         conjHavgArr[nacc] = oneOverTotalMeas.real()*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
       }
-      // (2) S_i -= (aO_i)^+ * aO_i (Note that 'uplo' is set to L!)
+      // (2) S_i -= |aO_i|^2
       const FloatType lambda = this->schedular_();
       for (int i=0; i<knVariables; ++i)
-        S_[i] = (1+lambda)*(S_[i]*oneOverTotalMeas - std::norm(aO_[i]));
+        S_[i] = (1+lambda)*(S_[i]*oneOverTotalMeas-std::norm(aO_[i]));
       const std::complex<FloatType> conjHavg = std::accumulate(conjHavgArr.begin(), conjHavgArr.end(), kzero);
       // (2) F = (F-conjHavg*aO_i)^+
       for (int i=0; i<knVariables; ++i)
         F_[i] = std::conj(F_[i]+kminusOne*conjHavg*aO_[i]);
-      // F_ = S_^{-1}*F_
+      // F_i = F_i/S_i
       for (int i=0; i<knVariables; ++i)
         F_[i] = F_[i]/S_[i];
       sampler.evolve(&F_[0], deltaTau);
