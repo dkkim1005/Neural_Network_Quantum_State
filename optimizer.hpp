@@ -8,6 +8,7 @@
 #include <vector>
 #include <complex>
 #include "blas_lapack.hpp"
+#include "linear_solver.hpp"
 
 // Ref. S. Sorella, M. Casula, and D. Rocca, J. Chem. Phys. 127, 014105 (2007).
 template <typename FloatType, template<typename> class LinearSolver>
@@ -139,11 +140,15 @@ public:
     }
   }
 private:
+  FloatType schedular_();
   std::vector<std::complex<FloatType> > htilda_, lnpsiGradients_;
   std::vector<std::complex<FloatType> > aO_, S_, F_;
   const std::vector<std::complex<FloatType> > kones;
   const std::complex<FloatType> kone, kzero, kminusOne;
   const int knChains, knVariables;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
+  int nIteration_;
+  FloatType bp_;
 };
 
 #include "impl_optimizer.hpp"

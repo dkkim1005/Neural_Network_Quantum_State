@@ -40,5 +40,14 @@ StochasticGradientDescent<FloatType>::StochasticGradientDescent(const int nChain
   knVariables(nVariables),
   S_(nVariables),
   aO_(nVariables),
-  F_(nVariables)
-  {}
+  F_(nVariables),
+  nIteration_(0),
+  bp_(1.0) {}
+
+template <typename FloatType>
+FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular_()
+{
+  bp_ *= kb;
+  const FloatType lambda = klambda0*bp_;
+  return ((lambda > klambMin) ? lambda : klambMin);
+}
