@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
+  options.push_back(pair_t("dr", "dropout rate"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
@@ -37,6 +38,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));
   defaults.push_back(pair_t("ifprefix", "None"));
+  defaults.push_back(pair_t("dr", "5e-1"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
@@ -53,7 +55,8 @@ int main(int argc, char* argv[])
   const double h = parser.find<double>("h"),
                J1 = parser.find<double>("J1"),
                J2 = parser.find<double>("J2"),
-               lr = parser.find<double>("lr");
+               lr = parser.find<double>("lr"),
+               dr = parser.find<double>("dr");
   const bool usePeriodicBoundary = parser.find<bool>("pb");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
@@ -87,13 +90,14 @@ int main(int argc, char* argv[])
 
   // Transverse Field Ising Hamiltonian on the checkerboard lattce
   spinhalf::TFICheckerBoard<AnsatzTraits<Ansatz::FNN, double> >
-    sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, nBlocks, seed);
+    sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, nBlocks, seed, dr);
   const auto start = std::chrono::system_clock::now();
 
   sampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, machine.get_nVariables());
+  const int nCutHiddens = static_cast<int>(nHiddens*dr);
+  StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
   iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
