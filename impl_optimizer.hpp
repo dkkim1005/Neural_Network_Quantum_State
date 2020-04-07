@@ -45,7 +45,7 @@ StochasticGradientDescent<FloatType>::StochasticGradientDescent(const int nChain
   bp_(1.0) {}
 
 template <typename FloatType>
-FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular_()
+FloatType StochasticGradientDescent<FloatType>::schedular_()
 {
   bp_ *= kb;
   const FloatType lambda = klambda0*bp_;

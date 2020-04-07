@@ -125,8 +125,9 @@ public:
         conjHavgArr[nacc] = oneOverTotalMeas.real()*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
       }
       // (2) S_i -= (aO_i)^+ * aO_i (Note that 'uplo' is set to L!)
+      const FloatType lambda = this->schedular_();
       for (int i=0; i<knVariables; ++i)
-        S_[i] = S_[i]*oneOverTotalMeas - std::norm(aO_[i]);
+        S_[i] = (1+lambda)*(S_[i]*oneOverTotalMeas - std::norm(aO_[i]));
       const std::complex<FloatType> conjHavg = std::accumulate(conjHavgArr.begin(), conjHavgArr.end(), kzero);
       // (2) F = (F-conjHavg*aO_i)^+
       for (int i=0; i<knVariables; ++i)
