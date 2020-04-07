@@ -4,6 +4,7 @@
 #include "hamiltonians.hpp"
 #include "optimizer.hpp"
 #include "argparse.hpp"
+#include "linear_solver.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -89,7 +90,8 @@ int main(int argc, char* argv[])
 
   // imaginary time propagator
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
-  StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
+  //StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
+  StochasticGradientDescent<double> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
   iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
