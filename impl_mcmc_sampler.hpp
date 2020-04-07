@@ -208,6 +208,8 @@ RandomBatchIndexing<RandEngineType>::RandomBatchIndexing(const int size, const d
   indexOfMiniBatch_(size/static_cast<int>(size*rate)+(size%static_cast<int>(size*rate)!=0)),
   batchSetIdx_(0)
 {
+  if (rate <= 0 || rate > 1)
+    throw std::invalid_argument("rate <= 0 or rate > 1");
   const int partialSize = static_cast<int>(size*rate);
   if (partialSize == 0)
     throw std::invalid_argument("(size*rate)<1");

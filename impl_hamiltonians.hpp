@@ -6,7 +6,7 @@ namespace spinhalf
 {
 template <typename TraitsClass>
 TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const FloatType h,
-  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber):
+  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
   BaseParallelSampler<TFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   knSites(machine.get_nInputs()),
   knChains(machine.get_nChains()),
@@ -17,7 +17,8 @@ TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const FloatType h,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nInputs())
+  nnidx_(machine.get_nInputs()),
+  batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   // (checker board update) list_ : 1,3,5,...,2,4,6,...
   for (int i=0; i<knSites; i++)
@@ -103,30 +104,11 @@ void TFIChain<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.backward(lnpsiGradients);
-}
-
-template <typename TraitsClass>
-void TFIChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
-{
-  machine_.update_variables(trueGradients, learningRate);
-}
-
-
-template <typename TraitsClass>
-TFIChainDropOut<TraitsClass>::TFIChainDropOut(AnsatzType & machine, const FloatType h,
-  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
-  TFIChain<TraitsClass>(machine, h, J, seedDistance, seedNumber),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate) {}
-
-template <typename TraitsClass>
-void TFIChainDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
-{
   machine_.partial_backward(lnpsiGradients, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
-void TFIChainDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+void TFIChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_partial_variables(trueGradients, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();
@@ -135,8 +117,8 @@ void TFIChainDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGr
 
 template <typename TraitsClass>
 TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
-  const FloatType h, const FloatType J,
-  const unsigned long seedDistance, const unsigned long seedNumber):
+  const FloatType h, const FloatType J, const unsigned long seedDistance,
+  const unsigned long seedNumber, const FloatType dropOutRate):
   BaseParallelSampler<TFISQ, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedDistance, seedNumber),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -148,7 +130,8 @@ TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nChains())
+  nnidx_(machine.get_nChains()),
+  batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   if (kL*kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L*L!");
@@ -258,30 +241,11 @@ void TFISQ<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 template <typename TraitsClass>
 void TFISQ<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
-  machine_.backward(lnpsiGradients);
-}
-
-template <typename TraitsClass>
-void TFISQ<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
-{
-  machine_.update_variables(trueGradients, learningRate);
-}
-
-
-template <typename TraitsClass>
-TFISQDropOut<TraitsClass>::TFISQDropOut(AnsatzType & machine, const int L, const FloatType h,
-  const FloatType J, const unsigned long seedDistance, const unsigned long seedNumber, const FloatType dropOutRate):
-  TFISQ<TraitsClass>(machine, L, h, J, seedDistance, seedNumber),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate) {}
-
-template <typename TraitsClass>
-void TFISQDropOut<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
-{
   machine_.partial_backward(lnpsiGradients, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
-void TFISQDropOut<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+void TFISQ<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   machine_.update_partial_variables(trueGradients, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();

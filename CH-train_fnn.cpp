@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChainDropOut<AnsatzTraits<Ansatz::FNN, double> > sampler(machine, h, J, nBlocks, seed, dr);
+  spinhalf::TFIChain<AnsatzTraits<Ansatz::FNN, double> > sampler(machine, h, J, nBlocks, seed, dr);
   const auto start = std::chrono::system_clock::now();
 
   sampler.warm_up(nWarmup);
