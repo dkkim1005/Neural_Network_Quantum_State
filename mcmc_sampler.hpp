@@ -38,7 +38,6 @@ public:
 private:
   const int knMCUnitSteps, knChains;
   unsigned long totalMeasurements_;
-  FloatType totalAcceptanceRatio_;
   std::vector<bool> updateList_;
   std::vector<FloatType> ratio_;
   std::vector<RandEngineType> randDev_;
@@ -68,11 +67,13 @@ public:
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
-  std::string meas_acceptance_ratio() const { return "None"; }
+  FloatType meas_acceptance_ratio();
 private:
   const int knMCUnitSteps, knTotChains, knChainsPerBeta, knBeta;
+  unsigned long totalMeasurements_;
   std::vector<bool> updateList_;
   std::vector<FloatType> ratio_, beta_;
+  std::vector<unsigned long> acceptanceRatio_;
   std::vector<RandEngineType> randDev_;
   trng::uniform01_dist<FloatType> randUniform_;
 protected:

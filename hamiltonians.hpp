@@ -162,6 +162,7 @@ private:
   const FloatType kh, kJ, kzero, ktwo;
 };
 
+
 // transverse field Ising model on the triangular lattice
 template <typename TraitsClass>
 class TFITRI: public BaseParallelTemperingSampler<TFITRI, TraitsClass>

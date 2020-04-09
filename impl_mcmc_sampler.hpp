@@ -12,7 +12,6 @@ BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(co
   lnpsi1_(nChains),
   ratio_(nChains),
   randDev_(nChains),
-  totalAcceptanceRatio_(0l),
   totalMeasurements_(0l),
   acceptanceRatio_(nChains)
 {
@@ -97,7 +96,9 @@ BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>::Base
   lnpsi1_(nChainsPerBeta*nBeta),
   ratio_(nChainsPerBeta*nBeta),
   randDev_(nChainsPerBeta*nBeta),
-  beta_(nBeta)
+  beta_(nBeta),
+  totalMeasurements_(0l),
+  acceptanceRatio_(nChainsPerBeta*nBeta)
 {
   if (nBeta%2 == 1)
     throw std::invalid_argument("nBeta must be even number.");
@@ -143,6 +144,7 @@ void BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>:
           ratio_[r_k] = std::norm(std::exp(beta_[r]*(lnpsi1_[r_k]-lnpsi0_[r_k])));
           updateList_[r_k] = (randUniform_(randDev_[r_k]))<ratio_[r_k];
           lnpsi0_[r_k] = updateList_[r_k] ? lnpsi1_[r_k] : lnpsi0_[r_k];
+          acceptanceRatio_[r_k] = acceptanceRatio_[r_k] + updateList_[r_k];
         }
       static_cast<DerivedParallelTemperingSampler<TraitsClass>*>(this)->accept_next_state(updateList_);
     }
@@ -179,6 +181,7 @@ void BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>:
       }
     }
   }
+  totalMeasurements_ = totalMeasurements_ + static_cast<unsigned long>(nMCSteps*knMCUnitSteps*knChainsPerBeta);
 }
 
 // Note that htilda range is [0, knChainsPerBeta)
@@ -199,6 +202,16 @@ template <template<typename> class DerivedParallelTemperingSampler, typename Tra
 void BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
   static_cast<DerivedParallelTemperingSampler<TraitsClass>*>(this)->evolve(trueGradients, learningRate);
+}
+
+template <template<typename> class DerivedParallelTemperingSampler, typename TraitsClass>
+typename TraitsClass::FloatType BaseParallelTemperingSampler<DerivedParallelTemperingSampler, TraitsClass>::meas_acceptance_ratio()
+{
+  const FloatType acceptanceRatio = std::accumulate(acceptanceRatio_.begin(), std::next(acceptanceRatio_.begin(), knChainsPerBeta), 0l)
+    /static_cast<FloatType>(totalMeasurements_);
+  std::fill(acceptanceRatio_.begin(), acceptanceRatio_.end(), 0l);
+  totalMeasurements_ = 0l;
+  return acceptanceRatio;
 }
 
 
