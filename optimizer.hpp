@@ -56,8 +56,8 @@ public:
       const FloatType lambda = this->schedular_();
       for (int i=0; i<knVariables; ++i)
       {
-        // S_ij = (1 + lambda*\delta_ij)*S_ij
-        S_[i*knVariables+i] = (1+lambda)*S_[i*knVariables+i];
+        // S_ij = S_ij + lambda*\delta_ij
+        S_[i*knVariables+i] = S_[i*knVariables+i]+lambda;
         // transpose S_ to prepare as fortran style format
         for (int j=i+1; j<knVariables; ++j)
         {
@@ -128,7 +128,7 @@ public:
       // (2) S_i -= |aO_i|^2
       const FloatType lambda = this->schedular_();
       for (int i=0; i<knVariables; ++i)
-        S_[i] = (1+lambda)*(S_[i]*oneOverTotalMeas-std::norm(aO_[i]));
+        S_[i] = (S_[i]*oneOverTotalMeas-std::norm(aO_[i]))+lambda;
       const std::complex<FloatType> conjHavg = std::accumulate(conjHavgArr.begin(), conjHavgArr.end(), kzero);
       // (2) F = (F-conjHavg*aO_i)^+
       for (int i=0; i<knVariables; ++i)

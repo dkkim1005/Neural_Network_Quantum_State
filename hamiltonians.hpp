@@ -109,7 +109,7 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
   using RandEngineType = trng::yarn2;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
-    const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
+    const std::array<FloatType, 2> J1_J2, const bool isBoundaryPeriodic,
     const unsigned long seedDistance, const unsigned long seedNumber = 0,
     const FloatType dropOutRate = 1);
   void get_htilda(std::complex<FloatType> * htilda);
@@ -201,7 +201,7 @@ class TFICheckerBoard: public BaseParallelTemperingSampler<TFICheckerBoard, Trai
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const int nChainsPerBeta, const int nBeta,
-    const FloatType h, const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
+    const FloatType h, const std::array<FloatType, 2> J1_J2, const bool isBoundaryPeriodic,
     const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
