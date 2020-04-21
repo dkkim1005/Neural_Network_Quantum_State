@@ -130,7 +130,7 @@ TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nChains()),
+  nnidx_(machine.get_nInputs()),
   batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   if (kL*kL != machine.get_nInputs())
@@ -267,7 +267,7 @@ TFITRI<TraitsClass>::TFITRI(AnsatzType & machine, const int L,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nChains()),
+  nnidx_(machine.get_nInputs()),
   batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   if (kL*kL != machine.get_nInputs())
@@ -857,7 +857,7 @@ TFITRI<TraitsClass>::TFITRI(AnsatzType & machine, const int L, const int nChains
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nChains())
+  nnidx_(machine.get_nInputs())
 {
   if (kL*kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L*L!");
