@@ -85,9 +85,8 @@ void ComplexFNN<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients
                          d_db1_kj_0, d_db1_kj_1, d_db1_kj_2,..., d_dw1o_kj_0, d_dw1o_kj_1, d_dw1o_kj_2,...] */
   const thrust::device_vector<int> hiddenNodesIdx_dev(hiddenNodesIdx_host);
   gpu_kernel::FNN__GetGradients__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
-    thrust::raw_pointer_cast(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(),
-    thrust::raw_pointer_cast(y_dev_.data()), thrust::raw_pointer_cast(spinStates_dev_.data()),
-    w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
+    PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(spinStates_dev_.data()), w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
 }
 
 template <typename FloatType>

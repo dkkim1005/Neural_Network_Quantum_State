@@ -27,7 +27,7 @@ public:
   void save(const FNNDataType typeInfo, const std::string filePath, const int precision = 10);
   void load(const FNNDataType typeInfo, const std::string filePath);
   void look_inside() const;
-  thrust::complex<FloatType> * get_spinStates() { return thrust::raw_pointer_cast(spinStates_dev_.data()); };
+  thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
   int get_nHiddens() const { return knHiddens; }
