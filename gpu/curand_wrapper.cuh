@@ -5,14 +5,14 @@
 #include <curand.h>
 #include "common.cuh"
 
-// RNGType : CURAND_RNG_PSEUDO_MT19937,...
+// RNGType : CURAND_RNG_PSEUDO_MTGP32, CURAND_RNG_PSEUDO_PHILOX4_32_10,...
 template <typename FloatType, curandRngType RNGType>
 class CurandWrapper 
 {
 public:
   explicit CurandWrapper(const unsigned long long seed);
   ~CurandWrapper();
-  void get_uniformDist(double * data_dev, const int size);
+  void get_uniformDist(FloatType * data_dev, const int size);
 private:
   curandGenerator_t rng_;
 };
@@ -41,7 +41,7 @@ CurandWrapper<FloatType, RNGType>::~CurandWrapper()
 }
 
 template <typename FloatType, curandRngType RNGType>
-void CurandWrapper<FloatType, RNGType>::get_uniformDist(double * data_dev, const int size)
+void CurandWrapper<FloatType, RNGType>::get_uniformDist(FloatType * data_dev, const int size)
 {
   curandGenerateUniformT(rng_, data_dev, size);
 }

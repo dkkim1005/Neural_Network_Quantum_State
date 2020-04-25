@@ -14,7 +14,6 @@ class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
   friend BaseParallelSampler<TFISQ, TraitsClass>;
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
-  using RandEngineType = trng::yarn5;
 public:
   TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
     const unsigned long long seedNumber = 0ull, const FloatType dropOutRate = 1);
@@ -33,7 +32,7 @@ protected:
   thrust::device_vector<int> nnidx_dev_;
   const int kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kJ, kzero, ktwo;
-  RandomBatchIndexing<RandEngineType> batchAllocater_;
+  RandomBatchIndexing batchAllocater_;
 };
 
 /*
@@ -44,7 +43,6 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
   friend BaseParallelSampler<TFICheckerBoard, TraitsClass>;
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
-  using RandEngineType = trng::yarn5;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
     const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
