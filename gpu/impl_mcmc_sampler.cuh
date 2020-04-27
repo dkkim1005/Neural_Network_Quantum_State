@@ -4,14 +4,14 @@
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(const int nMCUnitSteps,
-  const int nChains, const unsigned long long seedNumber):
+  const int nChains, const unsigned long seedNumber, const unsigned long seedDistance):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
   isNewStateAccepted_dev_(nChains, true),
   lnpsi0_dev_(nChains),
   lnpsi1_dev_(nChains),
   rngValues_dev_(nChains),
-  rng_(seedNumber),
+  rng_(seedNumber, seedDistance, nChains),
   kgpuBlockSize(1+(nChains-1)/NUM_THREADS_PER_BLOCK) {}
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
@@ -31,7 +31,7 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
   for (int n=0; n<(nMCSteps*knMCUnitSteps); ++n)
   {
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling(PTR_FROM_THRUST(lnpsi1_dev_.data()));
-    rng_.get_uniformDist(PTR_FROM_THRUST(rngValues_dev_.data()), knChains);
+    rng_.get_uniformDist(PTR_FROM_THRUST(rngValues_dev_.data()));
     gpu_kernel::Sampler__ParallelMetropolisUpdate__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(PTR_FROM_THRUST(rngValues_dev_.data()), knChains,
       PTR_FROM_THRUST(lnpsi1_dev_.data()), PTR_FROM_THRUST(lnpsi0_dev_.data()), PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state(PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));

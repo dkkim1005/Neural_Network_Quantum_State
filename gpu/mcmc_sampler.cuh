@@ -6,7 +6,7 @@
 #include <random>
 #include <algorithm>
 #include "common.cuh"
-#include "curand_wrapper.cuh"
+#include "trng4cuda.cuh"
 
 /*
  * Base class of importance sampling for wave functions: ln(\psi(x))
@@ -18,7 +18,7 @@ class BaseParallelSampler
 {
   using FloatType = typename TraitsClass::FloatType;
 public:
-  BaseParallelSampler(const int nMCUnitSteps, const int nChains, const unsigned long long seedNumber = 0ull);
+  BaseParallelSampler(const int nMCUnitSteps, const int nChains, const unsigned long seedNumber, const unsigned long seedDistance);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
   void get_htilda(thrust::complex<FloatType> * htilda_dev);
@@ -29,7 +29,7 @@ private:
   const int knMCUnitSteps, knChains, kgpuBlockSize;
   thrust::device_vector<bool> isNewStateAccepted_dev_;
   thrust::device_vector<FloatType> rngValues_dev_;
-  CurandWrapper<FloatType, CURAND_RNG_PSEUDO_PHILOX4_32_10> rng_;
+  TRNGWrapper<FloatType, trng::yarn2> rng_;
 protected:
   thrust::device_vector<thrust::complex<FloatType>> lnpsi1_dev_, lnpsi0_dev_;
 };
