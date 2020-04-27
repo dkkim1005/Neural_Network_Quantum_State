@@ -19,6 +19,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
   options.push_back(pair_t("nms", "# of MCMC steps for sampling spins"));
+  options.push_back(pair_t("dev", "device number"));
   options.push_back(pair_t("J", "coupling constant"));
   options.push_back(pair_t("lr", "learning_rate"));
   options.push_back(pair_t("path", "directory to load and save files"));
@@ -44,6 +45,7 @@ int main(int argc, char* argv[])
     nAccumulation = parser.find<int>("na"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
+    deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter"),
     version = parser.find<int>("ver");
   const float h = parser.find<double>("h"),
@@ -62,6 +64,16 @@ int main(int argc, char* argv[])
 
   // print info of the registered args
   parser.print(std::cout);
+
+  // check whether the cuda device is available
+  int devicesCount;
+  CHECK_ERROR(cudaSuccess, cudaGetDeviceCount(&devicesCount));
+  if (deviceNumber >= devicesCount)
+  {
+    std::cerr << "# error ---> dev(" << deviceNumber << ") >= # of devices(" << devicesCount << ")" << std::endl;
+    exit(1);
+  }
+  CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
   ComplexFNN<float> machine(nInputs, nHiddens, nChains);
 
