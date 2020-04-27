@@ -65,10 +65,12 @@ __global__ void SR__ArrangeSmatrix__(
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
-  // S_ij = S_ij + lambda*\delta_ij
+  const FloatType one = 1;
+  // S_ij = (1+lambda*\delta_ij)*S_ij
   while (idx < nVariables)
   {
-    S[idx*nVariables+idx] = S[idx*nVariables+idx]+lambda;
+    //S[idx*nVariables+idx] = S[idx*nVariables+idx]+lambda;
+    S[idx*nVariables+idx] = (one+lambda)*S[idx*nVariables+idx];
     // transpose S_ to set row-major order(fortran style format)
     for (int j=idx+1; j<nVariables; ++j)
     {
