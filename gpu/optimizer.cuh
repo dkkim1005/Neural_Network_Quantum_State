@@ -37,7 +37,7 @@ public:
   ~StochasticReconfiguration();
   template <template<typename> class SamplerType, typename Traits>
   void propagate(BaseParallelSampler<SamplerType, Traits> & sampler, const int nIteration, const int naccumulation,
-    const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
+    const int nMCSteps, const FloatType deltaTau)
   {
     const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains*naccumulation);
     thrust::host_vector<thrust::complex<FloatType>> conjHavgArr_host(naccumulation, kzero);
@@ -91,7 +91,7 @@ private:
   const thrust::device_vector<thrust::complex<FloatType>> kones_dev;
   const thrust::complex<FloatType> kone, kzero, kminusOne; 
   const int knChains, knVariables, kgpuBlockSize1, kgpuBlockSize2;
-  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-4;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
   int nIteration_;
   FloatType bp_;
   LinearSolver<FloatType> linSolver_;
