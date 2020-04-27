@@ -81,6 +81,21 @@ __global__ void common__ApplyComplexConjugateVector__(thrust::complex<FloatType>
     idx += nstep;
   }
 }
+
+template <typename FloatType>
+__global__ void common__copyFromRealToImag__(
+  const FloatType * real,
+  const int size,
+  thrust::complex<FloatType> * imag)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < size)
+  {
+    imag[idx] = real[idx];
+    idx += nstep;
+  }
+}
 } // namespace cuda_common
 
 // implementation for the circular list structure
