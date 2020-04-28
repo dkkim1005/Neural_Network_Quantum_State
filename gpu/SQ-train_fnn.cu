@@ -103,7 +103,17 @@ int main(int argc, char* argv[])
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
   const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
   StochasticReconfiguration<float, linearsolver::cudaCF> optimizer(nChains, nVariables);
-  optimizer.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  try
+  {
+    optimizer.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  }
+  catch(const std::exception & e) // error handlings
+  {
+    machine.save(FNNDataType::W1, prefix + "Dw1.dat");
+    machine.save(FNNDataType::W2, prefix + "Dw2.dat");
+    machine.save(FNNDataType::B1, prefix + "Db1.dat");
+    e.what();
+  }
 
   // save parameters
   machine.save(FNNDataType::W1, prefix + "Dw1.dat");

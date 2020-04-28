@@ -83,10 +83,7 @@ __global__ void common__ApplyComplexConjugateVector__(thrust::complex<FloatType>
 }
 
 template <typename FloatType>
-__global__ void common__copyFromRealToImag__(
-  const FloatType * real,
-  const int size,
-  thrust::complex<FloatType> * imag)
+__global__ void common__copyFromRealToImag__(const FloatType * real, const int size, thrust::complex<FloatType> * imag)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;

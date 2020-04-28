@@ -35,12 +35,12 @@ public:
   void solve(thrust::complex<double> * A_dev, thrust::complex<double> * B_dev, thrust::complex<double> * x_dev, magma_uplo_t uplo = MagmaLower)
   {
     magma_int_t iter, info;
-    CHECK_ERROR(MAGMA_SUCCESS, magma_zchesv_gpu(uplo, kn, 1,
+    magma_zchesv_gpu(uplo, kn, 1,
       reinterpret_cast<magmaDoubleComplex*>(A_dev), kn,
       reinterpret_cast<magmaDoubleComplex*>(B_dev), kn,
       reinterpret_cast<magmaDoubleComplex*>(x_dev), kn,
       reinterpret_cast<magmaDoubleComplex*>(dworkd_dev_),
-      reinterpret_cast<magmaFloatComplex*>(dworks_dev_), &iter, &info));
+      reinterpret_cast<magmaFloatComplex*>(dworks_dev_), &iter, &info);
     if (info < 0)
       throw std::runtime_error("output of magma_zchesv_gpu: info=" + std::to_string(info));
   }

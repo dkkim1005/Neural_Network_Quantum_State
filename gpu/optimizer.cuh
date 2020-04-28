@@ -81,7 +81,10 @@ public:
       linSolver_.solve(PTR_FROM_THRUST(S_dev_.data()), PTR_FROM_THRUST(F_dev_.data()), PTR_FROM_THRUST(dx_dev_.data()));
       sampler.evolve(PTR_FROM_THRUST(dx_dev_.data()), deltaTau);
       cudaDeviceSynchronize();
-      std::cout << conjHavg.real() << std::endl << std::flush;
+      if (std::isfinite(conjHavg.real()))
+        std::cout << conjHavg.real() << std::endl << std::flush;
+      else
+        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
     }
   }
 private:
