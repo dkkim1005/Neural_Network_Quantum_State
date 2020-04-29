@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 #!/usr/bin/env bash
 #====================================================
-SRCS=(SQ-train_fnn.cu asdf dasfg CB-train_fnn.cu) # source list to compile the cuda executable files
+SRCS=(SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
 MIN_CUDA_ARCH=700 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
 CC=DEFAULT # CUDA nvcc compiler
