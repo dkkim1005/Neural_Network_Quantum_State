@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 #!/usr/bin/env bash
 #====================================================
-SRCS=(SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
+SRCS=(SQ-train_fnn.cu asdf dasfg CB-train_fnn.cu) # source list to compile the cuda executable files
 MIN_CUDA_ARCH=700 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
 CC=DEFAULT # CUDA nvcc compiler
@@ -62,10 +62,20 @@ TRNG4_FLAGS="-ltrng4 -I$TRNG4_INC_PATH -L$TRNG4_LIB_PATH"
 MKL_FLAGS="-I$MKL_INC_PATH -L$MKL_LIB_PATH1 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -L$MKL_LIB_PATH2 -liomp5 -lpthread -lm -ldl"
 MAGMA_FLAGS="-Xcompiler -fopenmp -DMIN_CUDA_ARCH=$MIN_CUDA_ARCH -I$MAGMA_INC_PATH -I$CUDA_INC_PATH -L$MAGMA_LIB_PATH -L$CUDA_LIB_PATH -lmagma_sparse -lmagma -lcublas -lcusparse -lcudart -lcudadevrt"
 
+# name of the bash script
+SCRIPT_NAME=$(basename "$0")
+# location of the bash script
+PREFIX=$(echo $BASH_SOURCE | sed -e "s/$SCRIPT_NAME$//g")
+
 for SRC in ${SRCS[@]}; do
   TARGET=$(echo $SRC | sed -e 's/.cu$//g')
+  SRC_PATH=$(find $PREFIX -name $SRC)
+  if [ -z $SRC_PATH ]; then
+    echo -e "\e[41m${SRC} is not exist...\e[0m"
+    continue
+  fi
   echo -e "\e[1;7;32mCompiling... ($SRC => $TARGET)\e[0m"
-  CMD="$CC -o $TARGET $SRC $CFLAGS $MAGMA_FLAGS $MKL_FLAGS $TRNG4_FLAGS"
+  CMD="$CC -o $TARGET $SRC_PATH $CFLAGS $MAGMA_FLAGS $MKL_FLAGS $TRNG4_FLAGS"
   echo $CMD
   eval $CMD
 done
