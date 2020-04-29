@@ -23,7 +23,7 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
   std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
-    randb1(0, std::sqrt(1.0/nHiddens)), randw1o(0, std::sqrt(1.0/nHiddens));
+    randb1(0, std::sqrt(1.0/(nHiddens+1))), randw1o(0, std::sqrt(1.0/(nHiddens+1)));
   // host
   wi1_host_ = &variables_host_[0];
   b1_host_ = &variables_host_[nInputs*nHiddens];
