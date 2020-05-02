@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian on the checkerboard lattce
-  spinhalf::TFICheckerBoard<SamplerTraits> sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, seedNumber, nBlocks, dr);
+  spinhalf::TFICheckerBoard<SamplerTraits> sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, seedNumber, nBlocks, dr, prefix);
 
   const auto start = std::chrono::system_clock::now();
 
@@ -108,17 +108,7 @@ int main(int argc, char* argv[])
   // imaginary time propagator
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
   StochasticReconfiguration<double, linearsolver::cudaBKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
-  try
-  {
-    iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
-  } 
-  catch(const std::exception & e) // error handlings
-  {
-    machine.save(FNNDataType::W1, prefix + "Dw1.dat");
-    machine.save(FNNDataType::W2, prefix + "Dw2.dat");
-    machine.save(FNNDataType::B1, prefix + "Db1.dat");
-    e.what();
-  }
+  iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   // save parameters
   machine.save(FNNDataType::W1, prefix + "Dw1.dat");

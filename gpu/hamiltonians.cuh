@@ -17,16 +17,17 @@ class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-    const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate = 1);
-  void get_htilda(const thrust::complex<FloatType> * lnpsi0_dev,
-    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
-  void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
-  void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
+  TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J, const unsigned long seedNumber,
+    const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
 private:
+  void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
+    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
+  void get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
   void initialize_(thrust::complex<FloatType> * lnpsi_dev);
   void sampling_(thrust::complex<FloatType> * lnpsi_dev);
   void accept_next_state_(bool * isNewStateAccepted_dev);
+  void save_() const;
   AnsatzType & machine_;
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
@@ -35,6 +36,7 @@ private:
   const int kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kzero, ktwo;
   const thrust::device_vector<FloatType> kJmatrix_dev;
+  const std::string kprefix;
   RandomBatchIndexing batchAllocater_;
 };
 
@@ -47,16 +49,17 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
-    const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
-    const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate = 1);
-  void get_htilda(const thrust::complex<FloatType> * lnpsi0_dev,
-    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
-  void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
-  void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
+    const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary, const unsigned long seedNumber,
+    const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
 private:
+  void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
+    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
+  void get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
   void initialize_(thrust::complex<FloatType> * lnpsi_dev);
   void sampling_(thrust::complex<FloatType> * lnpsi);
   void accept_next_state_(bool * isNewStateAccepted_dev);
+  void save_() const;
   AnsatzType & machine_;
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
@@ -64,6 +67,7 @@ private:
   thrust::device_vector<int> nnidx_dev_;
   const int kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
+  const std::string kprefix;
   RandomBatchIndexing batchAllocater_;
 };
 } //  namespace spinhalf

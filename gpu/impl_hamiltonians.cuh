@@ -5,8 +5,8 @@
 namespace spinhalf
 {
 template <typename TraitsClass>
-TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
-  const FloatType h, const FloatType J, const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate):
+TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
+  const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
   BaseParallelSampler<TFISQ, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -20,6 +20,7 @@ TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(4*machine.get_nInputs()),
   kJmatrix_dev(4*machine.get_nInputs(), J),
+  kprefix(prefix),
   batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   if (kL*kL != machine.get_nInputs())
@@ -92,7 +93,7 @@ void TFISQ<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::get_htilda(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
+void TFISQ<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
 {
   /*
      htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
@@ -107,22 +108,31 @@ void TFISQ<TraitsClass>::get_htilda(const thrust::complex<FloatType> * lnpsi0_de
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev)
+void TFISQ<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
+void TFISQ<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();
 }
 
 template <typename TraitsClass>
-TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
-  const FloatType h, const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
-  const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate):
+void TFISQ<TraitsClass>::save_() const
+{
+  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
+  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
+  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
+}
+
+
+template <typename TraitsClass>
+TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
+  const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary, const unsigned long seedNumber,
+  const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
   BaseParallelSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -138,6 +148,7 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(8*machine.get_nInputs(), 0),
   Jmatrix_dev_(8*machine.get_nInputs(), 0),
+  kprefix(prefix),
   batchAllocater_(machine.get_nHiddens(), dropOutRate)
 {
   if (kL*kL != machine.get_nInputs())
@@ -304,7 +315,7 @@ void TFICheckerBoard<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::get_htilda(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
+void TFICheckerBoard<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
 {
   //   htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
   //    --> J*diag + h*sum_i \frac{<(s_1, s_2,...,-s_i,...,s_n|psi>}{<(s_1, s_2,...,s_i,...,s_n|psi>}
@@ -317,16 +328,24 @@ void TFICheckerBoard<TraitsClass>::get_htilda(const thrust::complex<FloatType> *
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev)
+void TFICheckerBoard<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
+void TFICheckerBoard<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
   machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();
+}
+
+template <typename TraitsClass>
+void TFICheckerBoard<TraitsClass>::save_() const
+{
+  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
+  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
+  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
 }
 } // namespace spinhalf
 

@@ -35,16 +35,15 @@ class StochasticReconfiguration
 public:
   StochasticReconfiguration(const int nChains, const int nVariables);
   ~StochasticReconfiguration();
-  template <template<typename> class SamplerType, typename Traits>
-  void propagate(BaseParallelSampler<SamplerType, Traits> & sampler, const int nIteration, const int naccumulation,
-    const int nMCSteps, const FloatType deltaTau)
+  template <typename SamplerType>
+  void propagate(SamplerType & sampler, const int nIteration, const int naccumulation,
+    const int nMCSteps, const FloatType deltaTau, const int nrec = 20)
   {
     const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains*naccumulation);
     thrust::host_vector<thrust::complex<FloatType>> conjHavgArr_host(naccumulation, kzero);
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
     for (int n=0; n<nIteration; ++n)
     {
-      std::cout << std::setw(5) << (n+1) << std::setw(16);
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
       thrust::fill(aO_dev_.begin(), aO_dev_.end(), kzero);
       // S_ij = (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_kj)*oneOverTotalMeas - (aO_i)^+ * aO_j
@@ -82,7 +81,11 @@ public:
       sampler.evolve(PTR_FROM_THRUST(dx_dev_.data()), deltaTau);
       cudaDeviceSynchronize();
       if (std::isfinite(conjHavg.real()))
-        std::cout << conjHavg.real() << std::endl << std::flush;
+      {
+        std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
+        if (n%nrec == (nrec-1))
+          sampler.save();
+      }
       else
         throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
     }

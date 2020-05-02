@@ -25,6 +25,7 @@ public:
   void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
   int get_nChains() const { return knChains; }
   void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
+  void save() const;
 private:
   const int knMCUnitSteps, knChains, kgpuBlockSize;
   thrust::device_vector<bool> isNewStateAccepted_dev_;

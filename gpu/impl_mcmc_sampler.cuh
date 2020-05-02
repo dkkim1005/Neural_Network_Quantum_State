@@ -41,22 +41,29 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::get_htilda(thrust::complex<FloatType> * htilda_dev)
 {
-  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->get_htilda(PTR_FROM_THRUST(lnpsi0_dev_.data()),
+  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->get_htilda_(PTR_FROM_THRUST(lnpsi0_dev_.data()),
     PTR_FROM_THRUST(lnpsi1_dev_.data()), htilda_dev);
 }
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->get_lnpsiGradients(lnpsiGradients_dev);
+  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->get_lnpsiGradients_(lnpsiGradients_dev);
 }
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::evolve(const thrust::complex<FloatType> * trueGradients_dev,
   const FloatType learningRate)
 {
-  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->evolve(trueGradients_dev, learningRate);
+  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->evolve_(trueGradients_dev, learningRate);
 }
+
+template <template<typename> class DerivedParallelSampler, typename TraitsClass>
+void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::save() const
+{
+  static_cast<const DerivedParallelSampler<TraitsClass>*>(this)->save_();
+}
+
 
 namespace gpu_kernel
 {
