@@ -64,7 +64,7 @@ TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L,
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void TFISQ<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
 {
   machine_.initialize(lnpsi_dev);
   const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
@@ -74,14 +74,14 @@ void TFISQ<TraitsClass>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::sampling(thrust::complex<FloatType> * lnpsi_dev)
+void TFISQ<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi_dev);
 }
 
 template <typename TraitsClass>
-void TFISQ<TraitsClass>::accept_next_state(bool * isNewStateAccepted_dev)
+void TFISQ<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
 {
   const int idx = idxptr_->get_item();
   const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
@@ -276,7 +276,7 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void TFICheckerBoard<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
 {
   machine_.initialize(lnpsi_dev);
   const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
@@ -286,14 +286,14 @@ void TFICheckerBoard<TraitsClass>::initialize(thrust::complex<FloatType> * lnpsi
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::sampling(thrust::complex<FloatType> * lnpsi_dev)
+void TFICheckerBoard<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
 {
   idxptr_ = idxptr_->next_ptr();
   machine_.forward(idxptr_->get_item(), lnpsi_dev);
 }
 
 template <typename TraitsClass>
-void TFICheckerBoard<TraitsClass>::accept_next_state(bool * isNewStateAccepted_dev)
+void TFICheckerBoard<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
 {
   const int idx = idxptr_->get_item();
   const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();

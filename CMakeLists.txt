@@ -10,7 +10,7 @@ ELSEIF (UNIX)
   ENDIF (NOT CMAKE_CXX_COMPILER)
 ENDIF ()
 
-SET (USE_CUDA TRUE) # --> CUDA 10.x version is required.
+#SET (USE_CUDA TRUE) # --> CUDA 10.x version is required(experimental).
 PROJECT (VMC_OPENMP_VER)
 CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
 SET (TARGETS "SQ-train_fnn;CB-train_fnn")

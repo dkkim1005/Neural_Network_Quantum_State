@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
   const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
-  StochasticReconfiguration<double, linearsolver::cudaBKF> optimizer(nChains, nVariables);
+  StochasticReconfiguration<double, linearsolver::cudaCF> optimizer(nChains, nVariables);
   try
   {
     optimizer.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);

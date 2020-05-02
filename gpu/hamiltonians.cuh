@@ -5,6 +5,8 @@
 #include "mcmc_sampler.cuh"
 #include "neural_quantum_state.cuh"
 
+template <typename FloatType = int> class OneWayLinkedIndex;
+
 namespace spinhalf
 {
 // transverse field Ising model on the square lattice
@@ -21,10 +23,10 @@ public:
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
   void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
   void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
-protected:
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
-  void sampling(thrust::complex<FloatType> * lnpsi_dev);
-  void accept_next_state(bool * isNewStateAccepted_dev);
+private:
+  void initialize_(thrust::complex<FloatType> * lnpsi_dev);
+  void sampling_(thrust::complex<FloatType> * lnpsi_dev);
+  void accept_next_state_(bool * isNewStateAccepted_dev);
   AnsatzType & machine_;
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
@@ -52,9 +54,9 @@ public:
   void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
   void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
 private:
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
-  void sampling(thrust::complex<FloatType> * lnpsi);
-  void accept_next_state(bool * isNewStateAccepted_dev);
+  void initialize_(thrust::complex<FloatType> * lnpsi_dev);
+  void sampling_(thrust::complex<FloatType> * lnpsi);
+  void accept_next_state_(bool * isNewStateAccepted_dev);
   AnsatzType & machine_;
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
@@ -102,5 +104,20 @@ __global__ void TFI__GetOffDiagElem__(
   thrust::complex<FloatType> * htilda
 );
 } // namespace gpu_kernel
+
+
+// circular list structure
+template <typename FloatType>
+class OneWayLinkedIndex
+{
+public:
+  void set_item(const FloatType & item) { item_ = item; }
+  void set_nextptr(OneWayLinkedIndex * nextPtr) { nextPtr_ = nextPtr; }
+  OneWayLinkedIndex * next_ptr() const { return nextPtr_; }
+  FloatType get_item() { return item_; }
+private:
+  FloatType item_;
+  OneWayLinkedIndex * nextPtr_;
+};
 
 #include "impl_hamiltonians.cuh"

@@ -23,7 +23,7 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
   std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
-    randb1(0, std::sqrt(1.0/(nHiddens+1))), randw1o(0, std::sqrt(1.0/(nHiddens+1)));
+    randb1(0, std::sqrt(1.0/nHiddens)), randw1o(0, std::sqrt(1.0/nHiddens));
   // host
   wi1_host_ = &variables_host_[0];
   b1_host_ = &variables_host_[nInputs*nHiddens];
@@ -84,9 +84,11 @@ void ComplexFNN<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients
      lnpsiGradients_k = [d_dwi1_k0j_0, d_dwi1_k1j_0, d_dwi1_k2j_0,... d_dwi1_k0j_1, d_dwi1_k1j_1, d_dwi1_k2j_1,...,
                          d_db1_kj_0, d_db1_kj_1, d_db1_kj_2,..., d_dw1o_kj_0, d_dw1o_kj_1, d_dw1o_kj_2,...] */
   const thrust::device_vector<int> hiddenNodesIdx_dev(hiddenNodesIdx_host);
-  gpu_kernel::FNN__GetGradients__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+  gpu_kernel::FNN__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
     PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(), PTR_FROM_THRUST(y_dev_.data()),
-    PTR_FROM_THRUST(spinStates_dev_.data()), w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
+    PTR_FROM_THRUST(spinStates_dev_.data()), w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_);
+  gpu_kernel::FNN__GetlnpsiGradients__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(), d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
 }
 
 template <typename FloatType>
@@ -289,7 +291,7 @@ __global__ void FNN__ConditionalUpdateSpin__(
 }
 
 template <typename FloatType>
-__global__ void FNN__GetGradients__(
+__global__ void FNN__GetGradientsOfParameters__(
   const int nInputs,
   const int nHiddens,
   const int nChains,
@@ -300,8 +302,7 @@ __global__ void FNN__GetGradients__(
   const thrust::complex<FloatType> * w1o,
   thrust::complex<FloatType> * d_dwi1,
   thrust::complex<FloatType> * d_db1,
-  thrust::complex<FloatType> * d_dw1o,
-  thrust::complex<FloatType> * lnpsiGradients)
+  thrust::complex<FloatType> * d_dw1o)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   const int varSize = nInputs*nHiddens+2*nHiddens; // # of total variables
@@ -317,8 +318,24 @@ __global__ void FNN__GetGradients__(
     d_dw1o[kv+j] = thrust::log(thrust::cosh(y[kh+j]));
     idx += nstep;
   }
+}
+
+template <typename FloatType>
+__global__ void FNN__GetlnpsiGradients__(
+  const int nInputs,
+  const int nHiddens,
+  const int nChains,
+  const int * hiddenNodesIdx,
+  const int nNodes,
+  const thrust::complex<FloatType> * d_dwi1,
+  const thrust::complex<FloatType> * d_db1,
+  const thrust::complex<FloatType> * d_dw1o,
+  thrust::complex<FloatType> * lnpsiGradients)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  const int varSize = nInputs*nHiddens+2*nHiddens; // # of total variables
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,i0] : k is the parallel chain number and i0 is the order of hiddenNodesIdx.
   // save the results into lnpsiGradients
-  idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,i0]
   const int pvarSize = nInputs*nNodes+2*nNodes;
   while (idx < nChains*nNodes)
   {

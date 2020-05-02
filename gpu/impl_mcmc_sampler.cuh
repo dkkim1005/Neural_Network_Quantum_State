@@ -18,8 +18,8 @@ template <template<typename> class DerivedParallelSampler, typename TraitsClass>
 void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::warm_up(const int nMCSteps)
 {
   // prepare an initial state
-  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->initialize(PTR_FROM_THRUST(lnpsi0_dev_.data()));
-  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state(PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
+  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->initialize_(PTR_FROM_THRUST(lnpsi0_dev_.data()));
+  static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state_(PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
   // MCMC sampling for warming up
   this->do_mcmc_steps(nMCSteps);
 }
@@ -30,11 +30,11 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
   // Markov chain MonteCarlo(MCMC) sampling with nskip iterations
   for (int n=0; n<(nMCSteps*knMCUnitSteps); ++n)
   {
-    static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling(PTR_FROM_THRUST(lnpsi1_dev_.data()));
+    static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling_(PTR_FROM_THRUST(lnpsi1_dev_.data()));
     rng_.get_uniformDist(PTR_FROM_THRUST(rngValues_dev_.data()));
     gpu_kernel::Sampler__ParallelMetropolisUpdate__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(PTR_FROM_THRUST(rngValues_dev_.data()), knChains,
       PTR_FROM_THRUST(lnpsi1_dev_.data()), PTR_FROM_THRUST(lnpsi0_dev_.data()), PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
-    static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state(PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
+    static_cast<DerivedParallelSampler<TraitsClass>*>(this)->accept_next_state_(PTR_FROM_THRUST(isNewStateAccepted_dev_.data()));
   }
 }
 

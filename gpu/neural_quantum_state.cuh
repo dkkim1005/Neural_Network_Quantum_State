@@ -93,7 +93,7 @@ __global__ void FNN__ConditionalUpdateSpin__(
 );
 
 template <typename FloatType>
-__global__ void FNN__GetGradients__(
+__global__ void FNN__GetGradientsOfParameters__(
   const int nInputs,
   const int nHiddens,
   const int nChains,
@@ -104,7 +104,19 @@ __global__ void FNN__GetGradients__(
   const thrust::complex<FloatType> * w1o,
   thrust::complex<FloatType> * d_dwi1,
   thrust::complex<FloatType> * d_db1,
-  thrust::complex<FloatType> * d_dw1o,
+  thrust::complex<FloatType> * d_dw1o
+);
+
+template <typename FloatType>
+__global__ void FNN__GetlnpsiGradients__(
+  const int nInputs,
+  const int nHiddens,
+  const int nChains,
+  const int * hiddenNodesIdx,
+  const int nNodes,
+  const thrust::complex<FloatType> * d_dwi1,
+  const thrust::complex<FloatType> * d_db1,
+  const thrust::complex<FloatType> * d_dw1o,
   thrust::complex<FloatType> * lnpsiGradients
 );
 

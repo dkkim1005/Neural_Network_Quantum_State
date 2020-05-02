@@ -4,6 +4,15 @@
 
 #include "common.cuh"
 
+#define SCOMPLEX_FROM_THRUST_TO_CUDA_PTR(DEVICE_COMPLEX_PTR)\
+reinterpret_cast<cuComplex*>(DEVICE_COMPLEX_PTR)
+#define DCOMPLEX_FROM_THRUST_TO_CUDA_PTR(DEVICE_COMPLEX_PTR)\
+reinterpret_cast<cuDoubleComplex*>(DEVICE_COMPLEX_PTR)
+#define SCOMPLEX_FROM_THRUST_TO_CUDA_CONST_PTR(DEVICE_COMPLEX_PTR)\
+reinterpret_cast<const cuComplex*>(DEVICE_COMPLEX_PTR)
+#define DCOMPLEX_FROM_THRUST_TO_CUDA_CONST_PTR(DEVICE_COMPLEX_PTR)\
+reinterpret_cast<const cuDoubleComplex*>(DEVICE_COMPLEX_PTR)
+
 namespace cublas
 {
 // y = alpha*(A*X) + beta*y

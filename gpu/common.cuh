@@ -18,16 +18,6 @@
 
 #define CHECK_BLOCK_SIZE(x) ((x<65535) ? x : 65535)
 #define NUM_THREADS_PER_BLOCK 32
-
-#define SCOMPLEX_FROM_THRUST_TO_CUDA_PTR(DEVICE_PTR)\
-reinterpret_cast<cuComplex*>(DEVICE_PTR)
-#define DCOMPLEX_FROM_THRUST_TO_CUDA_PTR(DEVICE_PTR)\
-reinterpret_cast<cuDoubleComplex*>(DEVICE_PTR)
-#define SCOMPLEX_FROM_THRUST_TO_CUDA_CONST_PTR(DEVICE_PTR)\
-reinterpret_cast<const cuComplex*>(DEVICE_PTR)
-#define DCOMPLEX_FROM_THRUST_TO_CUDA_CONST_PTR(DEVICE_PTR)\
-reinterpret_cast<const cuDoubleComplex*>(DEVICE_PTR)
-
 #define PTR_FROM_THRUST(THRUST_DEVICE_PTR) thrust::raw_pointer_cast(THRUST_DEVICE_PTR)
 
 namespace gpu_kernel
@@ -93,18 +83,4 @@ __global__ void common__copyFromRealToImag__(const FloatType * real, const int s
     idx += nstep;
   }
 }
-} // namespace cuda_common
-
-// implementation for the circular list structure
-template <typename FloatType = int>
-class OneWayLinkedIndex
-{
-public:
-  void set_item(const FloatType & item) { item_ = item; }
-  void set_nextptr(OneWayLinkedIndex * nextPtr) { nextPtr_ = nextPtr; }
-  OneWayLinkedIndex * next_ptr() const { return nextPtr_; }
-  FloatType get_item() { return item_; }
-private:
-  FloatType item_;
-  OneWayLinkedIndex * nextPtr_;
-};
+} // namespace gpu_kernel
