@@ -77,11 +77,12 @@ __global__ void Sampler__ParallelMetropolisUpdate__(
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType delta[2] = {0.0, 1.0};
   while (idx < nChains)
   {
     const FloatType ratio = thrust::norm(thrust::exp(lnpsi1[idx]-lnpsi0[idx]));
     isNewStateAccepted[idx] = (rngValues[idx]<ratio);
-    lnpsi0[idx] = (isNewStateAccepted[idx] ? lnpsi1[idx] : lnpsi0[idx]);
+    lnpsi0[idx] = lnpsi0[idx]+delta[isNewStateAccepted[idx]]*(lnpsi1[idx]-lnpsi0[idx]);
     idx += nstep;
   }
 }
