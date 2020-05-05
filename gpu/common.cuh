@@ -16,43 +16,43 @@
   }\
 } while (false)
 
-#define CHECK_BLOCK_SIZE(x) ((x<65535) ? x : 65535)
-#define NUM_THREADS_PER_BLOCK 32
+#define CHECK_BLOCK_SIZE(x) ((x<65535u) ? x : 65535u)
+#define NUM_THREADS_PER_BLOCK 32u
 #define PTR_FROM_THRUST(THRUST_DEVICE_PTR) thrust::raw_pointer_cast(THRUST_DEVICE_PTR)
 
 namespace gpu_kernel
 {
 template <typename FloatType>
-__global__ void common__Print__(const thrust::complex<FloatType> * A, const int nrow, const int ncol)
+__global__ void common__Print__(const thrust::complex<FloatType> * A, const uint32_t nrow, const uint32_t ncol)
 {
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
-  if (idx == 0)
-    for (int i=0; i<nrow; ++i)
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
+  if (idx == 0u)
+    for (uint32_t i=0u; i<nrow; ++i)
     {
-      for (int j=0; j<ncol; ++j)
+      for (uint32_t j=0u; j<ncol; ++j)
         printf("(%.8e,%.8e) ", A[i*ncol+j].real(), A[i*ncol+j].imag());
       printf("\n");
     }
 }
 
 template <typename FloatType>
-__global__ void common__Print__(const FloatType * A, const int nrow, const int ncol)
+__global__ void common__Print__(const FloatType * A, const uint32_t nrow, const uint32_t ncol)
 {
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
-  if (idx == 0)
-    for (int i=0; i<nrow; ++i)
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
+  if (idx == 0u)
+    for (uint32_t i=0u; i<nrow; ++i)
     {
-      for (int j=0; j<ncol; ++j)
+      for (uint32_t j=0u; j<ncol; ++j)
         printf("%f ", A[i*ncol+j]);
       printf("\n");
     }
 }
 
 template <typename T1, typename T2>
-__global__ void common__SetValues__(T1 * A, const int size, const T2 value)
+__global__ void common__SetValues__(T1 * A, const uint32_t size, const T2 value)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < size)
   {
     A[idx] = value;
@@ -61,10 +61,10 @@ __global__ void common__SetValues__(T1 * A, const int size, const T2 value)
 }
 
 template <typename FloatType>
-__global__ void common__ApplyComplexConjugateVector__(thrust::complex<FloatType> * vec, const int size)
+__global__ void common__ApplyComplexConjugateVector__(thrust::complex<FloatType> * vec, const uint32_t size)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < size)
   {
     vec[idx] = thrust::conj(vec[idx]);
@@ -73,10 +73,10 @@ __global__ void common__ApplyComplexConjugateVector__(thrust::complex<FloatType>
 }
 
 template <typename FloatType>
-__global__ void common__copyFromRealToImag__(const FloatType * real, const int size, thrust::complex<FloatType> * imag)
+__global__ void common__copyFromRealToImag__(const FloatType * real, const uint32_t size, thrust::complex<FloatType> * imag)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < size)
   {
     imag[idx] = real[idx];

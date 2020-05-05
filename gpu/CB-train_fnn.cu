@@ -42,23 +42,23 @@ int main(int argc, char* argv[])
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
-  const int L = parser.find<int>("L"),
+  const uint32_t L = parser.find<uint32_t>("L"),
     nInputs = L*L,
-    nHiddens = parser.find<int>("nh"),
-    nChains = parser.find<int>("ns"),
-    nAccumulation = parser.find<int>("na"),
-    nWarmup = parser.find<int>("nwarm"),
-    nMonteCarloSteps = parser.find<int>("nms"),
-    deviceNumber = parser.find<int>("dev"),
-    nIterations =  parser.find<int>("niter"),
-    version = parser.find<int>("ver");
+    nHiddens = parser.find<uint32_t>("nh"),
+    nChains = parser.find<uint32_t>("ns"),
+    nAccumulation = parser.find<uint32_t>("na"),
+    nWarmup = parser.find<uint32_t>("nwarm"),
+    nMonteCarloSteps = parser.find<uint32_t>("nms"),
+    deviceNumber = parser.find<uint32_t>("dev"),
+    nIterations =  parser.find<uint32_t>("niter"),
+    version = parser.find<uint32_t>("ver");
   const double h = parser.find<double>("h"),
     J1 = parser.find<double>("J1"),
     J2 = parser.find<double>("J2"),
     lr = parser.find<double>("lr"),
     dr = parser.find<double>("dr");
   const bool usePeriodicBoundary = parser.find<bool>("pb");
-  const unsigned long seedNumber = parser.find<unsigned long long>("seed");
+  const uint64_t seedNumber = parser.find<uint64_t>("seed");
   const std::string path = parser.find<>("path") + "/",
     nistr = std::to_string(nInputs),
     nhstr = std::to_string(nHiddens),
@@ -93,10 +93,10 @@ int main(int argc, char* argv[])
   struct SamplerTraits { using AnsatzType = ComplexFNN<double>; using FloatType = double;};
 
   // block size for the block splitting scheme of parallel Monte-Carlo
-  const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
-                                static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs)*
-                                static_cast<unsigned long>(nChains);
+  const uint64_t nBlocks = static_cast<uint64_t>(nIterations)*
+                           static_cast<uint64_t>(nMonteCarloSteps)*
+                           static_cast<uint64_t>(nInputs)*
+                           static_cast<uint64_t>(nChains);
 
   // Transverse Field Ising Hamiltonian on the checkerboard lattce
   spinhalf::TFICheckerBoard<SamplerTraits> sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, seedNumber, nBlocks, dr, prefix);
@@ -106,8 +106,8 @@ int main(int argc, char* argv[])
   sampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  const int nCutHiddens = static_cast<int>(nHiddens*dr);
-  StochasticReconfiguration<double, linearsolver::cudaBKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
+  const uint32_t nCutHiddens = static_cast<uint32_t>(nHiddens*dr);
+  StochasticReconfiguration<double, linearsolver::cudaCF> iTimePropagator(nChains, (nInputs*nCutHiddens+2u*nCutHiddens));
   iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   // save parameters

@@ -3,8 +3,8 @@
 #pragma once
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
-BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(const int nMCUnitSteps,
-  const int nChains, const unsigned long seedNumber, const unsigned long seedDistance):
+BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(const uint32_t nMCUnitSteps,
+  const uint32_t nChains, const unsigned long seedNumber, const unsigned long seedDistance):
   knMCUnitSteps(nMCUnitSteps),
   knChains(nChains),
   isNewStateAccepted_dev_(nChains, true),
@@ -12,10 +12,10 @@ BaseParallelSampler<DerivedParallelSampler, TraitsClass>::BaseParallelSampler(co
   lnpsi1_dev_(nChains),
   rngValues_dev_(nChains),
   rng_(seedNumber, seedDistance, nChains),
-  kgpuBlockSize(1+(nChains-1)/NUM_THREADS_PER_BLOCK) {}
+  kgpuBlockSize(1u+(nChains-1u)/NUM_THREADS_PER_BLOCK) {}
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
-void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::warm_up(const int nMCSteps)
+void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::warm_up(const uint32_t nMCSteps)
 {
   // prepare an initial state
   static_cast<DerivedParallelSampler<TraitsClass>*>(this)->initialize_(PTR_FROM_THRUST(lnpsi0_dev_.data()));
@@ -25,10 +25,10 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::warm_up(const int
 }
 
 template <template<typename> class DerivedParallelSampler, typename TraitsClass>
-void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(const int nMCSteps)
+void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(const uint32_t nMCSteps)
 {
   // Markov chain MonteCarlo(MCMC) sampling with nskip iterations
-  for (int n=0; n<(nMCSteps*knMCUnitSteps); ++n)
+  for (uint32_t n=0u; n<(nMCSteps*knMCUnitSteps); ++n)
   {
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling_(PTR_FROM_THRUST(lnpsi1_dev_.data()));
     rng_.get_uniformDist(PTR_FROM_THRUST(rngValues_dev_.data()));
@@ -70,13 +70,13 @@ namespace gpu_kernel
 template <typename FloatType>
 __global__ void Sampler__ParallelMetropolisUpdate__(
   const FloatType * rngValues,
-  const int nChains,
+  const uint32_t nChains,
   const thrust::complex<FloatType> * lnpsi1,
   thrust::complex<FloatType> * lnpsi0,
   bool * isNewStateAccepted)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < nChains)
   {
     const FloatType ratio = thrust::norm(thrust::exp(lnpsi1[idx]-lnpsi0[idx]));

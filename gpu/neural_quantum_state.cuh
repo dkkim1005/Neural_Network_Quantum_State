@@ -16,28 +16,28 @@ template <typename FloatType>
 class ComplexFNN
 {
 public:
-  ComplexFNN(const int nInputs, const int nHiddens, const int nChains);
+  ComplexFNN(const uint32_t nInputs, const uint32_t nHiddens, const uint32_t nChains);
   ComplexFNN(const ComplexFNN & rhs) = delete;
   ComplexFNN & operator=(const ComplexFNN & rhs) = delete;
   ~ComplexFNN();
   void initialize(thrust::complex<FloatType> * lnpsi_dev);
-  void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
-  void backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<int> & hiddenNodesIdx_host);
+  void forward(const uint32_t spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
+  void backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<uint32_t> & hiddenNodesIdx_host);
   void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate,
-    const thrust::host_vector<int> & hiddenNodes_host);
-  void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
-  void save(const FNNDataType typeInfo, const std::string filePath, const int precision = 10);
+    const thrust::host_vector<uint32_t> & hiddenNodes_host);
+  void spin_flip(const bool * isSpinFlipped_dev, const int32_t spinFlipIndex = -1);
+  void save(const FNNDataType typeInfo, const std::string filePath, const uint32_t precision = 10u);
   void load(const FNNDataType typeInfo, const std::string filePath);
   void look_inside() const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
-  int get_nChains() const { return knChains; }
-  int get_nInputs() const { return knInputs; }
-  int get_nHiddens() const { return knHiddens; }
-  int get_nVariables() const { return variables_host_.size(); }
+  uint32_t get_nChains() const { return knChains; }
+  uint32_t get_nInputs() const { return knInputs; }
+  uint32_t get_nHiddens() const { return knHiddens; }
+  uint32_t get_nVariables() const { return variables_host_.size(); }
 private:
-  const int knInputs, knHiddens; // hyperparameters for network size
-  const int knChains; // # of parallel states
-  const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3;
+  const uint32_t knInputs, knHiddens; // hyperparameters for network size
+  const uint32_t knChains; // # of parallel states
+  const uint32_t kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3;
   thrust::host_vector<thrust::complex<FloatType>> variables_host_;
   thrust::device_vector<thrust::complex<FloatType>> variables_dev_;
   thrust::device_vector<thrust::complex<FloatType>> lnpsiGradients_dev_; // derivative of lnpsi with variables
@@ -46,7 +46,7 @@ private:
   thrust::complex<FloatType> * wi1_host_, * b1_host_, * w1o_host_; // pointer alias for weight matrix and bias vector
   thrust::complex<FloatType> * wi1_dev_, * b1_dev_, * w1o_dev_;
   thrust::complex<FloatType> * d_dwi1_dev_, * d_dw1o_dev_, * d_db1_dev_; // pointer alias for gradients
-  int index_; // index of spin sites to flip
+  uint32_t index_; // index of spin sites to flip
   const thrust::complex<FloatType> kzero, kone;
   const thrust::device_vector<thrust::complex<FloatType>> koneChains_dev; // [1, 1, 1,...,1]
   cublasHandle_t theCublasHandle_;
@@ -56,17 +56,17 @@ namespace gpu_kernel
 {
 template <typename FloatType>
 __global__ void FNN__ActivateNeurons__(
-  const int size,
+  const uint32_t size,
   const thrust::complex<FloatType> * y,
   thrust::complex<FloatType> * acty
 );
 
 template <typename FloatType>
 __global__ void FNN__ActivateNeurons__(
-  const int nInputs,
-  const int nHiddens,
-  const int nChains,
-  const int spinFlipIndex,
+  const uint32_t nInputs,
+  const uint32_t nHiddens,
+  const uint32_t nChains,
+  const uint32_t spinFlipIndex,
   const thrust::complex<FloatType> * wi1,
   const thrust::complex<FloatType> * spinStates,
   const thrust::complex<FloatType> * y,
@@ -75,10 +75,10 @@ __global__ void FNN__ActivateNeurons__(
 
 template <typename FloatType>
 __global__ void FNN__ConditionalUpdateY__(
-  const int nInputs,
-  const int nHiddens,
-  const int nChains,
-  const int spinFlipIndex,
+  const uint32_t nInputs,
+  const uint32_t nHiddens,
+  const uint32_t nChains,
+  const uint32_t spinFlipIndex,
   const bool * isSpinFlipped,
   const thrust::complex<FloatType> * wi1,
   thrust::complex<FloatType> * spinStates,
@@ -87,20 +87,20 @@ __global__ void FNN__ConditionalUpdateY__(
 
 template <typename FloatType>
 __global__ void FNN__ConditionalUpdateSpin__(
-  const int nInputs,
-  const int nChains,
-  const int spinFlipIndex,
+  const uint32_t nInputs,
+  const uint32_t nChains,
+  const uint32_t spinFlipIndex,
   const bool * isSpinFlipped,
   thrust::complex<FloatType> * spinStates
 );
 
 template <typename FloatType>
 __global__ void FNN__GetGradientsOfParameters__(
-  const int nInputs,
-  const int nHiddens,
-  const int nChains,
-  const int * hiddenNodesIdx,
-  const int nNodes,
+  const uint32_t nInputs,
+  const uint32_t nHiddens,
+  const uint32_t nChains,
+  const uint32_t * hiddenNodesIdx,
+  const uint32_t nNodes,
   const thrust::complex<FloatType> * y,
   const thrust::complex<FloatType> * spinStates,
   const thrust::complex<FloatType> * w1o,
@@ -111,11 +111,11 @@ __global__ void FNN__GetGradientsOfParameters__(
 
 template <typename FloatType>
 __global__ void FNN__GetlnpsiGradients__(
-  const int nInputs,
-  const int nHiddens,
-  const int nChains,
-  const int * hiddenNodesIdx,
-  const int nNodes,
+  const uint32_t nInputs,
+  const uint32_t nHiddens,
+  const uint32_t nChains,
+  const uint32_t * hiddenNodesIdx,
+  const uint32_t nNodes,
   const thrust::complex<FloatType> * d_dwi1,
   const thrust::complex<FloatType> * d_db1,
   const thrust::complex<FloatType> * d_dw1o,
@@ -124,11 +124,11 @@ __global__ void FNN__GetlnpsiGradients__(
 
 template <typename FloatType>
 __global__ void FNN__UpdateParameters__(
-  const int nInputs,
-  const int nHiddens,
-  const int nChains,
-  const int * hiddenNodesIdx,
-  const int nNodes,
+  const uint32_t nInputs,
+  const uint32_t nHiddens,
+  const uint32_t nChains,
+  const uint32_t * hiddenNodesIdx,
+  const uint32_t nNodes,
   const thrust::complex<FloatType> * derivativeLoss,
   const FloatType learningRate,
   thrust::complex<FloatType> * wi1,

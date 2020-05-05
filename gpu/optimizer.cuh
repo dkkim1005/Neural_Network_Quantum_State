@@ -16,14 +16,14 @@ template <typename FloatType>
 __global__ void SR__FStep2__(
   const thrust::complex<FloatType> conjHavg,
   const thrust::complex<FloatType> * aO,
-  const int nVariables,
+  const uint32_t nVariables,
   thrust::complex<FloatType> * F
 );
 
 template <typename FloatType>
 __global__ void SR__ArrangeSmatrix__(
   const FloatType lambda,
-  const int nVariables,
+  const uint32_t nVariables,
   thrust::complex<FloatType> * S
 );
 } // namespace gpu_kernel
@@ -33,16 +33,16 @@ template <typename FloatType, template<typename> class LinearSolver>
 class StochasticReconfiguration
 {
 public:
-  StochasticReconfiguration(const int nChains, const int nVariables);
+  StochasticReconfiguration(const uint32_t nChains, const uint32_t nVariables);
   ~StochasticReconfiguration();
   template <typename SamplerType>
-  void propagate(SamplerType & sampler, const int nIteration, const int naccumulation,
-    const int nMCSteps, const FloatType deltaTau, const int nrec = 20)
+  void propagate(SamplerType & sampler, const uint32_t nIteration, const uint32_t naccumulation,
+    const uint32_t nMCSteps, const FloatType deltaTau, const uint32_t nrec = 20u)
   {
     const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains*naccumulation);
     thrust::host_vector<thrust::complex<FloatType>> conjHavgArr_host(naccumulation, kzero);
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
-    for (int n=0; n<nIteration; ++n)
+    for (uint32_t n=0u; n<nIteration; ++n)
     {
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
       thrust::fill(aO_dev_.begin(), aO_dev_.end(), kzero);
@@ -50,7 +50,7 @@ public:
       thrust::fill(S_dev_.begin(), S_dev_.end(), kzero);
       // F_i = (\sum_k std::conj(htilda_k) * lnpsiGradients_ki)*oneOverTotalMeas - conjHavg*aO_i
       thrust::fill(F_dev_.begin(), F_dev_.end(), kzero);
-      for (int nacc=0; nacc<naccumulation; ++nacc)
+      for (uint32_t nacc=0u; nacc<naccumulation; ++nacc)
       {
         sampler.do_mcmc_steps(nMCSteps);
         sampler.get_htilda(PTR_FROM_THRUST(htilda_dev_.data()));
@@ -82,8 +82,8 @@ public:
       cudaDeviceSynchronize();
       if (std::isfinite(conjHavg.real()))
       {
-        std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
-        if (n%nrec == (nrec-1))
+        std::cout << std::setw(5) << (n+1u) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
+        if (n%nrec == (nrec-1u))
           sampler.save();
       }
       else
@@ -96,9 +96,9 @@ private:
   thrust::device_vector<thrust::complex<FloatType>> aO_dev_, S_dev_, F_dev_, dx_dev_;
   const thrust::device_vector<thrust::complex<FloatType>> kones_dev;
   const thrust::complex<FloatType> kone, kzero, kminusOne; 
-  const int knChains, knVariables, kgpuBlockSize1, kgpuBlockSize2;
+  const uint32_t knChains, knVariables, kgpuBlockSize1, kgpuBlockSize2;
   static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
-  int nIteration_;
+  uint32_t nIteration_;
   FloatType bp_;
   LinearSolver<FloatType> linSolver_;
   cublasHandle_t theCublasHandle_;

@@ -12,10 +12,10 @@
 namespace gpu_kernel
 {
 template <typename FloatType, typename RNGType>
-__global__ void rand__GenerateUniformDist__(const int size, RNGType * rng, FloatType * rngValues)
+__global__ void rand__GenerateUniformDist__(const uint32_t size, RNGType * rng, FloatType * rngValues)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   trng::uniform01_dist<FloatType> uniformDist;
   while (idx < size)
   {
@@ -29,25 +29,25 @@ template <typename FloatType, typename RNGType>
 class TRNGWrapper
 {
 public:
-  TRNGWrapper(const unsigned long seedNuber, const unsigned seedDistance, const int nChains);
+  TRNGWrapper(const uint64_t seedNuber, const uint64_t seedDistance, const uint32_t nChains);
   ~TRNGWrapper();
   void get_uniformDist(FloatType * rngValues_dev);
 private:
   RNGType * rng_dev_;
-  const int knChains, kgpuBlockSize;
+  const uint32_t knChains, kgpuBlockSize;
 };
 
 template <typename FloatType, typename RNGType>
-TRNGWrapper<FloatType, RNGType>::TRNGWrapper(const unsigned long seedNuber, const unsigned seedDistance, const int nChains):
+TRNGWrapper<FloatType, RNGType>::TRNGWrapper(const uint64_t seedNuber, const uint64_t seedDistance, const uint32_t nChains):
   knChains(nChains),
-  kgpuBlockSize(CHECK_BLOCK_SIZE(1+(nChains-1)/NUM_THREADS_PER_BLOCK))
+  kgpuBlockSize(CHECK_BLOCK_SIZE(1u+(nChains-1u)/NUM_THREADS_PER_BLOCK))
 {
   std::vector<RNGType> rng(nChains);
   CHECK_ERROR(cudaSuccess, cudaMalloc(&rng_dev_, sizeof(RNGType)*nChains));
-  for (int k=0; k<nChains; ++k)
+  for (uint32_t k=0u; k<nChains; ++k)
   {
     rng[k].seed(seedNuber);
-    rng[k].jump(2*seedDistance*k);
+    rng[k].jump(2u*seedDistance*k);
   }
   CHECK_ERROR(cudaSuccess, cudaMemcpy(rng_dev_, rng.data(), sizeof(RNGType)*nChains, cudaMemcpyHostToDevice));
 }

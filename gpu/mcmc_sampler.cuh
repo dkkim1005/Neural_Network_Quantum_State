@@ -18,16 +18,16 @@ class BaseParallelSampler
 {
   using FloatType = typename TraitsClass::FloatType;
 public:
-  BaseParallelSampler(const int nMCUnitSteps, const int nChains, const unsigned long seedNumber, const unsigned long seedDistance);
-  void warm_up(const int nMCSteps = 100);
-  void do_mcmc_steps(const int nMCSteps = 1);
+  BaseParallelSampler(const uint32_t nMCUnitSteps, const uint32_t nChains, const uint64_t seedNumber, const uint64_t seedDistance);
+  void warm_up(const uint32_t nMCSteps = 100u);
+  void do_mcmc_steps(const uint32_t nMCSteps = 1u);
   void get_htilda(thrust::complex<FloatType> * htilda_dev);
   void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
-  int get_nChains() const { return knChains; }
+  uint32_t get_nChains() const { return knChains; }
   void evolve(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
   void save() const;
 private:
-  const int knMCUnitSteps, knChains, kgpuBlockSize;
+  const uint32_t knMCUnitSteps, knChains, kgpuBlockSize;
   thrust::device_vector<bool> isNewStateAccepted_dev_;
   thrust::device_vector<FloatType> rngValues_dev_;
   TRNGWrapper<FloatType, trng::yarn2> rng_;
@@ -40,7 +40,7 @@ namespace gpu_kernel
 template <typename FloatType>
 __global__ void Sampler__ParallelMetropolisUpdate__(
   const FloatType * rngValues,
-  const int nChains,
+  const uint32_t nChains,
   const thrust::complex<FloatType> * lnpsi1,
   thrust::complex<FloatType> * lnpsi0,
   bool * isNewStateAccepted
@@ -54,27 +54,27 @@ __global__ void Sampler__ParallelMetropolisUpdate__(
 class RandomBatchIndexing
 {
 public:
-  RandomBatchIndexing(const int size, const double rate, unsigned seed = 0u):
+  RandomBatchIndexing(const uint32_t size, const double rate, unsigned seed = 0u):
     fullBatch_(size),
-    miniBatches_(size/static_cast<int>(size*rate)+(size%static_cast<int>(size*rate)!=0)),
-    miniBatchesIdx_(0),
+    miniBatches_(size/static_cast<uint32_t>(size*rate)+(size%static_cast<uint32_t>(size*rate)!=0)),
+    miniBatchesIdx_(0u),
     rng_(seed)
   {
     if (rate <= 0 || rate > 1)
       throw std::invalid_argument("rate <= 0 or rate > 1");
-    const int pSize = static_cast<int>(size*rate);
+    const uint32_t pSize = static_cast<uint32_t>(size*rate);
     if (pSize == 0)
       throw std::invalid_argument("(size*rate)<1");
-    for (int j=0; j<fullBatch_.size(); ++j)
+    for (uint32_t j=0u; j<fullBatch_.size(); ++j)
       fullBatch_[j] = j;
     std::shuffle(fullBatch_.begin(), fullBatch_.end(), rng_);
-    for (int i=0; i<miniBatches_.size()-1; ++i)
+    for (uint32_t i=0u; i<miniBatches_.size()-1; ++i)
       miniBatches_[i].assign(pSize, 0);
     if (size%pSize != 0)
       miniBatches_[miniBatches_.size()-1].assign(size%pSize, 0);
     else
       miniBatches_[miniBatches_.size()-1].assign(pSize, 0);
-    int fullBatchIdx = 0;
+    uint32_t fullBatchIdx = 0u;
     for (auto & miniBatch : miniBatches_)
     {
       for (auto & index : miniBatch)
@@ -83,19 +83,19 @@ public:
     }
   }
 
-  const thrust::host_vector<int> & get_miniBatch() const
+  const thrust::host_vector<uint32_t> & get_miniBatch() const
   {
     return miniBatches_[miniBatchesIdx_];
   }
 
   void next()
   {
-    miniBatchesIdx_ += 1;
+    miniBatchesIdx_ += 1u;
     if (miniBatchesIdx_ == miniBatches_.size())
     {
-      miniBatchesIdx_ = 0;
+      miniBatchesIdx_ = 0u;
       std::shuffle(fullBatch_.begin(), fullBatch_.end(), rng_);
-      int fullBatchIdx = 0;
+      uint32_t fullBatchIdx = 0u;
       for (auto & miniBatch : miniBatches_)
       {
         for (auto & index : miniBatch)
@@ -106,9 +106,9 @@ public:
   }
 
 private:
-  std::vector<int> fullBatch_;
-  std::vector<thrust::host_vector<int>> miniBatches_;
-  int miniBatchesIdx_;
+  std::vector<uint32_t> fullBatch_;
+  std::vector<thrust::host_vector<uint32_t>> miniBatches_;
+  uint32_t miniBatchesIdx_;
   std::mt19937 rng_;
 };
 

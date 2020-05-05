@@ -5,7 +5,7 @@
 #include "mcmc_sampler.cuh"
 #include "neural_quantum_state.cuh"
 
-template <typename FloatType = int> class OneWayLinkedIndex;
+template <typename FloatType = uint32_t> class OneWayLinkedIndex;
 
 namespace spinhalf
 {
@@ -17,7 +17,7 @@ class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J, const unsigned long seedNumber,
+  TFISQ(AnsatzType & machine, const uint32_t L, const FloatType h, const FloatType J, const unsigned long seedNumber,
     const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
 private:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
@@ -32,8 +32,8 @@ private:
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
   thrust::device_vector<FloatType> diag_dev_;
-  thrust::device_vector<int> nnidx_dev_;
-  const int kL, knSites, knChains, kgpuBlockSize;
+  thrust::device_vector<uint32_t> nnidx_dev_;
+  const uint32_t kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kzero, ktwo;
   const thrust::device_vector<FloatType> kJmatrix_dev;
   const std::string kprefix;
@@ -48,7 +48,7 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
+  TFICheckerBoard(AnsatzType & machine, const uint32_t L, const FloatType h,
     const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary, const unsigned long seedNumber,
     const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
 private:
@@ -64,8 +64,8 @@ private:
   OneWayLinkedIndex<> * idxptr_;
   std::vector<OneWayLinkedIndex<>> list_;
   thrust::device_vector<FloatType> diag_dev_, Jmatrix_dev_;
-  thrust::device_vector<int> nnidx_dev_;
-  const int kL, knSites, knChains, kgpuBlockSize;
+  thrust::device_vector<uint32_t> nnidx_dev_;
+  const uint32_t kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
   const std::string kprefix;
   RandomBatchIndexing batchAllocater_;
@@ -77,31 +77,31 @@ namespace gpu_kernel
 template <typename FloatType>
 __global__ void TFI__GetDiagElem__(
   const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
+  const uint32_t nChains,
+  const uint32_t nSites,
+  const uint32_t * nnidx,
   const FloatType * Jmatrix,
-  const int nnn,
+  const uint32_t nnn,
   FloatType * diag
 );
 
 template <typename FloatType>
 __global__ void TFI__UpdateDiagElem__(
   const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
+  const uint32_t nChains,
+  const uint32_t nSites,
+  const uint32_t * nnidx,
   const FloatType * Jmatrix,
-  const int nnn,
+  const uint32_t nnn,
   const bool * updateList,
-  const int siteIdx,
+  const uint32_t siteIdx,
   FloatType * diag
 );
 
 // htilda[k] += hfield*exp(lnpsi1[k] - lnpsi0[k]);
 template <typename FloatType>
 __global__ void TFI__GetOffDiagElem__(
-  const int nChains,
+  const uint32_t nChains,
   const FloatType hfield,
   const thrust::complex<FloatType> * lnpsi1,
   const thrust::complex<FloatType> * lnpsi0,

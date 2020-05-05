@@ -3,7 +3,7 @@
 #pragma once
 
 template <typename FloatType, template<typename> class LinearSolver>
-StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(const int nChains, const int nVariables):
+StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(const uint32_t nChains, const uint32_t nVariables):
   htilda_dev_(nChains),
   lnpsiGradients_dev_(nChains*nVariables),
   kones_dev(nChains, thrust::complex<FloatType>(1.0, 0.0)),
@@ -16,11 +16,11 @@ StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(co
   aO_dev_(nVariables),
   F_dev_(nVariables),
   dx_dev_(nVariables),
-  nIteration_(0),
+  nIteration_(0u),
   bp_(1.0),
   linSolver_(nVariables),
-  kgpuBlockSize1(1+(nChains-1)/NUM_THREADS_PER_BLOCK),
-  kgpuBlockSize2(1+(nVariables-1)/NUM_THREADS_PER_BLOCK)
+  kgpuBlockSize1(1u+(nChains-1u)/NUM_THREADS_PER_BLOCK),
+  kgpuBlockSize2(1u+(nVariables-1u)/NUM_THREADS_PER_BLOCK)
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
 }
@@ -45,11 +45,11 @@ template <typename FloatType>
 __global__ void SR__FStep2__(
   const thrust::complex<FloatType> conjHavg,
   const thrust::complex<FloatType> * aO,
-  const int nVariables,
+  const uint32_t nVariables,
   thrust::complex<FloatType> * F)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < nVariables)
   {
     F[idx] = thrust::conj(F[idx]-conjHavg*aO[idx]);
@@ -60,11 +60,11 @@ __global__ void SR__FStep2__(
 template <typename FloatType>
 __global__ void SR__ArrangeSmatrix__(
   const FloatType lambda,
-  const int nVariables,
+  const uint32_t nVariables,
   thrust::complex<FloatType> * S)
 {
-  const unsigned int nstep = gridDim.x*blockDim.x;
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const uint32_t nstep = gridDim.x*blockDim.x;
+  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
   const FloatType one = 1;
   // S_ij = (1+lambda*\delta_ij)*S_ij
   while (idx < nVariables)
@@ -72,7 +72,7 @@ __global__ void SR__ArrangeSmatrix__(
     //S[idx*nVariables+idx] = S[idx*nVariables+idx]+lambda;
     S[idx*nVariables+idx] = (one+lambda)*S[idx*nVariables+idx];
     // transpose S_ to set row-major order(fortran style format)
-    for (int j=idx+1; j<nVariables; ++j)
+    for (uint32_t j=idx+1u; j<nVariables; ++j)
     {
       S[j*nVariables+idx] = S[idx*nVariables+j];
       S[idx*nVariables+j] = thrust::conj(S[idx*nVariables+j]);

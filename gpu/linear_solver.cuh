@@ -16,7 +16,7 @@ template <typename FloatType> class cudaBKF;
 template <> class cudaBKF<double>
 {
 public:
-  explicit cudaBKF(const int n, const bool hasInitializedMagma = false):
+  explicit cudaBKF(const uint32_t n, const bool hasInitializedMagma = false):
     kHasInitializedMagma(hasInitializedMagma),
     kn(n)
   {
@@ -49,7 +49,7 @@ public:
 
 private:
   const bool kHasInitializedMagma;
-  const int kn;
+  const uint32_t kn;
   thrust::complex<float> * dworks_dev_;
   thrust::complex<double> * dworkd_dev_;
 };
@@ -58,7 +58,7 @@ template <typename FloatType>
 class cudaCF
 {
 public:
-  cudaCF(const int n, const bool hasInitializedMagma = false):
+  cudaCF(const uint32_t n, const bool hasInitializedMagma = false):
     kHasInitializedMagma(hasInitializedMagma),
     kn(n)
   {
@@ -76,7 +76,7 @@ public:
 
 private:
   const bool kHasInitializedMagma;
-  const int kn;
+  const uint32_t kn;
 };
 
 template <>
