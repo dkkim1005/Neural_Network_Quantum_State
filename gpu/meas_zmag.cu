@@ -32,25 +32,25 @@ int main(int argc, char* argv[])
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
-  const int nInputs = parser.find<int>("ni"),
-            nHiddens = parser.find<int>("nh"),
-            nChains = parser.find<int>("ns"),
-            nTrials = parser.find<int>("ntrials"),
-            nWarmup = parser.find<int>("nwarm"),
-            version = parser.find<int>("ver"),
-            nMonteCarloSteps = parser.find<int>("nms"),
-            deviceNumber = parser.find<int>("dev");
+  const uint32_t nInputs = parser.find<uint32_t>("ni"),
+    nHiddens = parser.find<uint32_t>("nh"),
+    nChains = parser.find<uint32_t>("ns"),
+    nTrials = parser.find<uint32_t>("ntrials"),
+    nWarmup = parser.find<uint32_t>("nwarm"),
+    version = parser.find<uint32_t>("ver"),
+    nMonteCarloSteps = parser.find<uint32_t>("nms"),
+    deviceNumber = parser.find<uint32_t>("dev");
   const double h = parser.find<double>("h");
-  const unsigned long seed = parser.find<unsigned long>("seed");
+  const uint64_t seed = parser.find<uint64_t>("seed");
   const std::string path = parser.find<>("path"),
-                    nstr = std::to_string(nInputs),
-                    nhstr = std::to_string(nHiddens),
-                    vestr = std::to_string(version);
+    nstr = std::to_string(nInputs),
+    nhstr = std::to_string(nHiddens),
+    vestr = std::to_string(version);
   std::string hfstr = std::to_string(h);
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
   const std::string lattice = parser.find<>("lattice") + "-",
-                    prefix = lattice + "Ni" + nstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+    prefix = lattice + "Ni" + nstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
 
   parser.print(std::cout);
 
@@ -72,10 +72,10 @@ int main(int argc, char* argv[])
   machine.load(FNNDataType::B1, path + "/" + prefix + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
-  const unsigned long nBlocks = static_cast<unsigned long>(nTrials)*
-                                static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs)*
-                                static_cast<unsigned long>(nChains);
+  const uint64_t nBlocks = static_cast<uint64_t>(nTrials)*
+    static_cast<uint64_t>(nMonteCarloSteps)*
+    static_cast<uint64_t>(nInputs)*
+    static_cast<uint64_t>(nChains);
 
   // measurements of the spontaneous magnetization with the given wave functions
   struct SamplerTraits { using AnsatzType = ComplexFNN<double>; using FloatType = double; };
