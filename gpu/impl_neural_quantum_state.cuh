@@ -54,9 +54,13 @@ ComplexFNN<FloatType>::~ComplexFNN()
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void ComplexFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
-  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  if (spinStates_dev == nullptr)
+    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*knChains*knInputs, cudaMemcpyDeviceToDevice));
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, knHiddens, knChains, kone, b1_dev_,

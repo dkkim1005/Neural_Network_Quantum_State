@@ -20,7 +20,7 @@ public:
   ComplexFNN(const ComplexFNN & rhs) = delete;
   ComplexFNN & operator=(const ComplexFNN & rhs) = delete;
   ~ComplexFNN();
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const uint32_t spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<uint32_t> & hiddenNodesIdx_host);
   void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate,
