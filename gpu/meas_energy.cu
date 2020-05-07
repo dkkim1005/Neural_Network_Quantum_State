@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
+  options.push_back(pair_t("lattice", "lattice type(=CH,SQ,TRI,CB)"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
@@ -67,7 +68,8 @@ int main(int argc, char* argv[])
   ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
-  const std::string prefix = path + "SQ-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  const std::string lattice = parser.find<>("lattice") + "-",
+    prefix = path + lattice + "Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
 
   machine.load(FNNDataType::W1, prefix0 + "Dw1.dat");
