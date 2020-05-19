@@ -12,7 +12,7 @@
 namespace gpu_kernel
 {
 template <typename FloatType, typename RNGType>
-__global__ void rand__GenerateUniformDist__(const int size, RNGType * rng, FloatType * rngValues)
+__global__ void trng__GenerateUniformDist__(const int size, RNGType * rng, FloatType * rngValues)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
@@ -61,5 +61,5 @@ TRNGWrapper<FloatType, RNGType>::~TRNGWrapper()
 template <typename FloatType, typename RNGType>
 void TRNGWrapper<FloatType, RNGType>::get_uniformDist(FloatType * rngValues_dev)
 {
-  gpu_kernel::rand__GenerateUniformDist__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, rng_dev_, rngValues_dev);
+  gpu_kernel::trng__GenerateUniformDist__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, rng_dev_, rngValues_dev);
 }
