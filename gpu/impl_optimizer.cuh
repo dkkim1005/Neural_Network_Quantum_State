@@ -2,6 +2,7 @@
 
 #pragma once
 
+#ifdef USE_MAGMA
 template <typename FloatType, template<typename> class LinearSolver>
 StochasticReconfiguration<FloatType, LinearSolver>::StochasticReconfiguration(const int nChains, const int nVariables):
   htilda_dev_(nChains),
@@ -38,6 +39,43 @@ FloatType StochasticReconfiguration<FloatType, LinearSolver>::schedular_()
   const FloatType lambda = klambda0*bp_;
   return ((lambda > klambMin) ? lambda : klambMin);
 }
+#endif
+
+
+template <typename FloatType>
+StochasticReconfigurationCG<FloatType>::StochasticReconfigurationCG(const int nChains, const int nVariables):
+  htilda_dev_(nChains),
+  lnpsiGradients_dev_(nChains*nVariables),
+  kones_dev(nChains, thrust::complex<FloatType>(1.0, 0.0)),
+  kzero(thrust::complex<FloatType>(0.0, 0.0)),
+  knChains(nChains),
+  knVariables(nVariables),
+  aO_dev_(nVariables),
+  F_dev_(nVariables),
+  dx_dev_(nVariables),
+  nIteration_(0),
+  bp_(1.0),
+  kgpuBlockSize1(1+(nChains-1)/NUM_THREADS_PER_BLOCK),
+  kgpuBlockSize2(1+(nVariables-1)/NUM_THREADS_PER_BLOCK),
+  cg_(nVariables, 1e-5),
+  SMatrixFunctor_(nChains, nVariables)
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename FloatType>
+StochasticReconfigurationCG<FloatType>::~StochasticReconfigurationCG()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename FloatType>
+FloatType StochasticReconfigurationCG<FloatType>::schedular_()
+{
+  bp_ *= kb;
+  const FloatType lambda = klambda0*bp_;
+  return ((lambda > klambMin) ? lambda : klambMin);
+}
 
 namespace gpu_kernel
 {
@@ -56,7 +94,7 @@ __global__ void SR__FStep2__(
     idx += nstep;
   }
 }
-
+#ifdef USE_MAGMA
 template <typename FloatType>
 __global__ void SR__ArrangeSmatrix__(
   const FloatType lambda,
@@ -80,4 +118,5 @@ __global__ void SR__ArrangeSmatrix__(
     idx += nstep;
   }
 }
+#endif
 } // namespace gpu_kernel

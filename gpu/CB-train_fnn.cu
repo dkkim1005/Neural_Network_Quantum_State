@@ -13,7 +13,6 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("L", "# of lattice sites"));
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("na", "# of iterations to average out observables"));
   options.push_back(pair_t("niter", "# of iterations to train FNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
@@ -46,7 +45,6 @@ int main(int argc, char* argv[])
     nInputs = L*L,
     nHiddens = parser.find<int>("nh"),
     nChains = parser.find<int>("ns"),
-    nAccumulation = parser.find<int>("na"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
     deviceNumber = parser.find<int>("dev"),
@@ -107,8 +105,9 @@ int main(int argc, char* argv[])
 
   // imaginary time propagator
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
-  StochasticReconfiguration<double, linearsolver::cudaBKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
-  iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
+  StochasticReconfigurationCG<double> iTimePropagator(nChains, nVariables);
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
 
   // save parameters
   machine.save(FNNDataType::W1, prefix + "Dw1.dat");
