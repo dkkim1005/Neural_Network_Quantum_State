@@ -4,7 +4,7 @@
 SRCS=(SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
 MIN_CUDA_ARCH=300 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
-USE_MAGMA=no # If we want to use a direct solver, set 'USE_MAGMA=yes'.
+USE_MAGMA=no # If a direct solver is employed, set 'USE_MAGMA=yes'.
 CC=DEFAULT # CUDA nvcc compiler
 TRNG4_INC_PATH=DEFAULT
 TRNG4_LIB_PATH=DEFAULT

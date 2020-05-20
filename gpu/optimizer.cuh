@@ -76,6 +76,8 @@ public:
       // (2) S_ij -= (aO_i)^+ * aO_j (Note that 'uplo' is set to L!)
       cublas::her(theCublasHandle_, knVariables, kminusOne.real(), PTR_FROM_THRUST(aO_dev_.data()), PTR_FROM_THRUST(S_dev_.data()));
       const thrust::complex<FloatType> conjHavg = thrust::reduce(thrust::host, conjHavgArr_host.begin(), conjHavgArr_host.end(), kzero);
+      if (!std::isfinite(conjHavg.real()))
+        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
       // (2) F = (F-conjHavg*aO_i)^+
       gpu_kernel::SR__FStep2__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(conjHavg, PTR_FROM_THRUST(aO_dev_.data()),
         knVariables, PTR_FROM_THRUST(F_dev_.data()));
@@ -84,15 +86,11 @@ public:
       // dx_ = S_^{-1}*F_
       linSolver_.solve(PTR_FROM_THRUST(S_dev_.data()), PTR_FROM_THRUST(F_dev_.data()), PTR_FROM_THRUST(dx_dev_.data()));
       sampler.evolve(PTR_FROM_THRUST(dx_dev_.data()), deltaTau);
+      // save internal parameters of the sampler
       cudaDeviceSynchronize();
-      if (std::isfinite(conjHavg.real()))
-      {
-        std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
-        if (n%nrec == (nrec-1))
-          sampler.save();
-      }
-      else
-        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
+      if (n%nrec == (nrec-1))
+        sampler.save();
+      std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
     }
   }
 private:
@@ -128,35 +126,30 @@ public:
       sampler.do_mcmc_steps(nMCSteps);
       sampler.get_htilda(PTR_FROM_THRUST(htilda_dev_.data()));
       sampler.get_lnpsiGradients(PTR_FROM_THRUST(lnpsiGradients_dev_.data()));
-
+      // conjHavg = \sum_k conj(htilda_k)*oneOverTotalMeas
+      gpu_kernel::common__ApplyComplexConjugateVector__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>
+        (PTR_FROM_THRUST(htilda_dev_.data()), htilda_dev_.size());
+      const thrust::complex<FloatType> conjHavg = oneOverTotalMeas.real()*thrust::reduce(thrust::device, htilda_dev_.begin(), htilda_dev_.end(), kzero);
+      if (!std::isfinite(conjHavg.real()))
+        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
       cublas::gemv(theCublasHandle_, knVariables, knChains, oneOverTotalMeas, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
         PTR_FROM_THRUST(kones_dev.data()), kzero, PTR_FROM_THRUST(aO_dev_.data()));
-
       // F_i = (\sum_k std::conj(htilda_k) * lnpsiGradients_ki)*oneOverTotalMeas - conjHavg*aO_i
-      gpu_kernel::common__ApplyComplexConjugateVector__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>
-        (PTR_FROM_THRUST(htilda_dev_.data()), htilda_dev_.size());
       cublas::gemv(theCublasHandle_, knVariables, knChains, oneOverTotalMeas, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
         PTR_FROM_THRUST(htilda_dev_.data()), kzero, PTR_FROM_THRUST(F_dev_.data()));
-      const thrust::complex<FloatType> conjHavg = oneOverTotalMeas.real()*thrust::reduce(thrust::device, htilda_dev_.begin(), htilda_dev_.end(), kzero);
       gpu_kernel::SR__FStep2__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(conjHavg, PTR_FROM_THRUST(aO_dev_.data()),
         knVariables, PTR_FROM_THRUST(F_dev_.data()));
-
-      const FloatType lambda = this->schedular_();
-
       // solve S*dx_ = F_ where S_ij = (\sum_k (lnpsiGradients_ki)^H * lnpsiGradients_kj)*oneOverTotalMeas - (aO_i)^+ * aO_j
+      const FloatType lambda = this->schedular_();
       SMatrixFunctor_.set_lnpsiGradients(lnpsiGradients_dev_, lambda);
       cg_.solve(SMatrixFunctor_, F_dev_, dx_dev_);
       sampler.evolve(PTR_FROM_THRUST(dx_dev_.data()), deltaTau);
+      // save internal parameters of the sampler
       cudaDeviceSynchronize();
-      if (std::isfinite(conjHavg.real()))
-      {
-        std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
-        if (n%nrec == (nrec-1))
-          sampler.save();
-      }
-      else
-        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
+      if (n%nrec == (nrec-1))
+        sampler.save();
+      std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
     }
   }
 private:
