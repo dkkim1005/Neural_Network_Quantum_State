@@ -24,8 +24,7 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   // parameter initialization: starting from the Gaussian random distribution
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
-    randb1(0, std::sqrt(1.0/nHiddens)), randw1o(0, std::sqrt(1.0/nHiddens));
+  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))), randw1o(0, std::sqrt(1.0/nHiddens));
   // host
   wi1_host_ = &variables_host_[0];
   b1_host_ = &variables_host_[nInputs*nHiddens];
@@ -37,7 +36,7 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   for (int i=0; i<nInputs*nHiddens; ++i)
     wi1_host_[i] = thrust::complex<FloatType>(randwi1(ran), randwi1(ran));
   for (int j=0; j<nHiddens; ++j)
-    b1_host_[j] = thrust::complex<FloatType>(randb1(ran), randb1(ran));
+    b1_host_[j] = 0.0;
   for (int j=0; j<nHiddens; ++j)
     w1o_host_[j] = thrust::complex<FloatType>(randw1o(ran), randw1o(ran));
   variables_dev_ = variables_host_; // copy memory from host to device
@@ -45,6 +44,10 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   d_db1_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[nInputs*nHiddens]);
   d_dw1o_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[nInputs*nHiddens + nHiddens]);
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+  const float ln2f = std::log(2.0f);
+  const double ln2d = std::log(2.0);
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2f, &ln2f, sizeof(float)));
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2d, &ln2d, sizeof(double)));
 }
 
 template <typename FloatType>
@@ -209,6 +212,27 @@ void ComplexFNN<FloatType>::look_inside() const
   cudaDeviceSynchronize();
 }
 
+namespace gpu_device
+{
+__device__ thrust::complex<float> logcosh(const thrust::complex<float> z)
+{
+  const float x = z.real(), y = z.imag();
+  const float absx = abs(x), cosy = cosf(y), siny = sinf(y);
+  const float expabsm2x = expf(-2.0f*absx);
+  const float real = (1.0f+expabsm2x)*cosy, imag = (1.0f-expabsm2x)*siny*copysign(1.0f, x);
+  return thrust::log(thrust::complex<float>(real, imag))+(absx-kln2f[0]);
+}
+
+__device__ thrust::complex<double> logcosh(const thrust::complex<double> z)
+{
+  const double x = z.real(), y = z.imag();
+  const double absx = abs(x), cosy = cos(y), siny = sin(y);
+  const double expabsm2x = exp(-2.0*absx);
+  const double real = (1.0+expabsm2x)*cosy, imag = (1.0-expabsm2x)*siny*copysign(1.0, x);
+  return thrust::log(thrust::complex<double>(real, imag))+(absx-kln2d[0]);
+}
+}
+
 namespace gpu_kernel
 {
 template <typename FloatType>
@@ -221,7 +245,7 @@ __global__ void FNN__ActivateNeurons__(
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < size)
   {
-    acty[idx] = thrust::log(thrust::cosh(y[idx]));
+    acty[idx] = gpu_device::logcosh(y[idx]);
     idx += nstep;
   }
 }
@@ -243,7 +267,7 @@ __global__ void FNN__ActivateNeurons__(
   while (idx < nChains*nHiddens)
   {
     const int k = idx/nHiddens, j = idx-nHiddens*k;
-    acty[idx] = thrust::log(thrust::cosh(y[idx]-wi1[spinFlipIndex*nHiddens+j]*(two*spinStates[k*nInputs+spinFlipIndex].real())));
+    acty[idx] = gpu_device::logcosh(y[idx]-wi1[spinFlipIndex*nHiddens+j]*(two*spinStates[k*nInputs+spinFlipIndex].real()));
     idx += nstep;
   }
 }
@@ -317,7 +341,7 @@ __global__ void FNN__GetGradientsOfParameters__(
     for (int i=0; i<nInputs; ++i)
       d_dwi1[kv+i*nHiddens+j] = tany_j*spinStates[ki+i].real()*w1o[j];
     d_db1[kv+j] = tany_j*w1o[j];
-    d_dw1o[kv+j] = thrust::log(thrust::cosh(y[kh+j]));
+    d_dw1o[kv+j] = gpu_device::logcosh(y[kh+j]);
     idx += nstep;
   }
 }

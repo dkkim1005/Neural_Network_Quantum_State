@@ -52,6 +52,14 @@ private:
   cublasHandle_t theCublasHandle_;
 };
 
+namespace gpu_device
+{
+__constant__ float kln2f[1];
+__constant__ double kln2d[1];
+__device__ thrust::complex<float> logcosh(const thrust::complex<float> z);
+__device__ thrust::complex<double> logcosh(const thrust::complex<double> z);
+}
+
 namespace gpu_kernel
 {
 template <typename FloatType>
