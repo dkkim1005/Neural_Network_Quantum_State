@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
   options.push_back(pair_t("path", "directory to load and save files"));
+  options.push_back(pair_t("lattice", "lattice type(=CH,SQ,TRI,CB)"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
   std::cout << "# |<\\psi_1|\\psi_2>|^2 : " << (res1*res2).real() << std::endl;
 
   // record measurements
-  const std::string filename = "OI-Ni" + std::to_string(nInputs) + ".dat";
+  const std::string filename = parser.find<>("lattice") + "-OI-Ni" + std::to_string(nInputs) + ".dat";
   std::ofstream wfile;
   if(!std::ifstream(filename).is_open())
   {
@@ -123,7 +124,8 @@ std::string path_to_file(const argsparse & parser, const int i)
   const std::string hQuery = "h"+std::to_string(i),
     NhQuery = "Nh"+std::to_string(i),
     vQuery = "ver"+std::to_string(i);
-  const std::string filepath = parser.find<>("path") + "/Ni" + parser.find<>("Ni") + "Nh"
+  const std::string filepath = parser.find<>("path") + "/"
+    + parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + "Nh"
     + parser.find<>(NhQuery) + "Hf" + convert_from_float_to_string(parser.find<FloatType>(hQuery))
     + "V" + parser.find<>(vQuery);
   return filepath;

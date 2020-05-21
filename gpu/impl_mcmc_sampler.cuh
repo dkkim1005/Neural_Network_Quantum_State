@@ -64,6 +64,20 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::save() const
   static_cast<const DerivedParallelSampler<TraitsClass>*>(this)->save_();
 }
 
+namespace gpu_device
+{
+__device__ float Psi1OverPsi0Squared(const float Relnpsi0, const float Relnpsi1)
+{
+  const float delta[2] = {0.0f, 1.0f}, dlnpsi = Relnpsi1-Relnpsi0;
+  return expf(2.0f*delta[(dlnpsi<0)]*dlnpsi);
+}
+
+__device__ double Psi1OverPsi0Squared(const double Relnpsi0, const double Relnpsi1)
+{
+  const double delta[2] = {0.0, 1.0}, dlnpsi = Relnpsi1-Relnpsi0;
+  return exp(2.0*delta[(dlnpsi<0)]*dlnpsi);
+}
+}
 
 namespace gpu_kernel
 {
@@ -75,13 +89,14 @@ __global__ void Sampler__ParallelMetropolisUpdate__(
   thrust::complex<FloatType> * lnpsi0,
   bool * isNewStateAccepted)
 {
-  const uint32_t nstep = gridDim.x*blockDim.x;
-  uint32_t idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType delta[2] = {0.0, 1.0};
   while (idx < nChains)
   {
-    const FloatType ratio = thrust::norm(thrust::exp(lnpsi1[idx]-lnpsi0[idx]));
+    const FloatType ratio = gpu_device::Psi1OverPsi0Squared(lnpsi0[idx].real(), lnpsi1[idx].real());
     isNewStateAccepted[idx] = (rngValues[idx]<ratio);
-    lnpsi0[idx] = (isNewStateAccepted[idx] ? lnpsi1[idx] : lnpsi0[idx]);
+    lnpsi0[idx] = lnpsi0[idx]+delta[isNewStateAccepted[idx]]*(lnpsi1[idx]-lnpsi0[idx]);
     idx += nstep;
   }
 }

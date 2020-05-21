@@ -35,6 +35,12 @@ protected:
   thrust::device_vector<thrust::complex<FloatType>> lnpsi1_dev_, lnpsi0_dev_;
 };
 
+namespace gpu_device
+{
+__device__ float Psi1OverPsi0Squared(const float Relnpsi0, const float Relnpsi1);
+__device__ double Psi1OverPsi0Squared(const double Relnpsi0, const double Relnpsi1);
+}
+
 namespace gpu_kernel
 {
 template <typename FloatType>

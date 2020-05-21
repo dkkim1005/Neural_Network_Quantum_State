@@ -2,11 +2,12 @@
 #!/usr/bin/env bash
 #====================================================
 SRCS=(SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
-MIN_CUDA_ARCH=700 # minimum cuda architecture
+MIN_CUDA_ARCH=300 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
+USE_MAGMA=no # If a direct solver is employed, set 'USE_MAGMA=yes'.
 CC=DEFAULT # CUDA nvcc compiler
-TRNG4_INC_PATH=DEFAULT
-TRNG4_LIB_PATH=DEFAULT
+TRNG4_INC_PATH=/usr/local/lib/trng4/header
+TRNG4_LIB_PATH=/usr/local/lib/trng4
 MAGMA_PKG_CONFIG_PATH=DEFAULT
 MAGMA_INC_PATH=DEFAULT
 MAGMA_LIB_PATH=DEFAULT
@@ -50,7 +51,11 @@ fi
 #------------------------------
 
 TRNG4_FLAGS="-ltrng4 -I$TRNG4_INC_PATH -L$TRNG4_LIB_PATH"
-MAGMA_FLAGS="-DMIN_CUDA_ARCH=$MIN_CUDA_ARCH -I$MAGMA_INC_PATH -I$CUDA_INC_PATH -L$MAGMA_LIB_PATH -L$CUDA_LIB_PATH `pkg-config $MAGMA_PKG_CONFIG_PATH/magma.pc --libs | sed 's/-fopenmp/-Xcompiler -fopenmp/g'`"
+if [ $USE_MAGMA = "yes" ]; then
+  CUDA_FLAGS="-DUSE_MAGMA -DMIN_CUDA_ARCH=$MIN_CUDA_ARCH -I$MAGMA_INC_PATH -I$CUDA_INC_PATH -L$MAGMA_LIB_PATH -L$CUDA_LIB_PATH `pkg-config $MAGMA_PKG_CONFIG_PATH/magma.pc --libs | sed 's/-fopenmp/-Xcompiler -fopenmp/g'`"
+else
+  CUDA_FLAGS="-Xcompiler -fopenmp -I$CUDA_INC_PATH -L$CUDA_LIB_PATH -lcublas -lpthread"
+fi
 
 # name of the bash script
 SCRIPT_NAME=$(basename "$0")
@@ -65,7 +70,7 @@ for SRC in ${SRCS[@]}; do
     continue
   fi
   echo -e "\e[1;7;32mCompiling... ($SRC => $TARGET)\e[0m"
-  CMD="$CC -o $TARGET $SRC_PATH $CFLAGS $MAGMA_FLAGS $TRNG4_FLAGS"
+  CMD="$CC -o $TARGET $SRC_PATH $CFLAGS $CUDA_FLAGS $TRNG4_FLAGS"
   echo $CMD
   eval $CMD
 done

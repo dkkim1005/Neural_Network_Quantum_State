@@ -13,7 +13,6 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("L", "# of lattice sites"));
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("na", "# of iterations to average out observables"));
   options.push_back(pair_t("niter", "# of iterations to train FNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
@@ -44,14 +43,13 @@ int main(int argc, char* argv[])
 
   const uint32_t L = parser.find<uint32_t>("L"),
     nInputs = L*L,
-    nHiddens = parser.find<uint32_t>("nh"),
-    nChains = parser.find<uint32_t>("ns"),
-    nAccumulation = parser.find<uint32_t>("na"),
-    nWarmup = parser.find<uint32_t>("nwarm"),
-    nMonteCarloSteps = parser.find<uint32_t>("nms"),
-    deviceNumber = parser.find<uint32_t>("dev"),
-    nIterations =  parser.find<uint32_t>("niter"),
-    version = parser.find<uint32_t>("ver");
+    nHiddens = parser.find<int>("nh"),
+    nChains = parser.find<int>("ns"),
+    nWarmup = parser.find<int>("nwarm"),
+    nMonteCarloSteps = parser.find<int>("nms"),
+    deviceNumber = parser.find<int>("dev"),
+    nIterations =  parser.find<int>("niter"),
+    version = parser.find<int>("ver");
   const double h = parser.find<double>("h"),
     J1 = parser.find<double>("J1"),
     J2 = parser.find<double>("J2"),
@@ -106,9 +104,10 @@ int main(int argc, char* argv[])
   sampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  const uint32_t nCutHiddens = static_cast<uint32_t>(nHiddens*dr);
-  StochasticReconfiguration<double, linearsolver::cudaCF> iTimePropagator(nChains, (nInputs*nCutHiddens+2u*nCutHiddens));
-  iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  const int nCutHiddens = static_cast<int>(nHiddens*dr);
+  const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
+  StochasticReconfigurationCG<double> iTimePropagator(nChains, nVariables);
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
 
   // save parameters
   machine.save(FNNDataType::W1, prefix + "Dw1.dat");
