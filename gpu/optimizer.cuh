@@ -117,7 +117,7 @@ public:
   StochasticReconfigurationCG(const int nChains, const int nVariables);
   ~StochasticReconfigurationCG();
   template <typename SamplerType>
-  void propagate(SamplerType & sampler, const int nIteration, const int nMCSteps, const FloatType deltaTau, const int nrec = 20)
+  void propagate(SamplerType & sampler, const int nIteration, const int nMCSteps, const FloatType deltaTau, const int nrec = 100)
   {
     const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains);
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
