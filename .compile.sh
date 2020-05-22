@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 #!/usr/bin/env bash
 #====================================================
-SRCS=(SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
+SRCS=(CH-train_fnn.cu SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
 MIN_CUDA_ARCH=300 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
 USE_MAGMA=no # If a direct solver is employed, set 'USE_MAGMA=yes'.
