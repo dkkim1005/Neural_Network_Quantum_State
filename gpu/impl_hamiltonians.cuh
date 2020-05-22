@@ -5,6 +5,118 @@
 namespace spinhalf
 {
 template <typename TraitsClass>
+TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
+  const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
+  BaseParallelSampler<TFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
+  kL(L),
+  knChains(machine.get_nChains()),
+  kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
+  kh(h),
+  kzero(0.0),
+  ktwo(2.0),
+  machine_(machine),
+  list_(machine.get_nInputs()),
+  diag_dev_(machine.get_nChains()),
+  nnidx_dev_(2*machine.get_nInputs()),
+  kJmatrix_dev(2*machine.get_nInputs(), J),
+  kprefix(prefix),
+  batchAllocater_(machine.get_nHiddens(), dropOutRate)
+{
+  if (kL != machine.get_nInputs())
+    throw std::length_error("machine.get_nInputs() is not the same as L!");
+  thrust::host_vector<int> nnidx_host(2*kL); 
+  for (int i=0; i<kL; ++i)
+  {
+    nnidx_host[2*i+0] = (i!=0) ? i-1 : kL-1;
+    nnidx_host[2*i+1] = (i!=kL-1) ? i+1 : 0;
+  }
+  nnidx_dev_ = nnidx_host;
+  // Checkerboard link(To implement the MCMC update rule)
+  for (int i=0; i<kL; ++i)
+    list_[i].set_item(i);
+  // black board: even number site
+  int idx0 = 0;
+  for (int i=0; i<kL; i+=2)
+    {
+      list_[idx0].set_nextptr(&list_[i]);
+      idx0 = i;
+    }
+  // white board: odd number site
+  for (int i=1; i<kL; i+=2)
+    {
+      list_[idx0].set_nextptr(&list_[i]);
+      idx0 = i;
+    }
+  list_[idx0].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  machine_.initialize(lnpsi_dev);
+  const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
+  // diag_ = \sum_i spin_i*spin_{i+1}
+  gpu_kernel::TFI__GetDiagElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(spinStates_dev, knChains, kL,
+    PTR_FROM_THRUST(nnidx_dev_.data()), PTR_FROM_THRUST(kJmatrix_dev.data()), 2, PTR_FROM_THRUST(diag_dev_.data()));
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi_dev);
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
+{
+  const int idx = idxptr_->get_item();
+  const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
+  gpu_kernel::TFI__UpdateDiagElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(spinStates_dev, knChains, kL,
+    PTR_FROM_THRUST(nnidx_dev_.data()), PTR_FROM_THRUST(kJmatrix_dev.data()), 2, isNewStateAccepted_dev,
+    idx, PTR_FROM_THRUST(diag_dev_.data()));
+  machine_.spin_flip(isNewStateAccepted_dev);
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
+{
+  /*
+     htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
+      --> J*diag + h*sum_i \frac{<(s_1, s_2,...,-s_i,...,s_n|psi>}{<(s_1, s_2,...,s_i,...,s_n|psi>}
+   */
+  gpu_kernel::common__copyFromRealToImag__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(PTR_FROM_THRUST(diag_dev_.data()), knChains, htilda_dev);
+  for (int i=0; i<kL; ++i)
+  {
+    machine_.forward(i, lnpsi1_dev);
+    gpu_kernel::TFI__GetOffDiagElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, kh, lnpsi1_dev, lnpsi0_dev, htilda_dev);
+  }
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
+{
+  machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
+  batchAllocater_.next();
+}
+
+template <typename TraitsClass>
+void TFIChain<TraitsClass>::save_() const
+{
+  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
+  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
+  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
+}
+
+
+template <typename TraitsClass>
 TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
   const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
   BaseParallelSampler<TFISQ, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
