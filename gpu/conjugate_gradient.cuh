@@ -58,7 +58,7 @@ FloatType squared_norm(const thrust::device_vector<thrust::complex<FloatType>> &
   return thrust::transform_reduce(v.begin(), v.end(), NormFunctor<FloatType>(), zero, thrust::plus<FloatType>());
 }
 
-// return \sum_i (conj(a_i)*b_i)
+// return \sum_i (a_i*conj(b_i))
 template <typename FloatType>
 thrust::complex<FloatType> hermition_inner_product(const thrust::device_vector<thrust::complex<FloatType>> & a,
   const thrust::device_vector<thrust::complex<FloatType>> & b)
