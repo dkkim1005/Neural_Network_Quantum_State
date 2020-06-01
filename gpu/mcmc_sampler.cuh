@@ -21,6 +21,7 @@ public:
   BaseParallelSampler(const int nMCUnitSteps, const int nChains, const unsigned long seedNumber, const unsigned long seedDistance);
   void warm_up(const int nMCSteps = 100);
   void do_mcmc_steps(const int nMCSteps = 1);
+  const thrust::complex<FloatType> * get_lnpsi() { return PTR_FROM_THRUST(lnpsi0_dev_.data()); }
   void get_htilda(thrust::complex<FloatType> * htilda_dev);
   void get_lnpsiGradients(thrust::complex<FloatType> * lnpsiGradients_dev);
   int get_nChains() const { return knChains; }

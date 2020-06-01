@@ -22,12 +22,14 @@ public:
   ~ComplexFNN();
   void initialize(thrust::complex<FloatType> * lnpsi_dev);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
+  void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<int> & hiddenNodesIdx_host);
   void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate,
     const thrust::host_vector<int> & hiddenNodes_host);
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
   void save(const FNNDataType typeInfo, const std::string filePath, const int precision = 10);
   void load(const FNNDataType typeInfo, const std::string filePath);
+  void copy_to(ComplexFNN<FloatType> & fnn) const;
   void look_inside() const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }

@@ -82,6 +82,24 @@ void ComplexFNN<FloatType>::forward(const int spinFlipIndex, thrust::complex<Flo
 }
 
 template <typename FloatType>
+void ComplexFNN<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
+{
+  // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, knHiddens, knChains, kone, b1_dev_,
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, knHiddens, knChains, knInputs, kone, kone,
+    wi1_dev_, spinStates_dev, PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::FNN__ActivateNeurons__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(y_dev_.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()));  // acty_kj = ln(cosh(y_kj))
+  cublas::gemm(theCublasHandle_, 1, knChains, knHiddens, kone, kzero, w1o_dev_,
+    PTR_FROM_THRUST(acty_dev_.data()), lnpsi_dev); // lnpsi_k = \sum_j acty_kj w1o_j
+  if (saveSpinStates)
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
+}
+
+template <typename FloatType>
 void ComplexFNN<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<int> & hiddenNodesIdx_host)
 {
   /* index notation
@@ -196,6 +214,18 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
       std::cout << "# check 'b1' size... " << std::endl;
   }
   variables_dev_ = variables_host_; // copy memory from host to device
+}
+
+template <typename FloatType>
+void ComplexFNN<FloatType>::copy_to(ComplexFNN<FloatType> & fnn) const
+{
+  if (knChains != fnn.get_nChains())
+    throw std::length_error("knChains != fnn.get_nChains()");
+  if (knInputs != fnn.get_nInputs())
+    throw std::length_error("knInputs != fnn.get_nInputs()");
+  if (knHiddens != fnn.get_nHiddens())
+    throw std::length_error("knHiddens != fnn.get_nHiddens()");
+  fnn.variables_dev_ = variables_dev_;
 }
 
 template <typename FloatType>
