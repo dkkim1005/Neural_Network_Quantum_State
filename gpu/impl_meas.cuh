@@ -131,11 +131,84 @@ __global__ void Renyi__GetRho2local__(
   thrust::complex<FloatType> * rho2local)
 {
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
-  const unsigned nstep = gridDim.x*blockDim.x;
+  const unsigned int nstep = gridDim.x*blockDim.x;
   while (idx < nChains)
   {
     rho2local[idx] = thrust::conj(thrust::exp(lnpsi3[idx]+lnpsi4[idx]-(lnpsi1[idx]+lnpsi2[idx])));
     idx += nstep;
   } 
+}
+} // namespace gpu_kernel
+
+
+template <typename TraitsClass>
+MeasOverlapIntegral<TraitsClass>::MeasOverlapIntegral(Sampler4SpinHalf<TraitsClass> & smp1, AnsatzType2 & m2):
+  smp1_(smp1),
+  m2_(m2),
+  lnpsi2_dev_(smp1.get_nChains()),
+  knInputs(smp1.get_nInputs()),
+  knChains(smp1.get_nChains()),
+  kgpuBlockSize(CHECK_BLOCK_SIZE(1+(smp1.get_nChains()-1)/NUM_THREADS_PER_BLOCK)),
+  kzero(0, 0)
+{
+  if (smp1.get_nInputs() != m2.get_nInputs())
+    throw std::length_error("Check the number of input nodes for each machine");
+  if (smp1.get_nChains() != m2.get_nChains())
+    throw std::length_error("Check the number of random number sequences for each machine");
+}
+
+template <typename TraitsClass>
+const thrust::complex<typename TraitsClass::FloatType> MeasOverlapIntegral<TraitsClass>::get_overlapIntegral(const int nTrials,
+  const int nwarms, const int nMCSteps, const bool printStatics)
+{
+  std::cout << "# Now we are in warming up..." << std::flush;
+  thrust::host_vector<thrust::complex<FloatType>> ovl(nTrials, kzero);
+  smp1_.warm_up(nwarms);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring overlap integrals... (current/total)" << std::endl << std::flush;
+  thrust::device_vector<thrust::complex<FloatType>> psi2Overpsi0_dev(knChains, kzero);
+  for (int n=0; n<nTrials; ++n)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nTrials << std::flush;
+    smp1_.do_mcmc_steps(nMCSteps);
+    m2_.forward(smp1_.get_quantumStates(), PTR_FROM_THRUST(lnpsi2_dev_.data()), false);
+    gpu_kernel::meas__Psi2OverPsi0__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(smp1_.get_lnpsi(),
+      PTR_FROM_THRUST(lnpsi2_dev_.data()), knChains, PTR_FROM_THRUST(psi2Overpsi0_dev.data()));
+    ovl[n] = thrust::reduce(thrust::device, psi2Overpsi0_dev.begin(), psi2Overpsi0_dev.end(), kzero)/static_cast<FloatType>(knChains);
+  }
+  std::cout << std::endl;
+  const thrust::complex<FloatType> ovlavg = std::accumulate(ovl.begin(), ovl.end(), kzero)/static_cast<FloatType>(nTrials);
+  if (printStatics)
+  {
+    FloatType realVar = 0, imagVar = 0;
+    for (int n=0; n<nTrials; ++n)
+    {
+      realVar += std::pow(ovl[n].real()-ovlavg.real(), 2);
+      imagVar += std::pow(ovl[n].imag()-ovlavg.imag(), 2);
+    }
+    realVar = std::sqrt(realVar/static_cast<FloatType>(nTrials-1));
+    imagVar = std::sqrt(imagVar/static_cast<FloatType>(nTrials-1));
+    std::cout << "# real part: " << ovlavg.real() << " +/- " << realVar << std::endl
+              << "# imag part: " << ovlavg.imag() << " +/- " << imagVar << std::endl;
+  }
+  return ovlavg;
+}
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void meas__Psi2OverPsi0__(
+  const thrust::complex<FloatType> * lnpsi0,
+  const thrust::complex<FloatType> * lnpsi2,
+  const int nChains,
+  thrust::complex<FloatType> * psi2Overpsi0)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  while (idx < nChains)
+  {
+    psi2Overpsi0[idx] = thrust::exp(lnpsi2[idx]-lnpsi0[idx]);
+    idx += nstep;
+  }
 }
 } // namespace gpu_kernel

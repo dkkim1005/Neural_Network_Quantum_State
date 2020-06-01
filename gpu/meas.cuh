@@ -16,6 +16,7 @@ class Sampler4SpinHalf : public BaseParallelSampler<Sampler4SpinHalf, TraitsClas
 public:
   Sampler4SpinHalf(AnsatzType & psi, const unsigned long seedNumber, const unsigned long seedDistance);
   const thrust::complex<FloatType> * get_quantumStates() { return psi_.get_spinStates(); }
+  int get_nInputs() const { return psi_.get_nInputs(); }
 private:
   void initialize_(thrust::complex<FloatType> * lnpsi_dev);
   void sampling_(thrust::complex<FloatType> * lnpsi_dev);
@@ -71,6 +72,37 @@ __global__ void Renyi__GetRho2local__(
   const thrust::complex<FloatType> * lnpsi4,
   const int nChains,
   thrust::complex<FloatType> * rho2local
+);
+} // namespace gpu_kernel
+
+
+// calculating <\psi_1|\psi_2> with MCMC sampling
+template <typename TraitsClass>
+class MeasOverlapIntegral
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using AnsatzType2 = typename TraitsClass::AnsatzType2;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasOverlapIntegral(Sampler4SpinHalf<TraitsClass> & smp1, AnsatzType2 & m2);
+  const thrust::complex<FloatType> get_overlapIntegral(const int nTrials,
+    const int nwarms, const int nMCSteps = 1, const bool printStatics = false);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp1_;
+  AnsatzType2 & m2_;
+  thrust::device_vector<thrust::complex<FloatType>> lnpsi2_dev_;
+  const int knInputs, knChains, kgpuBlockSize;
+  const thrust::complex<FloatType> kzero;
+};
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void meas__Psi2OverPsi0__(
+  const thrust::complex<FloatType> * lnpsi0,
+  const thrust::complex<FloatType> * lnpsi2,
+  const int nChains,
+  thrust::complex<FloatType> * psi2Overpsi0
 );
 } // namespace gpu_kernel
 
