@@ -11,6 +11,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("niter", "# of iterations to measure Renyi entropy"));
+  options.push_back(pair_t("l", "length of the subregion"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -36,6 +37,7 @@ int main(int argc, char* argv[])
     nMonteCarloSteps = parser.find<int>("nms"),
     deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter"),
+    subRegionLength = parser.find<int>("l"),
     version = parser.find<int>("ver");
   const float h = parser.find<float>("h");
   const unsigned long seed = parser.find<unsigned long>("seed");
@@ -47,6 +49,13 @@ int main(int argc, char* argv[])
   std::string hfstr = std::to_string(h);
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
+
+  if (subRegionLength < 0 || subRegionLength >= L)
+  {
+    std::cout << subRegionLength << std::endl;
+    std::cerr << "# error : The subregion length should be within the range: 0 <= l < L-1" << std::endl;
+    exit(1);
+  }
 
   // print info of the registered args
   parser.print(std::cout);
@@ -83,7 +92,7 @@ int main(int argc, char* argv[])
 
   Sampler4SpinHalf<TRAITS> sampler1(psi1, seed, nBlocks), sampler2(psi2, seed+987654321ul, nBlocks);
   MeasRenyiEntropy<TRAITS> S2measure(sampler1, sampler2, psi3);
-  S2measure.measure(nInputs/2, nIterations, nMonteCarloSteps, nWarmup);
+  S2measure.measure(subRegionLength, nIterations, nMonteCarloSteps, nWarmup);
 
   return 0;
 }
