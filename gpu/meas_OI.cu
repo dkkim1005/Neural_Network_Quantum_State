@@ -49,9 +49,9 @@ int main(int argc, char* argv[])
     deviceNumber = parser.find<int>("dev"),
     ver1 = parser.find<int>("ver1"),
     ver2 = parser.find<int>("ver2");
-  const double h1 = parser.find<double>("h1"), h2 = parser.find<double>("h2");
+  const float h1 = parser.find<float>("h1"), h2 = parser.find<float>("h2");
   const unsigned long seed = parser.find<unsigned long>("seed");
-  const std::string path1 = path_to_file<double>(parser, 1), path2 = path_to_file<double>(parser, 2);
+  const std::string path1 = path_to_file<float>(parser, 1), path2 = path_to_file<float>(parser, 2);
 
   // print info of the registered args
   parser.print(std::cout);
@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<double> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains);
+  ComplexFNN<float> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains);
 
   // load parameters: w,a,b
   m1.load(FNNDataType::W1, path1 + "Dw1.dat");
@@ -83,9 +83,9 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = ComplexFNN<double>;
-                  using AnsatzType2 = ComplexFNN<double>;
-                  using FloatType = double; };
+  struct TRAITS { using AnsatzType = ComplexFNN<float>;
+                  using AnsatzType2 = ComplexFNN<float>;
+                  using FloatType = float; };
 
   Sampler4SpinHalf<TRAITS> smp1(m1, seed, nBlocks), smp2(m2, seed+987654321ul, nBlocks);
   auto measPtr = make_unique<MeasOverlapIntegral<TRAITS>>(smp1, m2);

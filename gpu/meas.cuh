@@ -106,4 +106,21 @@ __global__ void meas__Psi2OverPsi0__(
 );
 } // namespace gpu_kernel
 
+template <typename TraitsClass>
+class MeasSpinSpinCorrelation
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  explicit MeasSpinSpinCorrelation(Sampler4SpinHalf<TraitsClass> & smp1);
+  ~MeasSpinSpinCorrelation();
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp_;
+  thrust::device_vector<thrust::complex<FloatType>> ss_dev_; // spin-spin correlation in the spatial dimension
+  const int knInputs, knChains;
+  const thrust::complex<FloatType> kzero, kone;
+  cublasHandle_t theCublasHandle_;
+};
+
 #include "impl_meas.cuh"
