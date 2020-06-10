@@ -256,3 +256,47 @@ void MeasSpinSpinCorrelation<TraitsClass>::measure(const int nIterations, const 
       ss[idx] = ss_host[idx].real();
     }
 }
+
+
+template <typename TraitsClass>
+MeasSpontaneousMagnetization<TraitsClass>::MeasSpontaneousMagnetization(Sampler4SpinHalf<TraitsClass> & smp):
+  smp_(smp),
+  kzero(thrust::complex<FloatType>(0, 0)),
+  kone(thrust::complex<FloatType>(1, 0)),
+  koneOverNinputs(thrust::complex<FloatType>(1.0/smp_.get_nInputs(), 0)),
+  kones(smp.get_nInputs(), thrust::complex<FloatType>(1, 0)),
+  tmpmag_dev_(smp.get_nChains()),
+  mag_dev_(smp.get_nChains())
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename TraitsClass>
+MeasSpontaneousMagnetization<TraitsClass>::~MeasSpontaneousMagnetization()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename TraitsClass>
+void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2)
+{
+  std::cout << "# Now we are in warming up..." << std::flush;
+  smp_.warm_up(nwarmup);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring spontaneous magnetization... (current/total)" << std::endl << std::flush;
+  thrust::fill(tmpmag_dev_.begin(), tmpmag_dev_.end(), kzero);
+  const FloatType oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*smp_.get_nChains());
+  m1 = kzero.real(), m2 = kzero.real();
+  for (int n=0; n<nIterations; ++n)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+    smp_.do_mcmc_steps(nMCSteps);
+    cublas::gemm(theCublasHandle_, 1, smp_.get_nChains(), smp_.get_nInputs(), koneOverNinputs, kzero,
+      PTR_FROM_THRUST(kones.data()), smp_.get_quantumStates(), PTR_FROM_THRUST(tmpmag_dev_.data()));
+    // \sum_{i=1}(s_i) -> |\sum_{i=1}(s_i)|
+    thrust::transform(tmpmag_dev_.begin(), tmpmag_dev_.end(), mag_dev_.begin(), internal_impl::ComplexABSFunctor<FloatType>());
+    m1 += thrust::reduce(thrust::device, mag_dev_.begin(), mag_dev_.end(), kzero.real())*oneOverTotalMeas;
+    m2 += thrust::inner_product(thrust::device, mag_dev_.begin(), mag_dev_.end(), mag_dev_.begin(), kzero.real())*oneOverTotalMeas;
+  }
+  std::cout << std::endl;
+}

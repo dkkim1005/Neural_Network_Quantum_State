@@ -6,6 +6,7 @@
 #include "neural_quantum_state.cuh"
 #include "mcmc_sampler.cuh"
 #include "hamiltonians.cuh"
+#include "thrust_util.cuh"
 
 template <typename TraitsClass>
 class Sampler4SpinHalf : public BaseParallelSampler<Sampler4SpinHalf, TraitsClass>
@@ -112,7 +113,7 @@ class MeasSpinSpinCorrelation
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  explicit MeasSpinSpinCorrelation(Sampler4SpinHalf<TraitsClass> & smp1);
+  explicit MeasSpinSpinCorrelation(Sampler4SpinHalf<TraitsClass> & smp);
   ~MeasSpinSpinCorrelation();
   void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss);
 private:
@@ -121,6 +122,25 @@ private:
   const int knInputs, knChains;
   const thrust::complex<FloatType> kzero, kone;
   cublasHandle_t theCublasHandle_;
+};
+
+// spontaneous magnetization m = \frac{1}{N}|\sum_{i}^{N} \sigma_i|
+template <typename TraitsClass>
+class MeasSpontaneousMagnetization
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  explicit MeasSpontaneousMagnetization(Sampler4SpinHalf<TraitsClass> & smp);
+  ~MeasSpontaneousMagnetization();
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp_;
+  cublasHandle_t theCublasHandle_;
+  const thrust::complex<FloatType> kzero, kone, koneOverNinputs;
+  const thrust::device_vector<thrust::complex<FloatType>> kones;
+  thrust::device_vector<thrust::complex<FloatType>> tmpmag_dev_;
+  thrust::device_vector<FloatType> mag_dev_;
 };
 
 #include "impl_meas.cuh"
