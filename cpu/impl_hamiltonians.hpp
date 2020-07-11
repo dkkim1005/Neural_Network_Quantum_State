@@ -17,8 +17,8 @@ TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const FloatType h,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
-  nnidx_(machine.get_nInputs()),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate)
+  batchAllocater_(machine.get_nHiddens(), dropOutRate),
+  nnidx_(machine.get_nInputs())
 {
   // (checker board update) list_ : 1,3,5,...,2,4,6,...
   for (int i=0; i<knSites; i++)
@@ -104,14 +104,22 @@ void TFIChain<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
 {
+#ifdef NO_USE_BATCH
+  machine_.backward(lnpsiGradients);
+#else
   machine_.partial_backward(lnpsiGradients, batchAllocater_.get_miniBatch());
+#endif
 }
 
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
 {
+#ifdef NO_USE_BATCH
+  machine_.update_variables(trueGradients, learningRate);
+#else
   machine_.update_partial_variables(trueGradients, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();
+#endif
 }
 
 

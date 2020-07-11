@@ -310,6 +310,199 @@ void ComplexRBM<FloatType>::swap_states(const int & k1, const int & k2)
 
 
 template <typename FloatType>
+ComplexRBMSymm<FloatType>::ComplexRBMSymm(const int nInputs, const int alpha, const int nChains):
+  knInputs(nInputs),
+  kAlpha(alpha),
+  knChains(nChains),
+  variables_(nInputs*alpha+1+alpha),
+  lnpsiGradients_(nChains*(nInputs*alpha+1+alpha)),
+  spinStates_(nInputs*nChains),
+  y_(nInputs*alpha*nChains),
+  ly_(nInputs*alpha*nChains),
+  sa_(nChains),
+  wf_(nInputs*nInputs*alpha),
+  bf_(nInputs*alpha),
+  af_(nInputs),
+  kzero(std::complex<FloatType>(0.0, 0.0)),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  ktwo(2.0),
+  koneChains(nChains, std::complex<FloatType>(1.0,0.0)),
+  koneHiddens(nInputs*alpha, std::complex<FloatType>(1.0,0.0)),
+  ktwoTrueFalse({0.0, 2.0}),
+  index_(0)
+{
+  if (alpha <= 0)
+    throw std::invalid_argument("alpha <= 0 --> alpha should be equal or larger than 1.");
+  unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937_64 ran(seed);
+  std::normal_distribution<double>
+    randw(0, std::sqrt(1.0/((1+kAlpha)*nInputs))),
+    randa(0, std::sqrt(1.0/nInputs)),
+    randb(0, std::sqrt(1.0/(knInputs*kAlpha)));
+  w_ = &variables_[0],
+  a_ = &variables_[knInputs*kAlpha],
+  b_ = &variables_[knInputs*kAlpha+1],
+  d_dw_ = &lnpsiGradients_[0],
+  d_da_ = &lnpsiGradients_[knInputs*kAlpha],
+  d_db_ = &lnpsiGradients_[knInputs*kAlpha+1];
+  for (int n=0; n<knInputs*kAlpha; ++n)
+    w_[n] = std::complex<FloatType>(randw(ran), randw(ran));
+  a_[0] = std::complex<FloatType>(randa(ran), randa(ran));
+  for (int f=0; f<kAlpha; ++f)
+    b_[f] = std::complex<FloatType>(randb(ran), randb(ran));
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::construct_weight_and_bias_()
+{
+  // i=0,1,...,N-1; j=0,1,...,N-1; f=0,...,alpha-1
+  // wf_{i,f*nInputs+j} (=wf_{j,f*nInputs+i}), bf_[f*nInputs+j], af_[j]
+  for (int f=0; f<kAlpha; ++f)
+  {
+    for (int j=0; j<knInputs; ++j)
+    {
+      for (int i=j; i<knInputs; ++i)
+        wf_[i*knInputs*kAlpha+f*knInputs+j] = w_[f*knInputs+(i+j)%knInputs];
+      for (int i=(j+1); i<knInputs; ++i)
+        wf_[j*knInputs*kAlpha+f*knInputs+i] = wf_[i*knInputs*kAlpha+f*knInputs+j];
+      bf_[f*knInputs+j] = b_[f];
+    }
+  }
+  std::fill(af_.begin(), af_.end(), a_[0]);
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate)
+{
+  for (int i=0; i<variables_.size(); ++i)
+    variables_[i] = variables_[i] - learningRate*derivativeLoss[i];
+  this->construct_weight_and_bias_();
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(kAlpha*knInputs, knChains, kone, &bf_[0], &koneChains[0], &y_[0]);
+  blas::gemm(kAlpha*knInputs, knChains, knInputs, kone, kone, &wf_[0], &spinStates_[0], &y_[0]);
+  // sa_k = \sum_i a_i*spinStates_ki
+  blas::gemm(1, knChains, knInputs, kone, kzero, &af_[0], &spinStates_[0], &sa_[0]);
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates)
+{
+  if (spinStates == NULL)
+  {
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = 1.0;
+  }
+  else
+  {
+    for (int i=0; i<spinStates_.size(); ++i)
+      spinStates_[i] = spinStates[i];
+  }
+  this->construct_weight_and_bias_();
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  std::fill(y_.begin(), y_.end(), kzero);
+  blas::ger(kAlpha*knInputs, knChains, kone, &bf_[0], &koneChains[0], &y_[0]);
+  blas::gemm(kAlpha*knInputs, knChains, knInputs, kone, kone, &wf_[0], &spinStates_[0], &y_[0]);
+  // ly_kj = ln(cosh(y_kj))
+  for (int j=0; j<y_.size(); ++j)
+    ly_[j] = std::log(std::cosh(y_[j]));
+  // sa_k = \sum_i af_i*spinStates_ki
+  blas::gemm(1, knChains, knInputs, kone, kzero, &af_[0], &spinStates_[0], &sa_[0]);
+  // lnpsi_k = \sum_j ly_kj + sa_k
+  for (int k=0; k<knChains; ++k)
+    lnpsi[k] = sa_[k];
+  blas::gemm(1, knChains, kAlpha*knInputs, kone, kone, &koneHiddens[0], &ly_[0], lnpsi);
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi)
+{
+  index_ = spinFlipIndex;
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+    for (int j=0; j<kAlpha*knInputs; ++j)
+      ly_[k*kAlpha*knInputs+j] = std::log(std::cosh(y_[k*kAlpha*knInputs+j]-wf_[index_*kAlpha*knInputs+j]*(ktwo*spinStates_[k*knInputs+index_].real())));
+  // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
+  for (int k=0; k<knChains; ++k)
+    lnpsi[k] = sa_[k]-(ktwo*spinStates_[k*knInputs+index_].real())*a_[0];
+  blas::gemm(1, knChains, kAlpha*knInputs, kone, kone, &koneHiddens[0], &ly_[0], lnpsi);
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::backward(std::complex<FloatType> * lnpsiGradients)
+{
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    const int kvSize = k*variables_.size(), kiSize = k*knInputs;
+    d_da_[kvSize+0] = sa_[k]/a_[0];
+    for (int f=0; f<kAlpha; ++f)
+    {
+      d_db_[kvSize+f] = kzero;
+      for (int j=0; j<knInputs; ++j)
+        d_db_[kvSize+f] += std::tanh(y_[k*kAlpha*knInputs+f*knInputs+j]);
+      for (int i=0; i<knInputs; ++i)
+      {
+        d_dw_[kvSize+f*knInputs+i] = kzero;
+        for (int j=0; j<knInputs; ++j)
+          d_dw_[kvSize+f*knInputs+i] += std::tanh(y_[k*kAlpha*knInputs+f*knInputs+j])*spinStates_[kiSize+(knInputs+i-j)%knInputs].real();
+      }
+    }
+  }
+  std::memcpy(lnpsiGradients, &lnpsiGradients_[0], sizeof(std::complex<FloatType>)*lnpsiGradients_.size());
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::load(const std::string filePath)
+{
+  // read rawdata from the text file located at 'filePath'
+  std::vector<std::complex<FloatType>> rawdata;
+  std::ifstream reader(filePath);
+  if (reader.is_open())
+  {
+    std::complex<FloatType> temp;
+    while (reader >> temp)
+      rawdata.push_back(temp);
+    reader.close();
+  }
+  else
+  {
+    std::cout << "# --- file-path: " << filePath << " is not exist..." << std::endl;
+    return;
+  }
+  // insert rawdata into 'variables_'
+  if (rawdata.size() == variables_.size())
+    variables_ = rawdata;
+  else
+    std::cout << " check parameter size... " << std::endl;
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::save(const std::string filePath, const int precision) const
+{
+  std::ofstream writer(filePath);
+  writer << std::setprecision(precision);
+  for (const auto & var : variables_)
+    writer << var << " ";
+  writer.close();
+}
+
+template <typename FloatType>
+void ComplexRBMSymm<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex)
+{
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
+  #pragma omp parallel for
+  for (int k=0; k<knChains; ++k)
+  {
+    for (int j=0; j<kAlpha*knInputs; ++j)
+      y_[k*kAlpha*knInputs+j] = y_[k*kAlpha*knInputs+j]-wf_[index_*kAlpha*knInputs+j]*(ktwoTrueFalse[doSpinFlip[k]]*spinStates_[k*knInputs+index_].real());
+    sa_[k] = sa_[k]-(ktwoTrueFalse[doSpinFlip[k]]*spinStates_[k*knInputs+index_].real())*a_[0];
+    spinStates_[k*knInputs+index_] = (kone.real()-ktwoTrueFalse[doSpinFlip[k]])*spinStates_[k*knInputs+index_].real();
+  }
+}
+
+
+template <typename FloatType>
 ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const int nChains):
   knInputs(nInputs),
   knHiddens(nHiddens),

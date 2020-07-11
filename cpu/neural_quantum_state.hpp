@@ -60,6 +60,43 @@ private:
 };
 
 
+// complex RBM with spatial translational symmetry (periodic boundary condition is emposed.)
+template <typename FloatType>
+class ComplexRBMSymm
+{
+public:
+  ComplexRBMSymm(const int nInputs, const int alpha, const int nChains);
+  ComplexRBMSymm(const ComplexRBMSymm & rhs) = delete;
+  ComplexRBMSymm & operator=(const ComplexRBMSymm & rhs) = delete;
+  void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
+  void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
+  void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
+  void backward(std::complex<FloatType> * lnpsiGradients);
+  void load(const std::string filePath);
+  void save(const std::string filePath, const int precision = FloatTypeTrait_<FloatType>::precision) const;
+  void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
+  const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
+  int get_nChains() const { return knChains; }
+  int get_nInputs() const { return knInputs; }
+  int get_nHiddens() const { return kAlpha*knInputs; }
+  int get_nVariables() const { return variables_.size(); }
+private:
+  void construct_weight_and_bias_();
+
+  const int knInputs, kAlpha, knChains;
+  const std::vector<std::complex<FloatType> > koneChains, koneHiddens;
+  const std::array<std::complex<FloatType>, 2> ktwoTrueFalse;
+  const std::complex<FloatType> kzero, kone;
+  const FloatType ktwo;
+  std::vector<std::complex<FloatType> > variables_, lnpsiGradients_;
+  std::vector<std::complex<FloatType> > spinStates_;
+  std::vector<std::complex<FloatType> > y_, ly_, sa_;
+  std::vector<std::complex<FloatType> > wf_, bf_, af_;
+  std::complex<FloatType> * w_, * a_, * b_, * d_dw_, * d_da_, * d_db_;
+  int index_;
+};
+
+
 /*
  * W1: weight matrix positioned between the input and hidden layers
  * W2: weight matrix  "" the hidden and output layers
