@@ -336,9 +336,9 @@ ComplexRBMSymm<FloatType>::ComplexRBMSymm(const int nInputs, const int alpha, co
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
   std::normal_distribution<double>
-    randw(0, std::sqrt(1.0/((1+kAlpha)*nInputs))),
-    randa(0, std::sqrt(1.0/nInputs)),
-    randb(0, std::sqrt(1.0/(knInputs*kAlpha)));
+    randw(0, std::sqrt(0.1/((1+kAlpha)*nInputs))),
+    randa(0, std::sqrt(0.1/nInputs)),
+    randb(0, std::sqrt(0.1/(knInputs*kAlpha)));
   w_ = &variables_[0],
   a_ = &variables_[knInputs*kAlpha],
   b_ = &variables_[knInputs*kAlpha+1],
