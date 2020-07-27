@@ -12,11 +12,21 @@
 namespace internal_impl
 {
 template <typename FloatType>
-struct NormFunctor
+struct L2NormFunctor
 {
   __host__ __device__ FloatType operator()(const thrust::complex<FloatType> & x) const
   {
     return thrust::norm(x);
+  }
+};
+
+template <typename FloatType>
+struct L4NormFunctor
+{
+  __host__ __device__ FloatType operator()(const FloatType & x) const
+  {
+    const FloatType x2 = x*x;
+    return x2*x2;
   }
 };
 
@@ -58,10 +68,18 @@ private:
 
 // return \sum_i |v_i|^2
 template <typename FloatType>
-FloatType squared_norm(const thrust::device_vector<thrust::complex<FloatType>> & v)
+FloatType l2_norm(const thrust::device_vector<thrust::complex<FloatType>> & v)
 {
   const FloatType zero = 0;
-  return thrust::transform_reduce(v.begin(), v.end(), NormFunctor<FloatType>(), zero, thrust::plus<FloatType>());
+  return thrust::transform_reduce(v.begin(), v.end(), L2NormFunctor<FloatType>(), zero, thrust::plus<FloatType>());
+}
+
+// return \sum_i |v_i|^2
+template <typename FloatType>
+FloatType l4_norm(const thrust::device_vector<FloatType> & v)
+{
+  const FloatType zero = 0;
+  return thrust::transform_reduce(v.begin(), v.end(), L4NormFunctor<FloatType>(), zero, thrust::plus<FloatType>());
 }
 
 // return \sum_i (a_i*conj(b_i))

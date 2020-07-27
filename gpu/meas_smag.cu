@@ -79,19 +79,19 @@ int main(int argc, char* argv[])
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
   MeasSpontaneousMagnetization<TRAITS> smag(smp);
-  float m1, m2;
-  smag.measure(niter, nMonteCarloSteps, nWarmup, m1, m2);
+  float m1, m2, m4;
+  smag.measure(niter, nMonteCarloSteps, nWarmup, m1, m2, m4);
 
   const std::string wfilename = parser.find<>("path") + "/smag-" + parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + ".dat";
   std::ofstream wfile;
   if(!std::ifstream(wfilename).is_open())
   {
     wfile.open(wfilename);
-    wfile << "#   h      m1       m2" << std::endl;
+    wfile << "#   h      m1       m2       m4" << std::endl;
   }
   else
     wfile.open(wfilename, std::ofstream::app);
-  wfile << std::setw(7) << h << " " << std::setw(7) << m1 << " " << std::setw(7) << m2 << std::endl;
+  wfile << std::setw(7) << h << " " << std::setw(7) << m1 << " " << std::setw(7) << m2 << " " << std::setw(7) << m4 << std::endl;
   wfile.close();
 
   return 0;

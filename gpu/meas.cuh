@@ -133,7 +133,7 @@ class MeasSpontaneousMagnetization
 public:
   explicit MeasSpontaneousMagnetization(Sampler4SpinHalf<TraitsClass> & smp);
   ~MeasSpontaneousMagnetization();
-  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2);
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2, FloatType & m4);
 private:
   Sampler4SpinHalf<TraitsClass> & smp_;
   cublasHandle_t theCublasHandle_;

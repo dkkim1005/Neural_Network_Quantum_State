@@ -278,7 +278,7 @@ MeasSpontaneousMagnetization<TraitsClass>::~MeasSpontaneousMagnetization()
 }
 
 template <typename TraitsClass>
-void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2)
+void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2, FloatType & m4)
 {
   std::cout << "# Now we are in warming up..." << std::flush;
   smp_.warm_up(nwarmup);
@@ -286,7 +286,7 @@ void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, c
   std::cout << "# Measuring spontaneous magnetization... (current/total)" << std::endl << std::flush;
   thrust::fill(tmpmag_dev_.begin(), tmpmag_dev_.end(), kzero);
   const FloatType oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*smp_.get_nChains());
-  m1 = kzero.real(), m2 = kzero.real();
+  m1 = kzero.real(), m2 = kzero.real(), m4 = kzero.real();
   for (int n=0; n<nIterations; ++n)
   {
     std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
@@ -297,6 +297,7 @@ void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, c
     thrust::transform(tmpmag_dev_.begin(), tmpmag_dev_.end(), mag_dev_.begin(), internal_impl::ComplexABSFunctor<FloatType>());
     m1 += thrust::reduce(thrust::device, mag_dev_.begin(), mag_dev_.end(), kzero.real())*oneOverTotalMeas;
     m2 += thrust::inner_product(thrust::device, mag_dev_.begin(), mag_dev_.end(), mag_dev_.begin(), kzero.real())*oneOverTotalMeas;
+    m4 += internal_impl::l4_norm(mag_dev_)*oneOverTotalMeas;
   }
   std::cout << std::endl;
 }

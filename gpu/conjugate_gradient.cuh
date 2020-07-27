@@ -34,14 +34,14 @@ public:
     Mat.dot(x_dev, tmp_dev_);
     thrust::transform(rhs_dev.begin(), rhs_dev.end(), tmp_dev_.begin(), residual_dev_.begin(), thrust::minus<thrust::complex<FloatType>>());
     //rhsNorm2 = L2Norm(Mat.dot(rhs))
-    FloatType rhsNorm2 = internal_impl::squared_norm(rhs_dev);
+    FloatType rhsNorm2 = internal_impl::l2_norm(rhs_dev);
     if (rhsNorm2 == 0)
     {
       thrust::fill(x_dev.begin(), x_dev.end(), thrust::complex<FloatType>(0, 0));
       return;
     }
     const FloatType threshold = std::max(ktol*ktol*rhsNorm2, kconsiderAsZero);
-    FloatType residualNorm2 = internal_impl::squared_norm(residual_dev_);
+    FloatType residualNorm2 = internal_impl::l2_norm(residual_dev_);
     if (residualNorm2 < threshold)
       return;
     Mat.applyPrecond(residual_dev_, p_dev_);
@@ -57,7 +57,7 @@ public:
       thrust::transform(p_dev_.begin(), p_dev_.end(), x_dev.begin(), x_dev.begin(), internal_impl::AxpyFunctor<double>(alpha));
       // update residual (residual -= alpha*tmp)
       thrust::transform(tmp_dev_.begin(), tmp_dev_.end(), residual_dev_.begin(), residual_dev_.begin(), internal_impl::AxpyFunctor<double>(-alpha));
-      residualNorm2 = internal_impl::squared_norm(residual_dev_);
+      residualNorm2 = internal_impl::l2_norm(residual_dev_);
       if (residualNorm2 < threshold)
         break;
       // approximately solve for "A z = residual"
