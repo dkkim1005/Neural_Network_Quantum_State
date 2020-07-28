@@ -64,7 +64,7 @@ void MeasRenyiEntropy<TraitsClass>::measure(const int l, const int nIterations, 
   std::cout << " done." << std::endl << std::flush;
   const int gpuBlockSize1 = CHECK_BLOCK_SIZE(((psi_.get_nInputs()-l)*psi_.get_nChains())),
     gpuBlockSize2 = CHECK_BLOCK_SIZE(psi_.get_nChains());
-  thrust::device_vector<thrust::complex<FloatType>> rho2local(psi_.get_nChains(), kzero);
+  thrust::device_vector<thrust::complex<FloatType>> rho2local_dev(psi_.get_nChains(), kzero);
   std::cout << "# Measuring Renyi entropy... (current/total)" << std::endl << std::flush;
   thrust::complex<FloatType> rho2 = kzero;
   for (int n=0; n<nIterations; ++n)
@@ -85,10 +85,10 @@ void MeasRenyiEntropy<TraitsClass>::measure(const int l, const int nIterations, 
       PTR_FROM_THRUST(states3_dev_.data()), PTR_FROM_THRUST(states4_dev_.data()));
     psi_.forward(PTR_FROM_THRUST(states3_dev_.data()), PTR_FROM_THRUST(lnpsi3_dev_.data()), false);
     psi_.forward(PTR_FROM_THRUST(states4_dev_.data()), PTR_FROM_THRUST(lnpsi4_dev_.data()), false);
-    // rho2local = (\frac{C(n_A,p_B)*C(m_A,q_B)}{C(n_A,q_B)*C(m_A,p_B)})^*
-    gpu_kernel::Renyi__GetRho2local__<<<gpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(lnpsi1_dev, lnpsi2_dev,
-      PTR_FROM_THRUST(lnpsi3_dev_.data()), PTR_FROM_THRUST(lnpsi4_dev_.data()), psi_.get_nChains(), PTR_FROM_THRUST(rho2local.data()));
-    rho2 = thrust::reduce(thrust::device, rho2local.begin(), rho2local.end(), rho2);
+    // rho2local_dev = (\frac{C(n_A,p_B)*C(m_A,q_B)}{C(n_A,q_B)*C(m_A,p_B)})^*
+    gpu_kernel::meas__GetRho2local__<<<gpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(lnpsi1_dev, lnpsi2_dev,
+      PTR_FROM_THRUST(lnpsi3_dev_.data()), PTR_FROM_THRUST(lnpsi4_dev_.data()), psi_.get_nChains(), PTR_FROM_THRUST(rho2local_dev.data()));
+    rho2 = thrust::reduce(thrust::device, rho2local_dev.begin(), rho2local_dev.end(), rho2);
   }
   std::cout << std::endl;
   rho2 /= static_cast<FloatType>((nIterations*psi_.get_nChains()));
@@ -122,7 +122,7 @@ __global__ void Renyi__SwapStates__(
 }
 
 template <typename FloatType>
-__global__ void Renyi__GetRho2local__(
+__global__ void meas__GetRho2local__(
   const thrust::complex<FloatType> * lnpsi1,
   const thrust::complex<FloatType> * lnpsi2,
   const thrust::complex<FloatType> * lnpsi3,
@@ -193,6 +193,53 @@ const thrust::complex<typename TraitsClass::FloatType> MeasOverlapIntegral<Trait
   }
   return ovlavg;
 }
+
+
+template <typename TraitsClass>
+MeasFidelity<TraitsClass>::MeasFidelity(Sampler4SpinHalf<TraitsClass> & smp1, Sampler4SpinHalf<TraitsClass> & smp2, AnsatzType & psi1, AnsatzType & psi2):
+  smp1_(smp1),
+  smp2_(smp2),
+  psi1_(psi1),
+  psi2_(psi2),
+  lnpsi3_dev_(smp1.get_nChains()),
+  lnpsi4_dev_(smp1.get_nChains()),
+  knInputs(smp1.get_nInputs()),
+  knChains(smp1.get_nChains()),
+  kgpuBlockSize(CHECK_BLOCK_SIZE(psi1_.get_nChains())),
+  kzero(0, 0)
+{}
+
+
+template <typename TraitsClass>
+typename TraitsClass::FloatType MeasFidelity<TraitsClass>::measure(const int nMeas, const int nwarms, const int nMCSteps)
+{
+  std::cout << "# Now we are in warming up..." << std::flush;
+  smp1_.warm_up(nwarms);
+  smp2_.warm_up(nwarms);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring fidelity... (current/total)" << std::endl << std::flush;
+  thrust::device_vector<thrust::complex<FloatType>> rho2local_dev(knChains, kzero);
+  thrust::complex<FloatType> rho2(kzero);
+  for (int n=0; n<nMeas; ++n)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nMeas << std::flush;
+    smp1_.do_mcmc_steps(nMCSteps);
+    smp2_.do_mcmc_steps(nMCSteps);
+    // lnpsi1_dev : log(<\sigma_1|\psi_1>), lnpsi2_dev : log(<\sigma_2|\psi_2>)
+    const thrust::complex<FloatType> * lnpsi1_dev = smp1_.get_lnpsi(), * lnpsi2_dev = smp2_.get_lnpsi();
+    // lnpsi3_dev_ : log(<\sigma_2|\psi_1>)
+    psi1_.forward(smp2_.get_quantumStates(), PTR_FROM_THRUST(lnpsi3_dev_.data()), false);
+    // lnpsi4_dev_ : log(<\sigma_1|\psi_2>)
+    psi2_.forward(smp1_.get_quantumStates(), PTR_FROM_THRUST(lnpsi4_dev_.data()), false);
+    // rho2local = (\frac{C(n_A,p_B)*C(m_A,q_B)}{C(n_A,q_B)*C(m_A,p_B)})^*
+    gpu_kernel::meas__GetRho2local__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(lnpsi1_dev, lnpsi2_dev,
+      PTR_FROM_THRUST(lnpsi3_dev_.data()), PTR_FROM_THRUST(lnpsi4_dev_.data()), knChains, PTR_FROM_THRUST(rho2local_dev.data()));
+    rho2 = thrust::reduce(thrust::device, rho2local_dev.begin(), rho2local_dev.end(), rho2);
+  }
+  std::cout << std::endl;
+  return std::sqrt(rho2.real()/static_cast<FloatType>(nMeas*knChains));
+}
+
 
 namespace gpu_kernel
 {

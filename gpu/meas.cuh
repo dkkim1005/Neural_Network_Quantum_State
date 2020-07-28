@@ -66,7 +66,7 @@ __global__ void Renyi__SwapStates__(
 );
 
 template <typename FloatType>
-__global__ void Renyi__GetRho2local__(
+__global__ void meas__GetRho2local__(
   const thrust::complex<FloatType> * lnpsi1,
   const thrust::complex<FloatType> * lnpsi2,
   const thrust::complex<FloatType> * lnpsi3,
@@ -95,6 +95,25 @@ private:
   const int knInputs, knChains, kgpuBlockSize;
   const thrust::complex<FloatType> kzero;
 };
+
+
+// calculating |<\psi_1|\psi_2>|^2 with MCMC sampling
+template <typename TraitsClass>
+class MeasFidelity
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasFidelity(Sampler4SpinHalf<TraitsClass> & smp1, Sampler4SpinHalf<TraitsClass> & smp2, AnsatzType & psi1, AnsatzType & psi2);
+  FloatType measure(const int nTrials, const int nwarms, const int nMCSteps = 1);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp1_, & smp2_;
+  AnsatzType & psi1_, & psi2_;
+  thrust::device_vector<thrust::complex<FloatType>> lnpsi3_dev_, lnpsi4_dev_;
+  const int knInputs, knChains, kgpuBlockSize;
+  const thrust::complex<FloatType> kzero;
+};
+
 
 namespace gpu_kernel
 {
