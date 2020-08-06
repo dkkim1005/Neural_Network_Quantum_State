@@ -8,7 +8,7 @@
 #include "meas.cuh"
 #include "../cpu/argparse.hpp"
 
-template <typename FloatType> std::string convert_from_float_to_string(const FloatType & num);
+template <typename FloatType> std::string convert_from_double_to_string(const FloatType & num);
 template <typename FloatType> std::string path_to_file(const argsparse & parser, const int i);
 
 int main(int argc, char* argv[])
@@ -47,9 +47,9 @@ int main(int argc, char* argv[])
     deviceNumber = parser.find<int>("dev"),
     ver1 = parser.find<int>("ver1"),
     ver2 = parser.find<int>("ver2");
-  const float h1 = parser.find<float>("h1"), h2 = parser.find<float>("h2");
+  const double h1 = parser.find<double>("h1"), h2 = parser.find<double>("h2");
   const unsigned long seed = parser.find<unsigned long>("seed");
-  const std::string path1 = path_to_file<float>(parser, 1), path2 = path_to_file<float>(parser, 2);
+  const std::string path1 = path_to_file<double>(parser, 1), path2 = path_to_file<double>(parser, 2);
 
   // print info of the registered args
   parser.print(std::cout);
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<float> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains),
+  ComplexFNN<double> m1(nInputs, nHiddens1, nChains), m2(nInputs, nHiddens2, nChains),
     psi1(nInputs, nHiddens1, nChains), psi2(nInputs, nHiddens1, nChains);
 
   // load parameters: w,a,b
@@ -84,12 +84,12 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = ComplexFNN<float>; using FloatType = float; };
+  struct TRAITS { using AnsatzType = ComplexFNN<double>; using FloatType = double; };
 
   Sampler4SpinHalf<TRAITS> smp1(m1, seed, nBlocks), smp2(m2, seed+987654321ul, nBlocks);
 
   MeasFidelity<TRAITS> fidelity(smp1, smp2, psi1, psi2);
-  float res = fidelity.measure(ntrials, nWarmup, nMonteCarloSteps);
+  double res = fidelity.measure(ntrials, nWarmup, nMonteCarloSteps);
   std::cout << "# |<\\psi_1|\\psi_2>| : " << res << std::endl;
 
   // record measurements
@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
 }
 
 template <typename FloatType>
-std::string convert_from_float_to_string(const FloatType & num)
+std::string convert_from_double_to_string(const FloatType & num)
 {
   std::string numstr = std::to_string(num);
   numstr.erase(numstr.find_last_not_of('0') + 1, std::string::npos);
@@ -134,7 +134,7 @@ std::string path_to_file(const argsparse & parser, const int i)
     vQuery = "ver"+std::to_string(i);
   const std::string filepath = parser.find<>("path") + "/"
     + parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + "Nh"
-    + parser.find<>(NhQuery) + "Hf" + convert_from_float_to_string(parser.find<FloatType>(hQuery))
+    + parser.find<>(NhQuery) + "Hf" + convert_from_double_to_string(parser.find<FloatType>(hQuery))
     + "V" + parser.find<>(vQuery);
   return filepath;
 }

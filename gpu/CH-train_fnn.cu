@@ -46,10 +46,10 @@ int main(int argc, char* argv[])
     deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter"),
     version = parser.find<int>("ver");
-  const float h = parser.find<float>("h"),
-    J = parser.find<float>("J"),
-    lr = parser.find<float>("lr"),
-    dr = parser.find<float>("dr");
+  const double h = parser.find<double>("h"),
+    J = parser.find<double>("J"),
+    lr = parser.find<double>("lr"),
+    dr = parser.find<double>("dr");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
     nistr = std::to_string(nInputs),
@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<float> machine(nInputs, nHiddens, nChains);
+  ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
   const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
   machine.load(FNNDataType::W2, prefix0 + "Dw2.dat");
   machine.load(FNNDataType::B1, prefix0 + "Db1.dat");
 
-  struct SamplerTraits { using AnsatzType = ComplexFNN<float>; using FloatType = float;};
+  struct SamplerTraits { using AnsatzType = ComplexFNN<double>; using FloatType = double;};
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
 
   const int nCutHiddens = static_cast<int>(nHiddens*dr);
   const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
-  StochasticReconfigurationCG<float> iTimePropagator(nChains, nVariables);
+  StochasticReconfigurationCG<double> iTimePropagator(nChains, nVariables);
   iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
 
   // save parameters
@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
   machine.save(FNNDataType::B1, prefix + "Db1.dat");
 
   const auto end = std::chrono::system_clock::now();
-  std::chrono::duration<float> elapsed_seconds = end-start;
+  std::chrono::duration<double> elapsed_seconds = end-start;
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   return 0;
