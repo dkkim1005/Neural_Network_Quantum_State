@@ -46,8 +46,7 @@ int main(int argc, char* argv[])
     deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter"),
     version = parser.find<int>("ver");
-  const double h = parser.find<double>("h"),
-    J = parser.find<double>("J"),
+  const double J = parser.find<double>("J"),
     lr = parser.find<double>("lr"),
     dr = parser.find<double>("dr");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
@@ -56,9 +55,7 @@ int main(int argc, char* argv[])
     nhstr = std::to_string(nHiddens),
     vestr = std::to_string(version),
     ifprefix = parser.find<>("ifprefix");
-  std::string hfstr = std::to_string(h);
-  hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
-  hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
+  const auto hfields = parser.mfind<double>("h");
 
   // print info of the registered args
   parser.print(std::cout);
@@ -73,16 +70,6 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<double> machine(nInputs, nHiddens, nChains);
-
-  // load parameters
-  const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
-  const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-
-  machine.load(FNNDataType::W1, prefix0 + "Dw1.dat");
-  machine.load(FNNDataType::W2, prefix0 + "Dw2.dat");
-  machine.load(FNNDataType::B1, prefix0 + "Db1.dat");
-
   struct SamplerTraits { using AnsatzType = ComplexFNN<double>; using FloatType = double;};
 
   // block size for the block splitting scheme of parallel Monte-Carlo
@@ -91,26 +78,46 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs)*
                                 static_cast<unsigned long>(nChains);
 
-  // Transverse Field Ising Hamiltonian on the 1D chain lattice
-  spinhalf::TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, dr, prefix);
+  for (int i=0; i<hfields.size(); ++i)
+  {
+    const double h = hfields[i];
+    if (hfields.size() > 1)
+      std::cout << "# h: " << h << " --- job id:" << (i+1) << " / " << hfields.size() << std::endl;
+    std::string hfstr = std::to_string(h);
+    hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
+    hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
 
-  const auto start = std::chrono::system_clock::now();
+    ComplexFNN<double> machine(nInputs, nHiddens, nChains);
 
-  sampler.warm_up(nWarmup);
+    // load parameters
+    const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+    const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
 
-  const int nCutHiddens = static_cast<int>(nHiddens*dr);
-  const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
-  StochasticReconfigurationCG<double> iTimePropagator(nChains, nVariables);
-  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+    machine.load(FNNDataType::W1, prefix0 + "Dw1.dat");
+    machine.load(FNNDataType::W2, prefix0 + "Dw2.dat");
+    machine.load(FNNDataType::B1, prefix0 + "Db1.dat");
 
-  // save parameters
-  machine.save(FNNDataType::W1, prefix + "Dw1.dat");
-  machine.save(FNNDataType::W2, prefix + "Dw2.dat");
-  machine.save(FNNDataType::B1, prefix + "Db1.dat");
+    // Transverse Field Ising Hamiltonian on the 1D chain lattice
+    spinhalf::TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, dr, prefix);
 
-  const auto end = std::chrono::system_clock::now();
-  std::chrono::duration<double> elapsed_seconds = end-start;
-  std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
+    const auto start = std::chrono::system_clock::now();
+
+    sampler.warm_up(nWarmup);
+
+    const int nCutHiddens = static_cast<int>(nHiddens*dr);
+    const int nVariables = nInputs*nCutHiddens + 2*nCutHiddens;
+    StochasticReconfigurationCG<double> iTimePropagator(nChains, nVariables);
+    iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+
+    // save parameters
+    machine.save(FNNDataType::W1, prefix + "Dw1.dat");
+    machine.save(FNNDataType::W2, prefix + "Dw2.dat");
+    machine.save(FNNDataType::B1, prefix + "Db1.dat");
+
+    const auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+    std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
+  }
 
   return 0;
 }
