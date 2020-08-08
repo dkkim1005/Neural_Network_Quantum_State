@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <exception>
 
 using pair_t = std::pair<std::string, std::string>;
 
@@ -144,6 +145,54 @@ public:
       exit(1);
     }
     return value;
+  }
+
+  // calling multiple options
+  template <typename T = std::string>
+  std::vector<T> mfind(const std::string callOption) const
+  {
+    bool raiseError = true;
+    std::string returnValues;
+    for (int i=0; i<options_.size(); ++i)
+    {
+      if (callOption.compare(options_[i]) == 0)
+      {
+        returnValues = args_[i];
+        raiseError = false;
+        break;
+      }
+    }
+    if (raiseError)
+    {
+      std::cerr << "# error(out) ---> Threre is no option for your calling. : " << callOption << std::endl;
+      exit(1);
+    }
+    std::size_t idx0 = 0;
+    std::vector<T> data;
+    while (true)
+    {
+      const std::size_t idx1 = returnValues.find_first_of(",", idx0);
+      const std::string returnValue(returnValues, idx0, idx1-idx0);
+      if (returnValue.size() == 0)
+      {
+	std::cerr << "# error has occured: remove ',' at the last part" << std::endl;
+        exit(1);
+      }
+      std::stringstream os;
+      T value;
+      os << returnValue;
+      os >> value;
+      if (os.fail())
+      {
+        std::cerr << "# error has occured in the lexical cast: " << returnValues << " (option: " << callOption << ")" << std::endl;
+        exit(1);
+      }
+      data.push_back(value);
+      if (idx1 == std::string::npos)
+        break;
+      idx0 = idx1+1;
+    }
+    return data;
   }
 
   // printing a current status
