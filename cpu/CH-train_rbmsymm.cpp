@@ -13,7 +13,6 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("nv", "# of visible nodes"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("na", "# of iterations to average out observables"));
   options.push_back(pair_t("niter", "# of iterations to train RBM"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
@@ -40,7 +39,6 @@ int main(int argc, char* argv[])
   const int nInputs = parser.find<int>("nv"),
             alpha = parser.find<int>("alpha"),
             nChains = parser.find<int>("ns"),
-            nAccumulation = parser.find<int>("na"),
             nWarmup = parser.find<int>("nwarm"),
             nMonteCarloSteps = parser.find<int>("nms"),
             nIterations =  parser.find<int>("niter"),
@@ -84,8 +82,8 @@ int main(int argc, char* argv[])
   Hsampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  StochasticReconfiguration<float, linearsolver::BKF> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(Hsampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
+  StochasticReconfigurationCG<float> iTimePropagator(nChains, machine.get_nVariables());
+  iTimePropagator.propagate(Hsampler, nIterations, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
   std::chrono::duration<float> elapsed_seconds = end-start;

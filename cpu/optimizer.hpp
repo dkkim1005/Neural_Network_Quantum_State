@@ -9,6 +9,8 @@
 #include <complex>
 #include "blas_lapack.hpp"
 #include "linear_solver.hpp"
+#include "conjugate_gradient.hpp"
+#include "functor_for_CG.hpp"
 
 // Ref. S. Sorella, M. Casula, and D. Rocca, J. Chem. Phys. 127, 014105 (2007).
 template <typename FloatType, template<typename> class LinearSolver>
@@ -151,6 +153,56 @@ private:
   static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
   int nIteration_;
   FloatType bp_;
+};
+
+
+template <typename FloatType>
+class StochasticReconfigurationCG
+{
+public:
+  StochasticReconfigurationCG(const int nChains, const int nVariables);
+  template <typename SamplerType>
+  void propagate(SamplerType & sampler, const int nIteration, const int nMCSteps = 1, const FloatType deltaTau = 1e-3)
+  {
+    const std::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains);
+    std::cout << "# of loop\t" << "<H>\t" << "acceptance ratio" << std::endl << std::setprecision(7);
+    for (int n=0; n<nIteration; ++n)
+    {
+      std::cout << std::setw(5) << (n+1) << std::setw(16);
+      sampler.do_mcmc_steps(nMCSteps);
+      sampler.get_htilda(&htilda_[0]);
+      sampler.get_lnpsiGradients(&lnpsiGradients_[0]);
+      // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
+      std::fill(aO_.begin(), aO_.end(), kzero);
+      blas::gemv(knVariables, knChains, oneOverTotalMeas, &lnpsiGradients_[0], &kones[0], kone, &aO_[0]);
+      // F_i = ((\sum_k std::conj(htilda_k) * lnpsiGradients_ki)*oneOverTotalMeas-conjHavg*aO_i)^+
+      std::fill(F_.begin(), F_.end(), kzero);
+      for (int k=0; k<knChains; ++k)
+        htilda_[k] = std::conj(htilda_[k]);
+      std::complex<FloatType> conjHavg = oneOverTotalMeas.real()*std::accumulate(htilda_.begin(), htilda_.end(), kzero);
+      blas::gemv(knVariables, knChains, oneOverTotalMeas, &lnpsiGradients_[0], &htilda_[0], kone, &F_[0]);
+      for (int i=0; i<knVariables; ++i)
+        F_[i] = std::conj(F_[i]-conjHavg*aO_[i]);
+      // dx_ = S_^{-1}*F_
+      smat_.set_lnpsiGradients(lnpsiGradients_.data(), this->schedular_());
+      cg_.solve(smat_, F_.data(), dx_.data());
+      sampler.evolve(dx_.data(), deltaTau);
+      std::cout << (conjHavg.real()) << std::setw(16) << sampler.meas_acceptance_ratio()
+        << std::endl << std::flush;
+    }
+  }
+private:
+  FloatType schedular_();
+  std::vector<std::complex<FloatType> > htilda_, lnpsiGradients_;
+  std::vector<std::complex<FloatType> > aO_, F_, dx_;
+  const std::vector<std::complex<FloatType> > kones;
+  const std::complex<FloatType> kone, kzero;
+  const int knChains, knVariables;
+  static constexpr FloatType klambda0 = 100.0, kb = 0.9, klambMin = 1e-2;
+  int nIteration_;
+  FloatType bp_;
+  ConjugateGradient<FloatType> cg_;
+  SMatrixForCG<FloatType> smat_;
 };
 
 #include "impl_optimizer.hpp"

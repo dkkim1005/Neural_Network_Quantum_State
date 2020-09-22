@@ -51,3 +51,30 @@ FloatType StochasticGradientDescent<FloatType>::schedular_()
   const FloatType lambda = klambda0*bp_;
   return ((lambda > klambMin) ? lambda : klambMin);
 }
+
+
+template <typename FloatType>
+StochasticReconfigurationCG<FloatType>::StochasticReconfigurationCG(const int nChains, const int nVariables):
+  htilda_(nChains),
+  lnpsiGradients_(nChains*nVariables),
+  dx_(nVariables, 0),
+  kones(nChains, std::complex<FloatType>(1.0, 0.0)),
+  kone(std::complex<FloatType>(1.0, 0.0)),
+  kzero(std::complex<FloatType>(0.0, 0.0)),
+  knChains(nChains),
+  knVariables(nVariables),
+  aO_(nVariables),
+  F_(nVariables),
+  nIteration_(0),
+  bp_(1.0),
+  cg_(nVariables, 1e-3, nVariables),
+  smat_(nChains, nVariables)
+  {}
+
+template <typename FloatType>
+FloatType StochasticReconfigurationCG<FloatType>::schedular_()
+{
+  bp_ *= kb;
+  const FloatType lambda = klambda0*bp_;
+  return ((lambda > klambMin) ? lambda : klambMin);
+}
