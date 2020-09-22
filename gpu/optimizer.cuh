@@ -149,7 +149,10 @@ public:
       cudaDeviceSynchronize();
       if (n%nrec == (nrec-1))
         sampler.save();
-      std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::endl << std::flush;
+      const FloatType RSD = std::sqrt((internal_impl::l2_norm(htilda_dev_)/knChains
+        - thrust::norm(conjHavg))/thrust::norm(conjHavg));
+      std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::setw(16) <<
+        RSD << std::endl << std::flush;
     }
   }
 private:
