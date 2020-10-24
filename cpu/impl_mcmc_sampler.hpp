@@ -44,9 +44,12 @@ void BaseParallelSampler<DerivedParallelSampler, TraitsClass>::do_mcmc_steps(con
     static_cast<DerivedParallelSampler<TraitsClass>*>(this)->sampling(&lnpsi1_[0]);
     #pragma omp parallel for
     for (int k=0; k<knChains; ++k)
-    {
       ratio_[k] = std::norm(std::exp(lnpsi1_[k]-lnpsi0_[k]));
+    for (int k=0; k<knChains; ++k)
       updateList_[k] = (randUniform_(randDev_[k]))<ratio_[k];
+    #pragma omp parallel for
+    for (int k=0; k<knChains; ++k)
+    {
       lnpsi0_[k] = updateList_[k] ? lnpsi1_[k] : lnpsi0_[k];
       acceptanceRatio_[k] = acceptanceRatio_[k] + updateList_[k];
     }

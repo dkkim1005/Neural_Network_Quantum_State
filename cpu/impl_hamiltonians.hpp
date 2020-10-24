@@ -1327,3 +1327,139 @@ void TFICheckerBoard<TraitsClass>::swap_states(const int & k1, const int & k2)
 }
 } // namespace spinhalf
 } // namespace paralleltempering
+
+namespace fermion
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
+  const FloatType t, const int nParticles, const bool usePBC,
+  const unsigned long seedDistance, const unsigned long seedNumber):
+  BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs()/2, machine.get_nChains(), seedDistance, seedNumber),
+  knSites(machine.get_nInputs()/2),
+  knChains(machine.get_nChains()),
+  knParticles(nParticles),
+  kusePBC(usePBC),
+  kU(U),
+  kt(t),
+  kzero(0),
+  ktwo(2),
+  machine_(machine),
+  exchanger_(machine.get_nChains(), machine.get_nInputs(), seedNumber+987654321ul, seedDistance),
+  idxSpinPairs_(machine.get_nChains(), std::vector<int>(2, 0)),
+  spinFlipIndex_(2)
+{
+  // ranges of machine inputs:
+  // [0~knSites) -> spin up; [knSites~2*knSites) -> spin down
+  if (machine.get_nInputs()%2 != 0)
+    throw std::invalid_argument("machine.get_nInputs()%2 != 0");
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
+{
+  // +1 : particle is filling at the site.
+  // -1 : particle is empty at the site.
+  const int nInputs = 2*knSites;
+  std::vector<std::complex<FloatType> > spin(knChains*nInputs, std::complex<FloatType>(-1.0, 0.0));
+  std::vector<int> idx(nInputs, 0);
+  for (int i=0; i<nInputs; ++i)
+    idx[i] = i;
+  for (int k=0; k<knChains; ++k)
+  {
+    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(1234u*k));
+    for (int n=0; n<knParticles; ++n)
+      spin[k*nInputs+idx[n]] = std::complex<FloatType>(1.0, 0.0);
+  }
+  machine_.initialize(lnpsi, &spin[0]);
+  // initialize spin-exchange sampler
+  exchanger_.init(kawasaki::Equivfunc<std::complex<FloatType> >(), &spin[0]);
+  exchanger_.get_indexes_of_spin_pairs(idxSpinPairs_);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::get_htilda(std::complex<FloatType> * htilda)
+{
+  const std::complex<FloatType> * spin = machine_.get_spinStates();
+  // hopping
+  for (int k=0; k<knChains; ++k)
+    htilda[k] = kzero;
+  for (int s=0; s<2; ++s)
+  {
+    // left to right
+    for (int i=0; i<knSites-1; ++i)
+    {
+      spinFlipIndex_[0] = s*knSites+i;
+      spinFlipIndex_[1] = s*knSites+i+1;
+      machine_.forward(spinFlipIndex_, &lnpsi1_[0]);
+      for (int k=0; k<knChains; ++k)
+        htilda[k] += (1.0+spin[k*2*knSites+spinFlipIndex_[0]].real())*
+                     (1.0-spin[k*2*knSites+spinFlipIndex_[1]].real())*
+                     std::exp(lnpsi1_[k]-lnpsi0_[k]);
+    }
+    // right to left
+    for (int i=1; i<knSites; ++i)
+    {
+      spinFlipIndex_[0] = s*knSites+i;
+      spinFlipIndex_[1] = s*knSites+i-1;
+      machine_.forward(spinFlipIndex_, &lnpsi1_[0]);
+      for (int k=0; k<knChains; ++k)
+        htilda[k] += (1.0+spin[k*2*knSites+spinFlipIndex_[0]].real())*
+                     (1.0-spin[k*2*knSites+spinFlipIndex_[1]].real())*
+                     std::exp(lnpsi1_[k]-lnpsi0_[k]);
+    }
+    // end to end
+    if (!kusePBC)
+      continue;
+    spinFlipIndex_[0] = s*knSites;
+    spinFlipIndex_[1] = s*knSites+knSites-1;
+    machine_.forward(spinFlipIndex_, &lnpsi1_[0]);
+    for (int k=0; k<knChains; ++k)
+    {
+      FloatType sp = 1.0;
+      for (int i=s*knSites+1; i<s*knSites+knSites-1; ++i)
+        sp *= -1.0*spin[k*2*knSites+i].real();
+      htilda[k] += 2.0*sp*(1.0-spin[k*2*knSites+spinFlipIndex_[0]].real()*
+                               spin[k*2*knSites+spinFlipIndex_[1]].real())*
+                          std::exp(lnpsi1_[k]-lnpsi0_[k]);
+    }
+  }
+  for (int k=0; k<knChains; ++k)
+    htilda[k] *= -0.25*kt;
+  // onsite interaction
+  for (int k=0; k<knChains; ++k)
+  {
+    for (int i=0; i<knSites; ++i)
+      htilda[k] += 0.25*kU*(1.0+spin[k*2*knSites+i].real())*
+                           (1.0+spin[k*2*knSites+i+knSites].real());
+  }
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients)
+{
+  machine_.backward(lnpsiGradients);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients, learningRate);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::sampling(std::complex<FloatType> * lnpsi)
+{
+  exchanger_.get_indexes_of_spin_pairs(idxSpinPairs_);
+  machine_.forward(idxSpinPairs_, lnpsi);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::accept_next_state(const std::vector<bool> & updateList)
+{
+  machine_.spin_flip(updateList, idxSpinPairs_);
+  exchanger_.do_exchange(updateList);
+}
+} // end namespace jordanwigner
+} // end namespace fermion

@@ -33,6 +33,8 @@ public:
     const FloatType learningRate, const std::vector<int> & hiddenNodes);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
+  void forward(const std::vector<int> & spinFlipIndex, std::complex<FloatType> * lnpsi);
+  void forward(const std::vector<std::vector<int> > & spinFlipIndexes, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes);
@@ -40,6 +42,8 @@ public:
   void save(const RBMDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
+  //void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<int> & spinFlipIndex);
+  void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<std::vector<int> > & spinFlipIndexes);
   void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }
@@ -116,6 +120,8 @@ public:
     const FloatType learningRate, const std::vector<int> & hiddenNodes);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
+  void forward(const std::vector<int> & spinFlipIndex, std::complex<FloatType> * lnpsi);
+  void forward(const std::vector<std::vector<int> > & spinFlipIndexes, std::complex<FloatType> * lnpsi);
   void backward(std::complex<FloatType> * lnpsiGradients);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes);
@@ -123,6 +129,7 @@ public:
   void save(const FNNDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
+  void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<std::vector<int> > & spinFlipIndexes);
   void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };
   int get_nChains() const { return knChains; }

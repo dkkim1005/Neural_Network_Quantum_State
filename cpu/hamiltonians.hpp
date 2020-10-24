@@ -6,6 +6,7 @@
 #include "mcmc_sampler.hpp"
 #include "neural_quantum_state.hpp"
 #include "common.hpp"
+#include "kawasaki_updater.hpp"
 
 namespace spinhalf
 {
@@ -222,5 +223,37 @@ private:
 };
 } // namespace spinhalf
 } // namespace paralleltempering
+
+
+namespace fermion
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+class HubbardChain: public BaseParallelSampler<HubbardChain, TraitsClass>
+{
+  USING_OF_BASE_PARALLEL_SAMPLER(HubbardChain, TraitsClass);
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
+    const int nParticles, const bool usePBC, const unsigned long seedDistance, const unsigned long seedNumber = 0);
+  void get_htilda(std::complex<FloatType> * htilda);
+  void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
+  void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
+protected:
+  void initialize(std::complex<FloatType> * lnpsi);
+  void sampling(std::complex<FloatType> * lnpsi);
+  void accept_next_state(const std::vector<bool> & updateList);
+  AnsatzType & machine_;
+  const int knSites, knChains, knParticles;
+  const bool kusePBC;
+  const FloatType kU, kt, kzero, ktwo;
+  kawasaki::NNSpinExchanger1D exchanger_;
+  std::vector<std::vector<int> > idxSpinPairs_;
+  std::vector<int> spinFlipIndex_;
+};
+} // end namespace jordanwigner
+} // end namespace fermion
 
 #include "impl_hamiltonians.hpp"

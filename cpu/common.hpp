@@ -48,3 +48,21 @@ private:
   FloatType item_;
   OneWayLinkedIndex * nextPtr_;
 };
+
+inline std::complex<float> logcosh(const std::complex<float> & z)
+{
+  const float x = z.real(), y = z.imag();
+  const float absx = std::abs(x), cosy = std::cos(y), siny = std::sin(y);
+  const float expabsm2x = std::exp(-2.0f*absx);
+  const float real = (1.0f+expabsm2x)*cosy, imag = (1.0f-expabsm2x)*siny*std::copysign(1.0f, x);
+  return std::log(std::complex<float>(real, imag))+(absx-0.6931472f);
+}
+
+inline std::complex<double> logcosh(const std::complex<double> & z)
+{
+  const double x = z.real(), y = z.imag();
+  const double absx = std::abs(x), cosy = std::cos(y), siny = std::sin(y);
+  const double expabsm2x = std::exp(-2.0*absx);
+  const double real = (1.0+expabsm2x)*cosy, imag = (1.0-expabsm2x)*siny*std::copysign(1.0, x);
+  return std::log(std::complex<double>(real, imag))+(absx-0.6931471805599453);
+}
