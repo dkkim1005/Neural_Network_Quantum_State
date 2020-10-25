@@ -120,7 +120,7 @@ void ComplexRBM<FloatType>::initialize(std::complex<FloatType> * lnpsi, const st
   blas::gemm(knHiddens, knChains, knInputs, kone, kone, w_, &spinStates_[0], &y_[0]);
   // ly_kj = ln(cosh(y_kj))
   for (int j=0; j<y_.size(); ++j)
-    ly_[j] = std::log(std::cosh(y_[j]));
+    ly_[j] = logcosh(y_[j]);
   // sa_k = \sum_i a_i*spinStates_ki
   blas::gemm(1, knChains, knInputs, kone, kzero, a_, &spinStates_[0], &sa_[0]);
   // lnpsi_k = \sum_j ly_kj + sa_k
@@ -136,7 +136,7 @@ void ComplexRBM<FloatType>::forward(const int spinFlipIndex, std::complex<FloatT
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
     for (int j=0; j<knHiddens; ++j)
-      ly_[k*knHiddens+j] = std::log(std::cosh(y_[k*knHiddens+j]-w_[index_*knHiddens+j]*(ktwo*spinStates_[k*knInputs+index_].real())));
+      ly_[k*knHiddens+j] = logcosh(y_[k*knHiddens+j]-w_[index_*knHiddens+j]*(ktwo*spinStates_[k*knInputs+index_].real()));
   // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
   for (int k=0; k<knChains; ++k)
     lnpsi[k] = sa_[k]-(ktwo*spinStates_[k*knInputs+index_].real())*a_[index_];
@@ -154,7 +154,7 @@ void ComplexRBM<FloatType>::forward(const std::vector<int> & spinFlipIndex, std:
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
     for (int j=0; j<knHiddens; ++j)
-      ly_[k*knHiddens+j] = std::log(std::cosh(ly_[k*knHiddens+j]));
+      ly_[k*knHiddens+j] = logcosh(ly_[k*knHiddens+j]);
   std::memcpy(lnpsi, &sa_[0], sizeof(std::complex<FloatType>)*knChains);
   // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
   for (const auto & index : spinFlipIndex)
@@ -174,7 +174,7 @@ void ComplexRBM<FloatType>::forward(const std::vector<std::vector<int> > & spinF
   #pragma omp parallel for
   for (int k=0; k<knChains; ++k)
     for (int j=0; j<knHiddens; ++j)
-      ly_[k*knHiddens+j] = std::log(std::cosh(ly_[k*knHiddens+j]));
+      ly_[k*knHiddens+j] = logcosh(ly_[k*knHiddens+j]);
   std::memcpy(lnpsi, &sa_[0], sizeof(std::complex<FloatType>)*knChains);
   // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
   for (int k=0; k<knChains; ++k)
@@ -337,24 +337,6 @@ void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, cons
     spinStates_[k*knInputs+index_] = (kone.real()-ktwoTrueFalse[doSpinFlip[k]])*spinStates_[k*knInputs+index_].real();
   }
 }
-
-/*
-template <typename FloatType>
-void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<int> & spinFlipIndex)
-{
-  for (const auto & index : spinFlipIndex)
-  {
-    #pragma omp parallel for
-    for (int k=0; k<knChains; ++k)
-    {
-      for (int j=0; j<knHiddens; ++j)
-        y_[k*knHiddens+j] = y_[k*knHiddens+j]-w_[index*knHiddens+j]*(ktwoTrueFalse[doSpinFlip[k]]*spinStates_[k*knInputs+index].real());
-      sa_[k] = sa_[k]-(ktwoTrueFalse[doSpinFlip[k]]*spinStates_[k*knInputs+index].real())*a_[index];
-      spinStates_[k*knInputs+index] = (kone.real()-ktwoTrueFalse[doSpinFlip[k]])*spinStates_[k*knInputs+index].real();
-    }
-  }
-}
-*/
 
 template <typename FloatType>
 void ComplexRBM<FloatType>::spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<std::vector<int> > & spinFlipIndexes)

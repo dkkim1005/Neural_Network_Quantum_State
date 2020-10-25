@@ -42,7 +42,6 @@ public:
   void save(const RBMDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
-  //void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<int> & spinFlipIndex);
   void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<std::vector<int> > & spinFlipIndexes);
   void swap_states(const int & k1, const int & k2);
   const std::complex<FloatType> * get_spinStates() const { return &spinStates_[0]; };

@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #include <vector>
 #include <complex>
 #include "blas_lapack.hpp"
