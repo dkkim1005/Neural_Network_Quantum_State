@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("nv", "# of visible nodes"));
+  options.push_back(pair_t("ninput", "# of input nodes"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("niter", "# of iterations to train RBM"));
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
-  const int nInputs = parser.find<int>("nv"),
+  const int nInputs = parser.find<int>("ninput"),
     alpha = parser.find<int>("alpha"),
     nChains = parser.find<int>("ns"),
     nWarmup = parser.find<int>("nwarm"),
@@ -49,13 +49,13 @@ int main(int argc, char* argv[])
     lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
-    nvstr = std::to_string(nInputs),
+    nstr = std::to_string(nInputs),
     alphastr = std::to_string(alpha),
     vestr = std::to_string(version),
     ifprefix = parser.find<>("ifprefix");
-  std::string hfstr = std::to_string(h);
-  hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
-  hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
+  std::string hstr = std::to_string(h);
+  hstr.erase(hstr.find_last_not_of('0') + 1, std::string::npos);
+  hstr.erase(hstr.find_last_not_of('.') + 1, std::string::npos);
   // print info of the registered args
   parser.print(std::cout);
 
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   spinhalf::ComplexFNNTrSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix = path + "FNNTrSymm-CH-Nv" + nvstr + "A" + alphastr + "Hf" + hfstr + "V" + vestr;
+  const std::string prefix = path + "FNNTrSymm-CH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(prefix0 + "-params.dat");
 
