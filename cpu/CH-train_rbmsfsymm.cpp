@@ -62,10 +62,10 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBMTrSymm<double> machine(nInputs, alpha, nChains);
+  spinhalf::ComplexRBMSfSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix = path + "RBMTrSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
+  const std::string prefix = path + "RBMSfSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(prefix0 + "-params.dat");
 
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBMTrSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
+  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBMSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   Hsampler.warm_up(nWarmup);

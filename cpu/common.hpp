@@ -3,17 +3,19 @@
 #pragma once
 
 // List up all variational wave functions here...
-enum class Ansatz {RBM, RBMSymm, FNN, FNNTrSymm};
+enum class Ansatz {RBM, RBMTrSymm, RBMSfSymm, FNN, FNNTrSymm};
 namespace spinhalf
 {
 template <typename FloatType> class ComplexRBM;
 template <typename FloatType> class ComplexRBMTrSymm;
+template <typename FloatType> class ComplexRBMSfSymm;
 template <typename FloatType> class ComplexFNN;
 template <typename FloatType> class ComplexFNNTrSymm;
 } // namespace spinhalf
 template <Ansatz T, typename Property> struct Ansatz_;
 template <typename FloatType> struct Ansatz_<Ansatz::RBM, FloatType> { using T = spinhalf::ComplexRBM<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::RBMSymm, FloatType> { using T = spinhalf::ComplexRBMTrSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::RBMTrSymm, FloatType> { using T = spinhalf::ComplexRBMTrSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::RBMSfSymm, FloatType> { using T = spinhalf::ComplexRBMSfSymm<FloatType>; };
 template <typename FloatType> struct Ansatz_<Ansatz::FNN, FloatType> { using T = spinhalf::ComplexFNN<FloatType>; };
 template <typename FloatType> struct Ansatz_<Ansatz::FNNTrSymm, FloatType> { using T = spinhalf::ComplexFNNTrSymm<FloatType>; };
 //
