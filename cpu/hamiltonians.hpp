@@ -36,7 +36,9 @@ protected:
   std::vector<std::array<int, 2> > nnidx_;
   const int knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
+#ifndef NO_USE_BATCH
   RandomBatchIndexing<RandEngineType> batchAllocater_;
+#endif
 };
 
 

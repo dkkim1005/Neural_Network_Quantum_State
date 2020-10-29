@@ -17,7 +17,9 @@ TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const FloatType h,
   machine_(machine),
   list_(machine.get_nInputs()),
   diag_(machine.get_nChains()),
+#ifndef NO_USE_BATCH
   batchAllocater_(machine.get_nHiddens(), dropOutRate),
+#endif
   nnidx_(machine.get_nInputs())
 {
   // (checker board update) list_ : 1,3,5,...,2,4,6,...

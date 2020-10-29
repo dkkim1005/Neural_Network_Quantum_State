@@ -37,22 +37,22 @@ int main(int argc, char* argv[])
   argsparse parser(argc, argv, options, defaults);
 
   const int nInputs = parser.find<int>("nv"),
-            alpha = parser.find<int>("alpha"),
-            nChains = parser.find<int>("ns"),
-            nWarmup = parser.find<int>("nwarm"),
-            nMonteCarloSteps = parser.find<int>("nms"),
-            nIterations =  parser.find<int>("niter"),
-            num_omp_threads = parser.find<int>("nthread"),
-            version = parser.find<int>("ver");
-  const float h = parser.find<float>("h"),
-               J = parser.find<float>("J"),
-               lr = parser.find<float>("lr");
+    alpha = parser.find<int>("alpha"),
+    nChains = parser.find<int>("ns"),
+    nWarmup = parser.find<int>("nwarm"),
+    nMonteCarloSteps = parser.find<int>("nms"),
+    nIterations =  parser.find<int>("niter"),
+    num_omp_threads = parser.find<int>("nthread"),
+    version = parser.find<int>("ver");
+  const double h = parser.find<double>("h"),
+    J = parser.find<double>("J"),
+    lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
-                    nvstr = std::to_string(nInputs),
-                    alphastr = std::to_string(alpha),
-                    vestr = std::to_string(version),
-                    ifprefix = parser.find<>("ifprefix");
+    nvstr = std::to_string(nInputs),
+    alphastr = std::to_string(alpha),
+    vestr = std::to_string(version),
+    ifprefix = parser.find<>("ifprefix");
   std::string hfstr = std::to_string(h);
   hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
   hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
@@ -62,31 +62,31 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBMSymm<float> machine(nInputs, alpha, nChains);
+  spinhalf::ComplexFNNTrSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix = path + "CH-Nv" + nvstr + "A" + alphastr + "Hf" + hfstr + "V" + vestr;
+  const std::string prefix = path + "FNNTrSymm-CH-Nv" + nvstr + "A" + alphastr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(prefix0 + "-params.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
-                                static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs)*
-                                static_cast<unsigned long>(nChains);
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(nInputs)*
+    static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBMSymm, float> > Hsampler(machine, h, J, nBlocks, seed);
+  spinhalf::TFIChain<AnsatzTraits<Ansatz::FNNTrSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   Hsampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  StochasticReconfigurationCG<float> iTimePropagator(nChains, machine.get_nVariables());
+  StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
   iTimePropagator.propagate(Hsampler, nIterations, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
-  std::chrono::duration<float> elapsed_seconds = end-start;
+  std::chrono::duration<double> elapsed_seconds = end-start;
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters: w,a,b
