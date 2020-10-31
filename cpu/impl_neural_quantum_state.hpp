@@ -48,9 +48,10 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  std::normal_distribution<double> randw(0, std::sqrt(1.0/(nInputs+nHiddens))),
-                                   randa(0, std::sqrt(1.0/nInputs)),
-                                   randb(0, std::sqrt(1.0/nHiddens));
+  std::normal_distribution<double>
+    randw(0, std::sqrt(1.0/(nInputs+nHiddens))),
+    randa(0, std::sqrt(1.0/nInputs)),
+    randb(0, std::sqrt(1.0/nHiddens));
   w_ = &variables_[0],
   a_ = &variables_[knInputs*knHiddens],
   b_ = &variables_[knInputs*knHiddens+nInputs],
@@ -58,11 +59,11 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
   d_da_ = &lnpsiGradients_[knInputs*knHiddens],
   d_db_ = &lnpsiGradients_[knInputs*knHiddens+nInputs];
   for (int n=0; n<nInputs*nHiddens; ++n)
-    w_[n] = std::complex<FloatType>(randw(ran), randw(ran));
+    w_[n] = std::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
   for (int i=0; i<nInputs; ++i)
-    a_[i] = std::complex<FloatType>(randa(ran), randa(ran));
+    a_[i] = std::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
   for (int j=0; j<nHiddens; ++j)
-    b_[j] = std::complex<FloatType>(randb(ran), randb(ran));
+    b_[j] = std::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
 }
 
 template <typename FloatType>
@@ -403,10 +404,10 @@ ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha
   d_da_ = &lnpsiGradients_[knInputs*kAlpha],
   d_db_ = &lnpsiGradients_[knInputs*kAlpha+1];
   for (int n=0; n<knInputs*kAlpha; ++n)
-    w_[n] = std::complex<FloatType>(randw(ran), randw(ran));
-  a_[0] = std::complex<FloatType>(randa(ran), randa(ran));
+    w_[n] = std::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
+  a_[0] = std::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
   for (int f=0; f<kAlpha; ++f)
-    b_[f] = std::complex<FloatType>(randb(ran), randb(ran));
+    b_[f] = std::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
 }
 
 template <typename FloatType>
@@ -579,12 +580,11 @@ ComplexRBMSfSymm<FloatType>::ComplexRBMSfSymm(const int nInputs, const int alpha
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  //std::normal_distribution<double> randw(0, std::sqrt(1.0/(8*(1+kAlpha)*nInputs)));
   std::normal_distribution<double> randw(0, std::sqrt(1.0/((1+kAlpha)*nInputs)));
   w_ = &variables_[0];
   d_dw_ = &lnpsiGradients_[0];
   for (int n=0; n<knInputs*kAlpha*knInputs; ++n)
-    w_[n] = std::complex<FloatType>(randw(ran), randw(ran));
+    w_[n] = std::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
 }
 
 template <typename FloatType>
@@ -712,9 +712,10 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
-                                   randb1(0, std::sqrt(1.0/nHiddens)),
-                                   randw1o(0, std::sqrt(1.0/nHiddens));
+  std::normal_distribution<double>
+    randwi1(0, std::sqrt(1.0/(nInputs+nHiddens))),
+    randb1(0, std::sqrt(1.0/nHiddens)),
+    randw1o(0, std::sqrt(1.0/nHiddens));
   wi1_ = &variables_[0];
   b1_ = &variables_[nInputs*nHiddens];
   w1o_ = &variables_[nInputs*nHiddens + nHiddens];
@@ -722,11 +723,11 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   d_db1_ = &lnpsiGradients_[nInputs*nHiddens];
   d_dw1o_ = &lnpsiGradients_[nInputs*nHiddens + nHiddens];
   for (int i=0; i<nInputs*nHiddens; ++i)
-    wi1_[i] = std::complex<FloatType>(randwi1(ran), randwi1(ran));
+    wi1_[i] = std::complex<FloatType>(randwi1(ran), 1e-1*randwi1(ran));
   for (int j=0; j<nHiddens; ++j)
-    b1_[j] = std::complex<FloatType>(randb1(ran), randb1(ran));
+    b1_[j] = std::complex<FloatType>(randb1(ran), 1e-1*randb1(ran));
   for (int j=0; j<nHiddens; ++j)
-    w1o_[j] = std::complex<FloatType>(randw1o(ran), randw1o(ran));
+    w1o_[j] = std::complex<FloatType>(randw1o(ran), 1e-1*randw1o(ran));
 }
 
 template <typename FloatType>
@@ -1036,8 +1037,10 @@ ComplexFNNTrSymm<FloatType>::ComplexFNNTrSymm(const int nInputs, const int alpha
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
-    randb1(0, std::sqrt(1.0/(kAlpha*knInputs))), randw1o(0, std::sqrt(1.0/(kAlpha*knInputs)));
+  std::normal_distribution<double>
+    randwi1(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
+    randb1(0, std::sqrt(1.0/(kAlpha*knInputs))),
+    randw1o(0, std::sqrt(1.0/(kAlpha*knInputs)));
   wi1_ = &variables_[0];
   b1_ = &variables_[nInputs*kAlpha];
   w1o_ = &variables_[nInputs*kAlpha + kAlpha];
@@ -1045,11 +1048,11 @@ ComplexFNNTrSymm<FloatType>::ComplexFNNTrSymm(const int nInputs, const int alpha
   d_db1_ = &lnpsiGradients_[nInputs*kAlpha];
   d_dw1o_ = &lnpsiGradients_[nInputs*kAlpha + kAlpha];
   for (int i=0; i<nInputs*kAlpha; ++i)
-    wi1_[i] = std::complex<FloatType>(randwi1(ran), randwi1(ran));
+    wi1_[i] = std::complex<FloatType>(randwi1(ran), 1e-1*randwi1(ran));
   for (int j=0; j<kAlpha; ++j)
-    b1_[j] = std::complex<FloatType>(randb1(ran), randb1(ran));
+    b1_[j] = std::complex<FloatType>(randb1(ran), 1e-1*randb1(ran));
   for (int j=0; j<kAlpha; ++j)
-    w1o_[j] = std::complex<FloatType>(randw1o(ran), randw1o(ran));
+    w1o_[j] = std::complex<FloatType>(randw1o(ran), 1e-1*randw1o(ran));
 }
 
 template <typename FloatType>
@@ -1219,16 +1222,17 @@ ComplexFNNSfSymm<FloatType>::ComplexFNNSfSymm(const int nInputs, const int alpha
 {
   unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::mt19937_64 ran(seed);
-  std::normal_distribution<double> randwi1(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
+  std::normal_distribution<double>
+    randwi1(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
     randw1o(0, std::sqrt(1.0/(kAlpha*knInputs)));
   wi1_ = &variables_[0];
   w1o_ = &variables_[nInputs*kAlpha*knInputs];
   d_dwi1_ = &lnpsiGradients_[0];
   d_dw1o_ = &lnpsiGradients_[nInputs*kAlpha*knInputs];
   for (int i=0; i<nInputs*kAlpha*knInputs; ++i)
-    wi1_[i] = std::complex<FloatType>(randwi1(ran), randwi1(ran));
+    wi1_[i] = std::complex<FloatType>(randwi1(ran), 1e-1*randwi1(ran));
   for (int j=0; j<kAlpha*knInputs; ++j)
-    w1o_[j] = std::complex<FloatType>(randw1o(ran), randw1o(ran));
+    w1o_[j] = std::complex<FloatType>(randw1o(ran), 1e-1*randw1o(ran));
 }
 
 template <typename FloatType>
