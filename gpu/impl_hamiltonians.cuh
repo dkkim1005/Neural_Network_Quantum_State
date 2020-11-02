@@ -6,7 +6,11 @@ namespace spinhalf
 {
 template <typename TraitsClass>
 TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-  const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
+  const unsigned long seedNumber, const unsigned long seedDistance,
+#ifndef NO_USE_BATCH
+  const FloatType dropOutRate,
+#endif
+  const std::string prefix):
   BaseParallelSampler<TFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knChains(machine.get_nChains()),
@@ -19,8 +23,10 @@ TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const int L, const FloatTy
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(2*machine.get_nInputs()),
   kJmatrix_dev(2*machine.get_nInputs(), J),
-  kprefix(prefix),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate)
+#ifndef NO_USE_BATCH
+  batchAllocater_(machine.get_nHiddens(), dropOutRate),
+#endif
+  kprefix(prefix)
 {
   if (kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L!");
@@ -97,22 +103,28 @@ void TFIChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
+#ifndef NO_USE_BATCH 
   machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
+#else
+  machine_.backward(lnpsiGradients_dev);
+#endif
 }
 
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
+#ifndef NO_USE_BATCH
   machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
   batchAllocater_.next();
+#else
+  machine_.update_variables(trueGradients_dev, learningRate);
+#endif
 }
 
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::save_() const
 {
-  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
-  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
-  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
+  machine_.save(kprefix);
 }
 
 
@@ -235,9 +247,7 @@ void TFISQ<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradient
 template <typename TraitsClass>
 void TFISQ<TraitsClass>::save_() const
 {
-  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
-  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
-  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
+  machine_.save(kprefix);
 }
 
 
@@ -455,9 +465,7 @@ void TFICheckerBoard<TraitsClass>::evolve_(const thrust::complex<FloatType> * tr
 template <typename TraitsClass>
 void TFICheckerBoard<TraitsClass>::save_() const
 {
-  machine_.save(FNNDataType::W1, kprefix + "Dw1.dat");
-  machine_.save(FNNDataType::W2, kprefix + "Dw2.dat");
-  machine_.save(FNNDataType::B1, kprefix + "Db1.dat");
+  machine_.save(kprefix);
 }
 } // namespace spinhalf
 

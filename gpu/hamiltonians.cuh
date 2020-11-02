@@ -18,7 +18,11 @@ class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFIChain(AnsatzType & machine, const int L, const FloatType h, const FloatType J, const unsigned long seedNumber,
-    const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
+    const unsigned long seedDistance,
+#ifndef NO_USE_BATCH
+    const FloatType dropOutRate = 1,
+#endif
+    const std::string prefix = "./");
 private:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -37,7 +41,9 @@ private:
   const FloatType kh, kzero, ktwo;
   const thrust::device_vector<FloatType> kJmatrix_dev;
   const std::string kprefix;
+#ifndef NO_USE_BATCH
   RandomBatchIndexing batchAllocater_;
+#endif
 };
 
 // transverse field Ising model on the square lattice
