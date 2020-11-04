@@ -328,24 +328,6 @@ ComplexRBMTrSymm<FloatType>::~ComplexRBMTrSymm()
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
-{
-  gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
-    derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
-  gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
-    w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
-  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
-  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
-  cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
-    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
-  cublas::gemm(theCublasHandle_, kAlpha*knInputs, knChains, knInputs, kone, kone,
-    PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
-  // sa_k = \sum_i a_i*spinStates_ki
-  cublas::gemm(theCublasHandle_, 1, knChains, knInputs, kone, kzero, PTR_FROM_THRUST(af_dev_.data()),
-    PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(sa_dev_.data()));
-}
-
-template <typename FloatType>
 void ComplexRBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 {
   thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
@@ -417,6 +399,47 @@ void ComplexRBMTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGra
 }
 
 template <typename FloatType>
+void ComplexRBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+{
+  gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
+    derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
+  gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
+    w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*knInputs, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  // sa_k = \sum_i a_i*spinStates_ki
+  cublas::gemm(theCublasHandle_, 1, knChains, knInputs, kone, kzero, PTR_FROM_THRUST(af_dev_.data()),
+    PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(sa_dev_.data()));
+}
+
+template <typename FloatType>
+void ComplexRBMTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+{
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
+  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::RBM__saUpdate__<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(sa_dev_.data()));
+  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+}
+
+template <typename FloatType>
+void ComplexRBMTrSymm<FloatType>::save(const std::string filePath, const int precision)
+{
+  std::ofstream writer(filePath);
+  writer << std::setprecision(precision);
+  variables_host_ = variables_dev_ ;
+  for (const auto & var : variables_host_)
+    writer << var << " ";
+  writer.close();
+}
+
+template <typename FloatType>
 void ComplexRBMTrSymm<FloatType>::load(const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
@@ -446,26 +469,15 @@ void ComplexRBMTrSymm<FloatType>::load(const std::string filePath)
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::save(const std::string filePath, const int precision)
+void ComplexRBMTrSymm<FloatType>::copy_to(ComplexRBMTrSymm<FloatType> & rbm) const
 {
-  std::ofstream writer(filePath);
-  writer << std::setprecision(precision);
-  variables_host_ = variables_dev_ ;
-  for (const auto & var : variables_host_)
-    writer << var << " ";
-  writer.close();
-}
-
-template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
-{
-  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
-  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
-    isSpinFlipped_dev, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
-  gpu_kernel::RBM__saUpdate__<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
-    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(sa_dev_.data()));
-  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
-    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+  if (knChains != rbm.get_nChains())
+    throw std::length_error("knChains != rbm.get_nChains()");
+  if (knInputs != rbm.get_nInputs())
+    throw std::length_error("knInputs != rbm.get_nInputs()");
+  if (kAlpha != rbm.get_alpha())
+    throw std::length_error("kAlpha != rm.get_alpha()");
+  rbm.variables_dev_ = variables_dev_;
 }
 
 
