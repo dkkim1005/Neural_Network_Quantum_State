@@ -128,6 +128,160 @@ void TFIChain<TraitsClass>::save_() const
 }
 
 
+// long-range spin-spin interaction with periodic boundary condition
+// => 1/2*\sum_{a,b} (s_a*J(a-b)*s_b)
+// = 1/2*\sum_{k} (\sum_{i,j}(s_i*\sum_{k'} J(L*k'+i-j)*s_j)),
+//    where k = -\infty ~ \infty
+// => energy per lattice site : 1/2*\sum_{i,j} (s_i*\tilde{J}_{i,j}*s_j)/L,
+//    where \tilde{J}_{i,j} = \sum_{k'} J(L*k'+i-j)
+// \tilde{J}_{i,j} = J/|i-j|^{\alpha} + J/L^{\alpha}*\sum_{k=1}^{\infty}(1/|k+l|^{\alpha}+1/|k-l|^{\alpha}),
+//    where l=(i-j)/L
+template <typename TraitsClass>
+LITFIChain<TraitsClass>::LITFIChain(AnsatzType & machine, const int L, const FloatType h,
+  const FloatType J, const double alpha, const bool isPBC,
+  const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix):
+  BaseParallelSampler<LITFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
+  kL(L),
+  knChains(machine.get_nChains()),
+  kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
+  kh(h),
+  kzero(0.0),
+  kone(1.0),
+  machine_(machine),
+  list_(L),
+  Jmatrix_dev_(L*L),
+  SJ_dev_(machine.get_nChains()*L),
+  kprefix(prefix)
+{
+  if (kL != machine.get_nInputs())
+    throw std::length_error("machine.get_nInputs() is not the same as L!");
+  std::cout << "Calculating a coupling matrix... " << std::flush;
+  std::vector<FloatType> Jl(kL, 0);
+  const double cutoff = 1e-10;
+  if (isPBC)
+  {
+    const FloatType coeff = std::pow(kL, -alpha);
+    for (int i=0; i<kL; ++i)
+    {
+      const FloatType l = i/static_cast<FloatType>(kL);
+      int k = 1;
+      bool isConverge = false;
+      while (!isConverge)
+      {
+        const FloatType ak = std::pow(k+l, -alpha) + std::pow(k-l, -alpha);
+        Jl[i] += ak;
+        if (ak < cutoff)
+          isConverge = true;
+        k += 1;
+      }
+      Jl[i] *= coeff;
+    }
+  }
+  for (int i=1; i<kL; ++i)
+    Jl[i] += std::pow(i, -alpha);
+  thrust::host_vector<thrust::complex<FloatType> > Jmatrix_host(kL*kL);
+  for (int i=0; i<kL; ++i)
+  {
+    Jmatrix_host[i*kL+i] = J*Jl[0];
+    for (int j=i+1; j<kL; ++j)
+    {
+      Jmatrix_host[i*kL+j] = J*Jl[j-i];
+      Jmatrix_host[j*kL+i] = Jmatrix_host[i*kL+j];
+    }
+  }
+  Jmatrix_dev_ = Jmatrix_host;
+  std::cout << "done." << std::endl << std::flush;
+
+  // Checkerboard link(To implement the MCMC update rule)
+  for (int i=0; i<kL; ++i)
+    list_[i].set_item(i);
+  // black board: even number site
+  int idx0 = 0;
+  for (int i=0; i<kL; i+=2)
+  {
+    list_[idx0].set_nextptr(&list_[i]);
+    idx0 = i;
+  }
+  // white board: odd number site
+  for (int i=1; i<kL; i+=2)
+  {
+    list_[idx0].set_nextptr(&list_[i]);
+    idx0 = i;
+  }
+  list_[idx0].set_nextptr(&list_[0]);
+  idxptr_ = &list_[0];
+
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename TraitsClass>
+LITFIChain<TraitsClass>::~LITFIChain()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  machine_.initialize(lnpsi_dev);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  idxptr_ = idxptr_->next_ptr();
+  machine_.forward(idxptr_->get_item(), lnpsi_dev);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
+{
+  const int idx = idxptr_->get_item();
+  machine_.spin_flip(isNewStateAccepted_dev);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev, thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
+{
+  // htilda(s_0) = \sum_{s_1} <s_0|H|s_1>\frac{<s_1|psi>}{<s_0|psi>}
+  //  --> J*diag + h*sum_i \frac{<(s_1, s_2,...,-s_i,...,s_n|psi>}{<(s_1, s_2,...,s_i,...,s_n|psi>}
+
+  // htilda <= \sum_{i,j} (s_i J_{i,j} s_j) : spin-spin interaction
+  const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
+  cublas::gemm(theCublasHandle_, kL, knChains, kL, kone, kzero,
+    PTR_FROM_THRUST(Jmatrix_dev_.data()), spinStates_dev, PTR_FROM_THRUST(SJ_dev_.data()));
+  gpu_kernel::LITFI__GetDiagElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(PTR_FROM_THRUST(SJ_dev_.data()),
+    spinStates_dev, knChains, kL, htilda_dev);
+
+  // transverse-field interaction
+  for (int i=0; i<kL; ++i)
+  {
+    machine_.forward(i, lnpsi1_dev);
+    gpu_kernel::TFI__GetOffDiagElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, kh, lnpsi1_dev, lnpsi0_dev, htilda_dev);
+  }
+
+  gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/kL, knChains, htilda_dev);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
+{
+  machine_.backward(lnpsiGradients_dev);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients_dev, learningRate);
+}
+
+template <typename TraitsClass>
+void LITFIChain<TraitsClass>::save_() const
+{
+  machine_.save(kprefix);
+}
+
+
 template <typename TraitsClass>
 TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
   const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
@@ -472,14 +626,8 @@ void TFICheckerBoard<TraitsClass>::save_() const
 namespace gpu_kernel
 {
 template <typename FloatType>
-__global__ void TFI__GetDiagElem__(
-  const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
-  const FloatType * Jmatrix,
-  const int nnn,
-  FloatType * diag)
+__global__ void TFI__GetDiagElem__(const thrust::complex<FloatType> * spinStates, const int nChains,
+  const int nSites, const int * nnidx, const FloatType * Jmatrix, const int nnn, FloatType * diag)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
@@ -501,16 +649,9 @@ __global__ void TFI__GetDiagElem__(
 }
 
 template <typename FloatType>
-__global__ void TFI__UpdateDiagElem__(
-  const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
-  const FloatType * Jmatrix,
-  const int nnn,
-  const bool * updateList,
-  const int siteIdx,
-  FloatType * diag)
+__global__ void TFI__UpdateDiagElem__(const thrust::complex<FloatType> * spinStates, const int nChains,
+  const int nSites, const int * nnidx, const FloatType * Jmatrix, const int nnn,
+  const bool * updateList, const int siteIdx, FloatType * diag)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
@@ -528,18 +669,32 @@ __global__ void TFI__UpdateDiagElem__(
 
 // htilda[k] += hfield*exp(lnpsi1[k] - lnpsi0[k]);
 template <typename FloatType>
-__global__ void TFI__GetOffDiagElem__(
-  const int nChains,
-  const FloatType hfield,
-  const thrust::complex<FloatType> * lnpsi1,
-  const thrust::complex<FloatType> * lnpsi0,
-  thrust::complex<FloatType> * htilda)
+__global__ void TFI__GetOffDiagElem__(const int nChains, const FloatType hfield, const thrust::complex<FloatType> * lnpsi1,
+  const thrust::complex<FloatType> * lnpsi0, thrust::complex<FloatType> * htilda)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < nChains)
   {
     htilda[idx] += hfield*thrust::exp(lnpsi1[idx]-lnpsi0[idx]);
+    idx += nstep;
+  }
+}
+
+// return \sum_{i,j} 1/2*(s_i \tilde{J}_{i,j} s_j)
+template <typename FloatType>
+__global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, const thrust::complex<FloatType> * spinStates,
+  const int nChains, const int nSites, thrust::complex<FloatType> * htilda)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType zero = 0, half = 0.5;
+  while (idx < nChains)
+  {
+    htilda[idx] = zero;
+    for (int i=0; i<nSites; ++i)
+      htilda[idx] += SJ[nSites*idx+i].real()*spinStates[nSites*idx+i].real();
+    htilda[idx] = half*htilda[idx];
     idx += nstep;
   }
 }

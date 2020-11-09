@@ -83,4 +83,16 @@ __global__ void common__copyFromRealToImag__(const FloatType * real, const int s
     idx += nstep;
   }
 }
+
+template <typename T1, typename T2>
+__global__ void common__ScalingVector__(const T1 factor, const int size, T2 * vec)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < size)
+  {
+    vec[idx] = factor*vec[idx];
+    idx += nstep;
+  }
+}
 } // namespace gpu_kernel

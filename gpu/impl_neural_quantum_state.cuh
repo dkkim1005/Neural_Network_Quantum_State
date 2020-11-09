@@ -513,11 +513,11 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
   b1_dev_ = PTR_FROM_THRUST(&variables_dev_[nInputs*nHiddens]);
   w1o_dev_ = PTR_FROM_THRUST(&variables_dev_[nInputs*nHiddens + nHiddens]);
   for (int i=0; i<nInputs*nHiddens; ++i)
-    wi1_host_[i] = thrust::complex<FloatType>(randwi1(ran), randwi1(ran));
+    wi1_host_[i] = thrust::complex<FloatType>(randwi1(ran), 1e-1*randwi1(ran));
   for (int j=0; j<nHiddens; ++j)
     b1_host_[j] = 0.0;
   for (int j=0; j<nHiddens; ++j)
-    w1o_host_[j] = thrust::complex<FloatType>(randw1o(ran), randw1o(ran));
+    w1o_host_[j] = thrust::complex<FloatType>(randw1o(ran), 1e-1*randw1o(ran));
   variables_dev_ = variables_host_; // copy memory from host to device
   d_dwi1_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[0]);
   d_db1_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[nInputs*nHiddens]);

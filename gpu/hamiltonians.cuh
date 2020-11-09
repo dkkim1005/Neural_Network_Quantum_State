@@ -46,6 +46,39 @@ private:
 #endif
 };
 
+// long-range interaction (J_{i,j} ~ 1/|i-j|^{gamma}) Ising model on the 1D chain lattice
+template <typename TraitsClass>
+class LITFIChain: public BaseParallelSampler<LITFIChain, TraitsClass>
+{
+  friend BaseParallelSampler<LITFIChain, TraitsClass>;
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  LITFIChain(AnsatzType & machine, const int L, const FloatType h,
+    const FloatType J, const double alpha, const bool isPBC,
+    const unsigned long seedNumber, const unsigned long seedDistance,
+    const std::string prefix = "./");
+  ~LITFIChain();
+private:
+  void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
+    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
+  void get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
+  void initialize_(thrust::complex<FloatType> * lnpsi_dev);
+  void sampling_(thrust::complex<FloatType> * lnpsi_dev);
+  void accept_next_state_(bool * isNewStateAccepted_dev);
+  void save_() const;
+  AnsatzType & machine_;
+  OneWayLinkedIndex<> * idxptr_;
+  std::vector<OneWayLinkedIndex<>> list_;
+  thrust::device_vector<thrust::complex<FloatType> > Jmatrix_dev_, SJ_dev_;
+  const int kL, knChains, kgpuBlockSize;
+  const FloatType kh;
+  const thrust::complex<FloatType> kzero, kone;
+  const std::string kprefix;
+  cublasHandle_t theCublasHandle_;
+};
+
 // transverse field Ising model on the square lattice
 template <typename TraitsClass>
 class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
@@ -112,38 +145,22 @@ private:
 namespace gpu_kernel
 {
 template <typename FloatType>
-__global__ void TFI__GetDiagElem__(
-  const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
-  const FloatType * Jmatrix,
-  const int nnn,
-  FloatType * diag
-);
+__global__ void TFI__GetDiagElem__(const thrust::complex<FloatType> * spinStates, const int nChains,
+  const int nSites, const int * nnidx, const FloatType * Jmatrix, const int nnn, FloatType * diag);
 
 template <typename FloatType>
-__global__ void TFI__UpdateDiagElem__(
-  const thrust::complex<FloatType> * spinStates,
-  const int nChains,
-  const int nSites,
-  const int * nnidx,
-  const FloatType * Jmatrix,
-  const int nnn,
-  const bool * updateList,
-  const int siteIdx,
-  FloatType * diag
-);
+__global__ void TFI__UpdateDiagElem__(const thrust::complex<FloatType> * spinStates, const int nChains,
+  const int nSites, const int * nnidx, const FloatType * Jmatrix, const int nnn,
+  const bool * updateList, const int siteIdx, FloatType * diag);
 
 // htilda[k] += hfield*exp(lnpsi1[k] - lnpsi0[k]);
 template <typename FloatType>
-__global__ void TFI__GetOffDiagElem__(
-  const int nChains,
-  const FloatType hfield,
-  const thrust::complex<FloatType> * lnpsi1,
-  const thrust::complex<FloatType> * lnpsi0,
-  thrust::complex<FloatType> * htilda
-);
+__global__ void TFI__GetOffDiagElem__(const int nChains, const FloatType hfield, const thrust::complex<FloatType> * lnpsi1,
+  const thrust::complex<FloatType> * lnpsi0, thrust::complex<FloatType> * htilda);
+
+template <typename FloatType>
+__global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, const thrust::complex<FloatType> * spinStates,
+  const int nChains, const int nSites, thrust::complex<FloatType> * htilda);
 } // namespace gpu_kernel
 
 
