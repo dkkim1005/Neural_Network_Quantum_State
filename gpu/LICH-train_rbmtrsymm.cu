@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("L", "# of lattice sites"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train FNN"));
+  options.push_back(pair_t("niter", "# of iterations to train RBMTrSymm"));
   options.push_back(pair_t("theta", "J = sin(theta), h = cos(theta)"));
   options.push_back(pair_t("tag", "tag of the file name to load and save"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));

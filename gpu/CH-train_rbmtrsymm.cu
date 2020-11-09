@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("L", "# of lattice sites"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train FNN"));
+  options.push_back(pair_t("niter", "# of iterations to train RBMTrSymm"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));

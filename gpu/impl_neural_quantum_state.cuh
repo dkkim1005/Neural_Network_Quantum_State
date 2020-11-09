@@ -740,6 +740,203 @@ void ComplexFNN<FloatType>::look_inside() const
 }
 
 
+template <typename FloatType>
+ComplexFNNTrSymm<FloatType>::ComplexFNNTrSymm(const int nInputs, const int alpha, const int nChains):
+  knInputs(nInputs),
+  kAlpha(alpha),
+  knChains(nChains),
+  variables_host_(nInputs*alpha+2*alpha),
+  variables_dev_(nInputs*alpha+2*alpha),
+  lnpsiGradients_dev_(nChains*(nInputs*alpha+2*alpha)),
+  spinStates_dev_(nInputs*nChains),
+  y_dev_(alpha*nInputs*nChains),
+  acty_dev_(alpha*nInputs*nChains),
+  wi1f_dev_(nInputs*alpha*nInputs),
+  b1f_dev_(alpha*nInputs),
+  w1of_dev_(alpha*nInputs),
+  index_(0),
+  kzero(0.0, 0.0),
+  kone(1.0, 0.0),
+  koneChains_dev(nChains, thrust::complex<FloatType>(1.0, 0.0)),
+  kgpuBlockSize1(CHECK_BLOCK_SIZE(1+(nChains*alpha*nInputs-1)/NUM_THREADS_PER_BLOCK)),
+  kgpuBlockSize2(CHECK_BLOCK_SIZE(1+(nInputs*alpha*nInputs-1)/NUM_THREADS_PER_BLOCK)),
+  kgpuBlockSize3(CHECK_BLOCK_SIZE(1+(nChains-1)/NUM_THREADS_PER_BLOCK))
+{
+  // parameter initialization: starting from the Gaussian random distribution
+  unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937_64 ran(seed);
+  std::normal_distribution<double>
+    randwi1(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
+    randw1o(0, std::sqrt(1.0/(kAlpha*knInputs)));
+  // host
+  wi1_host_ = &variables_host_[0];
+  b1_host_ = &variables_host_[knInputs*kAlpha];
+  w1o_host_ = &variables_host_[knInputs*kAlpha+kAlpha];
+  // device
+  wi1_dev_ = PTR_FROM_THRUST(&variables_dev_[0]);
+  b1_dev_ = PTR_FROM_THRUST(&variables_dev_[knInputs*kAlpha]);
+  w1o_dev_ = PTR_FROM_THRUST(&variables_dev_[knInputs*kAlpha+kAlpha]);
+  for (int i=0; i<knInputs*kAlpha; ++i)
+    wi1_host_[i] = thrust::complex<FloatType>(randwi1(ran), 1e-1*randwi1(ran));
+  for (int j=0; j<kAlpha; ++j)
+    b1_host_[j] = 0.0;
+  for (int j=0; j<kAlpha; ++j)
+    w1o_host_[j] = thrust::complex<FloatType>(randw1o(ran), 1e-1*randw1o(ran));
+  variables_dev_ = variables_host_; // copy memory from host to device
+  d_dwi1_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[0]);
+  d_db1_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[knInputs*kAlpha]);
+  d_dw1o_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[knInputs*kAlpha+kAlpha]);
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+  const float ln2f = std::log(2.0f);
+  const double ln2d = std::log(2.0);
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2f, &ln2f, sizeof(float)));
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2d, &ln2d, sizeof(double)));
+}
+
+template <typename FloatType>
+ComplexFNNTrSymm<FloatType>::~ComplexFNNTrSymm()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+{
+  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  // construct full weight matrices and a bias vector
+  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
+    knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
+    PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
+  // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*knInputs, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wi1f_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(y_dev_.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()));  // acty_kj = ln(cosh(y_kj))
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*knInputs, kone, kzero, PTR_FROM_THRUST(w1of_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()), lnpsi_dev); // lnpsi_k = \sum_j acty_kj w1o_j
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+{
+  index_ = spinFlipIndex;
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_, PTR_FROM_THRUST(wi1f_dev_.data()),
+    PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(acty_dev_.data()));
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*knInputs, kone, kzero, PTR_FROM_THRUST(w1of_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()), lnpsi_dev);
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
+{
+  // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*knInputs, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wi1f_dev_.data()), spinStates_dev, PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(y_dev_.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()));  // acty_kj = ln(cosh(y_kj))
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*knInputs, kone, kzero, PTR_FROM_THRUST(w1of_dev_.data()),
+    PTR_FROM_THRUST(acty_dev_.data()), lnpsi_dev); // lnpsi_k = \sum_j acty_kj w1o_j
+  if (saveSpinStates)
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
+{
+  gpu_kernel::FNNTrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs,
+    kAlpha, knChains, PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()),
+    PTR_FROM_THRUST(w1of_dev_.data()), d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_);
+  CHECK_ERROR(cudaSuccess, cudaMemcpy(lnpsiGradients_dev, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
+    sizeof(std::complex<FloatType>)*variables_dev_.size()*knChains, cudaMemcpyDeviceToDevice));
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+{
+  gpu_kernel::update_parameters<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
+    derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
+  // construct full weight matrices and a bias vector
+  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
+    knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
+    PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
+  // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*knInputs, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wi1f_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+{
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
+  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(wi1f_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::save(const std::string filePath, const int precision)
+{
+  std::ofstream writer(filePath);
+  writer << std::setprecision(precision);
+  variables_host_ = variables_dev_ ;
+  for (const auto & var : variables_host_)
+    writer << var << " ";
+  writer.close();
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::load(const std::string filePath)
+{
+  // read rawdata from the text file located at 'filePath'
+  std::vector<std::complex<FloatType>> rawdata;
+  std::ifstream reader(filePath);
+  if (reader.is_open())
+  {
+    std::complex<FloatType> temp;
+    while (reader >> temp)
+      rawdata.push_back(temp);
+    reader.close();
+  }
+  else
+  {
+    std::cout << "# --- file-path: " << filePath << " is not exist..." << std::endl;
+    return;
+  }
+  // insert rawdata into 'variables_'
+  if (rawdata.size() == variables_host_.size())
+  {
+    for (int i=0; i<variables_host_.size(); ++i)
+      variables_host_[i] = rawdata[i];
+    variables_dev_ = variables_host_;
+  }
+  else
+    std::cout << " check parameter size... " << std::endl;
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::copy_to(ComplexFNNTrSymm<FloatType> & fnn) const
+{
+  if (knChains != fnn.get_nChains())
+    throw std::length_error("knChains != fnn.get_nChains()");
+  if (knInputs != fnn.get_nInputs())
+    throw std::length_error("knInputs != fnn.get_nInputs()");
+  if (kAlpha != fnn.get_alpha())
+    throw std::length_error("kAlpha != fnn.get_alpha()");
+  fnn.variables_dev_ = variables_dev_;
+}
+
+
 namespace gpu_device
 {
 __device__ thrust::complex<float> logcosh(const thrust::complex<float> z)
@@ -1039,6 +1236,66 @@ __global__ void FNN__UpdateParameters__(const int nInputs, const int nHiddens, c
     const int j = hiddenNodesIdx[idx];
     b1[j] = b1[j]-learningRate*derivativeLoss[nNodes*nInputs+idx];
     w1o[j] = w1o[j]-learningRate*derivativeLoss[nNodes*(nInputs+1)+idx];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void FNNTrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
+  const thrust::complex<FloatType> * wi1, const thrust::complex<FloatType> * b1, const thrust::complex<FloatType> * w1o,
+  thrust::complex<FloatType> * wi1f, thrust::complex<FloatType> * b1f, thrust::complex<FloatType> * w1of)
+{
+  // i=0,1,...,N-1; j=0,1,...,N-1; f=0,...,alpha-1
+  // wi1f_{i,f*nInputs+j} (=wi1f_{j,f*nInputs+i}), b1f_{f*nInputs+j}, w1of_{f*nInputs+j}
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < alpha*nInputs*nInputs)
+  {
+    // idx = f*nInputs*nInputs + j*nInputs + i
+    // f : alpha, 0 < i,j < nInputs
+    const unsigned int f = idx/(nInputs*nInputs), j = (idx-f*nInputs*nInputs)/nInputs, i = idx-f*nInputs*nInputs-j*nInputs;
+    wi1f[i*nInputs*alpha+f*nInputs+j] = wi1[f*nInputs+(i+j)%nInputs];
+    idx += nstep;
+  }
+  idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < alpha*nInputs)
+  {
+    const unsigned int f = idx/nInputs, j = idx-f*nInputs;
+    b1f[f*nInputs+j] = b1[f];
+    w1of[f*nInputs+j] = w1o[f];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void FNNTrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
+  const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1of,
+  thrust::complex<FloatType> * d_dwi1, thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned int vSize = nInputs*alpha+2*alpha;
+  const FloatType zero = 0;
+  while (idx < nChains*alpha*nInputs)
+  {
+    const int k = idx/(alpha*nInputs), f = (idx-k*(alpha*nInputs))/nInputs, i = idx-k*(alpha*nInputs)-f*nInputs;
+    d_dwi1[k*vSize+f*nInputs+i] = zero;
+    for (int j=0; j<nInputs; ++j)
+      d_dwi1[k*vSize+f*nInputs+i] += w1of[f*nInputs+j]*thrust::tanh(y[k*alpha*nInputs+f*nInputs+j])*
+        spinStates[k*nInputs+(nInputs+i-j)%nInputs].real();
+    idx += nstep;
+  }
+  idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < nChains*alpha)
+  {
+    const int k = idx/alpha, f = idx-k*alpha;
+    d_dw1o[k*vSize+f] = zero;
+    d_db1[k*vSize+f] = zero;
+    for (int j=0; j<nInputs; ++j)
+    {
+      d_dw1o[k*vSize+f] += gpu_device::logcosh(y[k*alpha*nInputs+f*nInputs+j]);
+      d_db1[k*vSize+f] += w1of[f*nInputs+j]*thrust::tanh(y[k*alpha*nInputs+f*nInputs+j]);
+    }
     idx += nstep;
   }
 }
