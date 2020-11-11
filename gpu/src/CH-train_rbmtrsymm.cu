@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 #define NO_USE_BATCH
 
-#include "common.cuh"
-#include "neural_quantum_state.cuh"
-#include "hamiltonians.cuh"
-#include "optimizer.cuh"
-#include "../cpu/argparse.hpp"
+#include "../include/common.cuh"
+#include "../include/neural_quantum_state.cuh"
+#include "../include/hamiltonians.cuh"
+#include "../include/optimizer.cuh"
+#include "../../cpu/include/argparse.hpp"
 
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
   options.push_back(pair_t("L", "# of lattice sites"));
-  options.push_back(pair_t("nh", "# of hidden nodes"));
+  options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train RBM"));
+  options.push_back(pair_t("niter", "# of iterations to train RBMTrSymm"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
 
   const int L = parser.find<int>("L"),
     nInputs = L,
-    nHiddens = parser.find<int>("nh"),
+    alpha = parser.find<int>("alpha"),
     nChains = parser.find<int>("ns"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
@@ -49,8 +49,8 @@ int main(int argc, char* argv[])
     lr = parser.find<double>("lr");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
-    nistr = std::to_string(nInputs),
-    nhstr = std::to_string(nHiddens),
+    nstr = std::to_string(nInputs),
+    alphastr = std::to_string(alpha),
     vestr = std::to_string(version),
     ifprefix = parser.find<>("ifprefix");
   const auto hfields = parser.mfind<double>("h");
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  struct SamplerTraits { using AnsatzType = ComplexRBM<double>; using FloatType = double;};
+  struct SamplerTraits { using AnsatzType = ComplexRBMTrSymm<double>; using FloatType = double;};
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -81,14 +81,14 @@ int main(int argc, char* argv[])
     const double h = hfields[i];
     if (hfields.size() > 1)
       std::cout << "# h: " << h << " --- job id:" << (i+1) << " / " << hfields.size() << std::endl;
-    std::string hfstr = std::to_string(h);
-    hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
-    hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
+    std::string hstr = std::to_string(h);
+    hstr.erase(hstr.find_last_not_of('0') + 1, std::string::npos);
+    hstr.erase(hstr.find_last_not_of('.') + 1, std::string::npos);
 
-    ComplexRBM<double> machine(nInputs, nHiddens, nChains);
+    ComplexRBMTrSymm<double> machine(nInputs, alpha, nChains);
 
     // load parameters
-    const std::string prefix = path + "CH-Nv" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+    const std::string prefix = path + "RBMTrSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
     const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
 
     machine.load(prefix0);

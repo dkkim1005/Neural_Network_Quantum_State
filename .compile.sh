@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 #!/usr/bin/env bash
 #====================================================
-SRCS=(CH-train_fnn.cu SQ-train_fnn.cu CB-train_fnn.cu) # source list to compile the cuda executable files
+SRCS=(CH-train_rbm.cu CH-train_rbmtrsymm.cu CH-train_fnn.cu CH-train_fnntrsymm.cu) # source list to compile the cuda executable files
 MIN_CUDA_ARCH=300 # minimum cuda architecture
 CFLAGS="-O3 -std=c++11"
 USE_MAGMA=no # If a direct solver is employed, set 'USE_MAGMA=yes'.
@@ -63,7 +63,7 @@ SCRIPT_NAME=$(basename "$0")
 PREFIX=$(echo $BASH_SOURCE | sed -e "s/$SCRIPT_NAME$//g")
 
 for SRC in ${SRCS[@]}; do
-  TARGET=$(echo $SRC | sed -e 's/.cu$//g')
+  TARGET=$(echo "$SRC" | sed -e 's/.cu$//g')"-gpu"
   SRC_PATH=$(find $PREFIX -name $SRC)
   if [ -z $SRC_PATH ]; then
     echo -e "\e[41m${SRC} is not exist...\e[0m"

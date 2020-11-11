@@ -2,15 +2,15 @@
 
 #define NO_USE_BATCH
 #include <chrono>
-#include "hamiltonians.hpp"
-#include "optimizer.hpp"
-#include "argparse.hpp"
+#include "../include/hamiltonians.hpp"
+#include "../include/optimizer.hpp"
+#include "../include/argparse.hpp"
 
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("ninput", "# of visible nodes"));
+  options.push_back(pair_t("ninput", "# of input nodes"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("niter", "# of iterations to train RBM"));
@@ -62,10 +62,10 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBMSfSymm<double> machine(nInputs, alpha, nChains);
+  spinhalf::ComplexFNNTrSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix = path + "RBMSfSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
+  const std::string prefix = path + "FNNTrSymm-CH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(prefix0 + "-params.dat");
 
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBMSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
+  spinhalf::TFIChain<AnsatzTraits<Ansatz::FNNTrSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   Hsampler.warm_up(nWarmup);

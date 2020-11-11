@@ -2,9 +2,9 @@
 
 #define NO_USE_BATCH
 #include <chrono>
-#include "hamiltonians.hpp"
-#include "optimizer.hpp"
-#include "argparse.hpp"
+#include "../include/hamiltonians.hpp"
+#include "../include/optimizer.hpp"
+#include "../include/argparse.hpp"
 
 int main(int argc, char* argv[])
 {

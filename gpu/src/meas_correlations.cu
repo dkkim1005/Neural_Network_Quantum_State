@@ -3,8 +3,8 @@
 #include <memory>
 #include <string>
 #include <fstream>
-#include "meas.cuh"
-#include "../cpu/argparse.hpp"
+#include "../include/meas.cuh"
+#include "../../cpu/include/argparse.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("Ni", "# of input nodes"));
   options.push_back(pair_t("Nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of trials to compute spontaneous magnetization"));
+  options.push_back(pair_t("niter", "# of trials to compute spin-spin correlation"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("lattice", "lattice type(=CH,SQ,TRI,CB)"));
   // env; default value
-  defaults.push_back(pair_t("nwarm", "300"));
+  defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("path", "."));
@@ -78,20 +78,17 @@ int main(int argc, char* argv[])
   struct TRAITS { using AnsatzType = ComplexFNN<float>; using FloatType = float; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
-  MeasSpontaneousMagnetization<TRAITS> smag(smp);
-  float m1, m2, m4;
-  smag.measure(niter, nMonteCarloSteps, nWarmup, m1, m2, m4);
+  MeasSpinSpinCorrelation<TRAITS> corr(smp);
+  std::vector<float> ss(nInputs*nInputs, 0);
+  corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data());
 
-  const std::string wfilename = parser.find<>("path") + "/smag-" + parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + ".dat";
-  std::ofstream wfile;
-  if(!std::ifstream(wfilename).is_open())
+  std::ofstream wfile(parser.find<>("path") + "/Corr-" + filename + ".dat");
+  for (int i=0; i<nInputs; ++i)
   {
-    wfile.open(wfilename);
-    wfile << "#   h      m1       m2       m4" << std::endl;
+    for (int j=0; j<nInputs; ++j)
+      wfile << ss[i*nInputs+j] << " ";
+    wfile << std::endl;
   }
-  else
-    wfile.open(wfilename, std::ofstream::app);
-  wfile << std::setw(7) << h << " " << std::setw(7) << m1 << " " << std::setw(7) << m2 << " " << std::setw(7) << m4 << std::endl;
   wfile.close();
 
   return 0;

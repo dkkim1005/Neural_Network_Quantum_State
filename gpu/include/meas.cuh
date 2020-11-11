@@ -105,7 +105,7 @@ class MeasFidelity
   using FloatType = typename TraitsClass::FloatType;
 public:
   MeasFidelity(Sampler4SpinHalf<TraitsClass> & smp1, Sampler4SpinHalf<TraitsClass> & smp2, AnsatzType & psi1, AnsatzType & psi2);
-  FloatType measure(const int nTrials, const int nwarms, const int nMCSteps = 1);
+  std::pair<FloatType, FloatType> measure(const int nTrials, const int nwarms, const int nMCSteps = 1);
 private:
   Sampler4SpinHalf<TraitsClass> & smp1_, & smp2_;
   AnsatzType & psi1_, & psi2_;

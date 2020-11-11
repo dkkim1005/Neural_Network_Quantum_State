@@ -164,7 +164,7 @@ LITFIChain<TraitsClass>::LITFIChain(AnsatzType & machine, const int L, const Flo
     for (int i=0; i<kL; ++i)
     {
       const FloatType l = i/static_cast<FloatType>(kL);
-      int k = 1;
+      FloatType k = 1;
       bool isConverge = false;
       while (!isConverge)
       {

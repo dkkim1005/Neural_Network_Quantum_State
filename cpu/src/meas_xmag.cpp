@@ -5,9 +5,9 @@
 #include <memory>
 #include <string>
 #include <fstream>
-#include "measurements.hpp"
-#include "hamiltonians.hpp"
-#include "argparse.hpp"
+#include "../include/measurements.hpp"
+#include "../include/hamiltonians.hpp"
+#include "../include/argparse.hpp"
 
 int main(int argc, char* argv[])
 {

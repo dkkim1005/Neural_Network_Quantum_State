@@ -211,7 +211,8 @@ MeasFidelity<TraitsClass>::MeasFidelity(Sampler4SpinHalf<TraitsClass> & smp1, Sa
 
 
 template <typename TraitsClass>
-typename TraitsClass::FloatType MeasFidelity<TraitsClass>::measure(const int nMeas, const int nwarms, const int nMCSteps)
+std::pair<typename TraitsClass::FloatType, typename TraitsClass::FloatType> MeasFidelity<TraitsClass>::measure(const int nMeas,
+  const int nwarms, const int nMCSteps)
 {
   std::cout << "# Now we are in warming up..." << std::flush;
   smp1_.warm_up(nwarms);
@@ -219,7 +220,7 @@ typename TraitsClass::FloatType MeasFidelity<TraitsClass>::measure(const int nMe
   std::cout << " done." << std::endl << std::flush;
   std::cout << "# Measuring fidelity... (current/total)" << std::endl << std::flush;
   thrust::device_vector<thrust::complex<FloatType>> rho2local_dev(knChains, kzero);
-  thrust::complex<FloatType> rho2(kzero);
+  thrust::host_vector<FloatType> rho2_host(nMeas, kzero.real());
   for (int n=0; n<nMeas; ++n)
   {
     std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nMeas << std::flush;
@@ -234,10 +235,15 @@ typename TraitsClass::FloatType MeasFidelity<TraitsClass>::measure(const int nMe
     // rho2local = (\frac{C(n_A,p_B)*C(m_A,q_B)}{C(n_A,q_B)*C(m_A,p_B)})^*
     gpu_kernel::meas__GetRho2local__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(lnpsi1_dev, lnpsi2_dev,
       PTR_FROM_THRUST(lnpsi3_dev_.data()), PTR_FROM_THRUST(lnpsi4_dev_.data()), knChains, PTR_FROM_THRUST(rho2local_dev.data()));
-    rho2 = thrust::reduce(thrust::device, rho2local_dev.begin(), rho2local_dev.end(), rho2);
+    rho2_host[n] = thrust::reduce(thrust::device, rho2local_dev.begin(), rho2local_dev.end(), kzero).real()/knChains;
   }
   std::cout << std::endl;
-  return std::sqrt(rho2.real()/static_cast<FloatType>(nMeas*knChains));
+  const FloatType rhoMean = std::sqrt((thrust::reduce(thrust::host, rho2_host.begin(), rho2_host.end(), kzero).real())/nMeas);
+  FloatType err = kzero.real();
+  for (const auto & item : rho2_host)
+    err += std::pow(std::sqrt(item) - rhoMean, 2);
+  err = std::sqrt(err/(rho2_host.size()-1)/rho2_host.size());
+  return std::pair<typename TraitsClass::FloatType, typename TraitsClass::FloatType>(rhoMean, err);
 }
 
 
