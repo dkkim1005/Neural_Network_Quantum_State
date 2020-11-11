@@ -38,21 +38,19 @@ int main(int argc, char* argv[])
   argsparse parser(argc, argv, options, defaults);
 
   const int L = parser.find<int>("L"),
-    nFilters = parser.find<int>("nf"),
     nChains = parser.find<int>("ns"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
     deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter");
-  const double alpha = parser.find<double>("alpha"),
-    lr = parser.find<double>("lr");
+  const double lr = parser.find<double>("lr");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
     Lstr = parser.find<>("L"),
-    nfstr = parser.find<>("nf"),
-    alphastr = remove_zeros_in_str(alpha),
-    verstr = parser.find<>("ver"),
     ifprefix = parser.find<>("ifprefix");
+  const auto nFiltersArr = parser.mfind<int>("nf");
+  const auto alphaArr = parser.mfind<double>("alpha");
+  const auto verArr = parser.mfind<int>("ver");
   const auto thetaArr = parser.mfind<double>("theta");
 
   // print info of the registered args
@@ -76,30 +74,33 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(L)*
     static_cast<unsigned long>(nChains);
 
-  for (int i=0; i<thetaArr.size(); ++i)
-  {
-    const double theta = thetaArr[i];
-    const std::string thetastr = remove_zeros_in_str(theta);
-    if (thetaArr.size() > 1)
-      std::cout << " --- job id:" << (i+1) << " / " << thetaArr.size() << std::endl;
-    ComplexRBMTrSymm<double> machine(L, nFilters, nChains);
-    const double J = std::sin(theta), h = -std::cos(theta);
-    // load parameters
-    const std::string prefix = path + "RBMTrSymmLICH-L" + Lstr + "NF" + nfstr + "A" + alphastr + "T" + thetastr + "V" + verstr;
-    const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-    machine.load(prefix0);
-    // Transverse Field Ising Hamiltonian with long-range interaction on the 1D chain lattice
-    spinhalf::LITFIChain<SamplerTraits> sampler(machine, L, h, J, alpha, true, seed, nBlocks, prefix);
-    const auto start = std::chrono::system_clock::now();
-    sampler.warm_up(nWarmup);
-    StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-    iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
-    // save parameters
-    machine.save(prefix);
-    const auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
-  }
+  for (const auto & ver : verArr)
+    for (const auto & nf : nFiltersArr)
+      for (const auto & alpha : alphaArr)
+        for (const auto & theta : thetaArr)
+        {
+          const std::string verstr = std::to_string(ver),
+            nfstr = std::to_string(nf),
+            alphastr = remove_zeros_in_str(alpha),
+            thetastr = remove_zeros_in_str(theta);
+          ComplexRBMTrSymm<double> machine(L, nf, nChains);
+          const double J = std::sin(theta), h = -std::cos(theta);
+          // load parameters
+          const std::string prefix = path + "RBMTrSymmLICH-L" + Lstr + "NF" + nfstr + "A" + alphastr + "T" + thetastr + "V" + verstr;
+          const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
+          machine.load(prefix0);
+          // Transverse Field Ising Hamiltonian with long-range interaction on the 1D chain lattice
+          spinhalf::LITFIChain<SamplerTraits> sampler(machine, L, h, J, alpha, true, seed, nBlocks, prefix);
+          const auto start = std::chrono::system_clock::now();
+          sampler.warm_up(nWarmup);
+          StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
+          iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+          // save parameters
+          machine.save(prefix);
+          const auto end = std::chrono::system_clock::now();
+          std::chrono::duration<double> elapsed_seconds = end-start;
+          std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
+        }
 
   return 0;
 }
