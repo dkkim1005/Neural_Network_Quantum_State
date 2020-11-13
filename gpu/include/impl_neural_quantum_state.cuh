@@ -29,7 +29,6 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
   std::mt19937_64 ran(seed);
   std::normal_distribution<double>
     randw(0, std::sqrt(1.0/(nInputs+nHiddens))),
-    randa(0, std::sqrt(1.0/nInputs)),
     randb(0, std::sqrt(1.0/nHiddens));
   // host
   w_host_ = &variables_host_[0];
@@ -42,7 +41,7 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
   for (int i=0; i<nInputs*nHiddens; ++i)
     w_host_[i] = thrust::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
   for (int i=0; i<nInputs; ++i)
-    a_host_[i] = thrust::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
+    a_host_[i] = kzero;
   for (int j=0; j<nHiddens; ++j)
     b_host_[j] = thrust::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
   variables_dev_ = variables_host_; // copy memory from host to device
@@ -307,7 +306,7 @@ ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha
   b_dev_ = PTR_FROM_THRUST(&variables_dev_[knInputs*kAlpha+1]);
   for (int i=0; i<knInputs*kAlpha; ++i)
     w_host_[i] = thrust::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
-  a_host_[0] = thrust::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
+  a_host_[0] = kzero;
   for (int j=0; j<kAlpha; ++j)
     b_host_[j] = thrust::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
   variables_dev_ = variables_host_; // copy memory from host to device

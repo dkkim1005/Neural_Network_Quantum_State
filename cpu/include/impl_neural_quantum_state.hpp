@@ -61,7 +61,7 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
   for (int n=0; n<nInputs*nHiddens; ++n)
     w_[n] = std::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
   for (int i=0; i<nInputs; ++i)
-    a_[i] = std::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
+    a_[i] = kzero;
   for (int j=0; j<nHiddens; ++j)
     b_[j] = std::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
 }
@@ -405,7 +405,7 @@ ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha
   d_db_ = &lnpsiGradients_[knInputs*kAlpha+1];
   for (int n=0; n<knInputs*kAlpha; ++n)
     w_[n] = std::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
-  a_[0] = std::complex<FloatType>(1e-1*randa(ran), 1e-1*randa(ran));
+  a_[0] = kzero;
   for (int f=0; f<kAlpha; ++f)
     b_[f] = std::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
 }
