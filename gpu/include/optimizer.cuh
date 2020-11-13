@@ -131,7 +131,10 @@ public:
         (PTR_FROM_THRUST(htilda_dev_.data()), htilda_dev_.size());
       const thrust::complex<FloatType> conjHavg = oneOverTotalMeas.real()*thrust::reduce(thrust::device, htilda_dev_.begin(), htilda_dev_.end(), kzero);
       if (!std::isfinite(conjHavg.real()))
-        throw std::runtime_error("\"Havg\" has non-value type. We stop here.");
+      {
+        std::cout << "# \"Havg\" has non-value type. We stop here." << std::endl;
+        return;
+      }
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
       cublas::gemv(theCublasHandle_, knVariables, knChains, oneOverTotalMeas, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
         PTR_FROM_THRUST(kones_dev.data()), kzero, PTR_FROM_THRUST(aO_dev_.data()));
