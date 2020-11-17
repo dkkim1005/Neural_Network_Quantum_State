@@ -330,8 +330,7 @@ template <typename FloatType>
 void ComplexRBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 {
   thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
-  gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
-    w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
+  this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
@@ -377,7 +376,7 @@ void ComplexRBMTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spi
     PTR_FROM_THRUST(ly_dev_.data()));  // ly_kj = ln(cosh(y_kj))
   // sa_k = \sum_i a_i*spinStates_ki
   cublas::gemm(theCublasHandle_, 1, knChains, knInputs, kone, kzero, PTR_FROM_THRUST(af_dev_.data()),
-    PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(sa_dev_.data()));
+    spinStates_dev, PTR_FROM_THRUST(sa_dev_.data()));
   // lnpsi_k = \sum_j ly_kj + sa_k
   CHECK_ERROR(cudaSuccess, cudaMemcpy(lnpsi_dev, PTR_FROM_THRUST(sa_dev_.data()),
     sizeof(thrust::complex<FloatType>)*knChains, cudaMemcpyDeviceToDevice));
@@ -402,8 +401,7 @@ void ComplexRBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatTy
 {
   gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
-  gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
-    w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
+  this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
@@ -477,6 +475,14 @@ void ComplexRBMTrSymm<FloatType>::copy_to(ComplexRBMTrSymm<FloatType> & rbm) con
   if (kAlpha != rbm.get_alpha())
     throw std::length_error("kAlpha != rm.get_alpha()");
   rbm.variables_dev_ = variables_dev_;
+  rbm.symmetrize_variables();
+}
+
+template <typename FloatType>
+void ComplexRBMTrSymm<FloatType>::symmetrize_variables()
+{
+  gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
+    w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
 }
 
 
@@ -803,9 +809,7 @@ void ComplexFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_
 {
   thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
   // construct full weight matrices and a bias vector
-  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
-    knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
-    PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
+  this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
@@ -862,9 +866,7 @@ void ComplexFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatTy
   gpu_kernel::update_parameters<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
   // construct full weight matrices and a bias vector
-  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
-    knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
-    PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
+  this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
@@ -933,6 +935,15 @@ void ComplexFNNTrSymm<FloatType>::copy_to(ComplexFNNTrSymm<FloatType> & fnn) con
   if (kAlpha != fnn.get_alpha())
     throw std::length_error("kAlpha != fnn.get_alpha()");
   fnn.variables_dev_ = variables_dev_;
+  fnn.symmetrize_variables();
+}
+
+template <typename FloatType>
+void ComplexFNNTrSymm<FloatType>::symmetrize_variables()
+{
+  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
+    knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
+    PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
 }
 
 

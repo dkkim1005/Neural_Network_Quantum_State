@@ -78,6 +78,7 @@ public:
   int get_nInputs() const { return knInputs; }
   int get_alpha() const { return kAlpha; }
   int get_nVariables() const { return variables_host_.size(); }
+  void symmetrize_variables();
 private:
   const int knInputs, kAlpha; // hyperparameters of network size
   const int knChains; // # of parallel states
@@ -167,6 +168,7 @@ public:
   int get_nInputs() const { return knInputs; }
   int get_alpha() const { return kAlpha; }
   int get_nVariables() const { return variables_host_.size(); }
+  void symmetrize_variables();
 private:
   const int knInputs, kAlpha; // hyperparameters for network size
   const int knChains; // # of parallel states
