@@ -46,7 +46,8 @@ private:
 #endif
 };
 
-// long-range interaction (J_{i,j} ~ 1/|i-j|^{gamma}) Ising model on the 1D chain lattice
+// long-range interaction (J_{i,j} ~ 1/d(i,j)^{alpha}) Ising model on the 1D chain lattice
+// Periodic boundary condition: circular positioning; d(i,j) = |i-j| if |i-j| < L/2, else L-|i-j|.
 template <typename TraitsClass>
 class LITFIChain: public BaseParallelSampler<LITFIChain, TraitsClass>
 {

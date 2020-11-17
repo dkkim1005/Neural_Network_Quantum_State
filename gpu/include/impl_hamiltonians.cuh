@@ -130,12 +130,6 @@ void TFIChain<TraitsClass>::save_() const
 
 // long-range spin-spin interaction with periodic boundary condition
 // => 1/2*\sum_{a,b} (s_a*J(a-b)*s_b)
-// = 1/2*\sum_{k} (\sum_{i,j}(s_i*\sum_{k'} J(L*k'+i-j)*s_j)),
-//    where k = -\infty ~ \infty
-// => energy per lattice site : 1/2*\sum_{i,j} (s_i*\tilde{J}_{i,j}*s_j)/L,
-//    where \tilde{J}_{i,j} = \sum_{k'} J(L*k'+i-j)
-// \tilde{J}_{i,j} = J/|i-j|^{\alpha} + J/L^{\alpha}*\sum_{k=1}^{\infty}(1/|k+l|^{\alpha}+1/|k-l|^{\alpha}),
-//    where l=(i-j)/L
 template <typename TraitsClass>
 LITFIChain<TraitsClass>::LITFIChain(AnsatzType & machine, const int L, const FloatType h,
   const FloatType J, const double alpha, const bool isPBC,
@@ -155,42 +149,31 @@ LITFIChain<TraitsClass>::LITFIChain(AnsatzType & machine, const int L, const Flo
 {
   if (kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L!");
-  std::cout << "Calculating a coupling matrix... " << std::flush;
-  std::vector<FloatType> Jl(kL, 0);
-  const double cutoff = 1e-10;
+  thrust::host_vector<thrust::complex<FloatType> > Jmatrix_host(kL*kL);
+  // periodic boundary condition: Phys. Rev. Lett. 113, 156402 (2014)
   if (isPBC)
   {
-    const FloatType coeff = std::pow(kL, -alpha);
+    if (kL%2 == 1)
+      throw std::invalid_argument("kL%2 == 1 (set \"isPBC\" to \"false\".)");
     for (int i=0; i<kL; ++i)
-    {
-      const FloatType l = i/static_cast<FloatType>(kL);
-      FloatType k = 1;
-      bool isConverge = false;
-      while (!isConverge)
+      for (int j=i+1; j<kL; ++j)
       {
-        const FloatType ak = std::pow(k+l, -alpha) + std::pow(k-l, -alpha);
-        Jl[i] += ak;
-        if (ak < cutoff)
-          isConverge = true;
-        k += 1;
+        const FloatType dist = (((j-i)<kL/2) ? (j-i) : kL-(j-i));
+        Jmatrix_host[i*kL+j] = J*std::pow(dist, -alpha);
+        Jmatrix_host[j*kL+i] = Jmatrix_host[i*kL+j];
       }
-      Jl[i] *= coeff;
-    }
   }
-  for (int i=1; i<kL; ++i)
-    Jl[i] += std::pow(i, -alpha);
-  thrust::host_vector<thrust::complex<FloatType> > Jmatrix_host(kL*kL);
-  for (int i=0; i<kL; ++i)
+  else
   {
-    Jmatrix_host[i*kL+i] = J*Jl[0];
-    for (int j=i+1; j<kL; ++j)
-    {
-      Jmatrix_host[i*kL+j] = J*Jl[j-i];
-      Jmatrix_host[j*kL+i] = Jmatrix_host[i*kL+j];
-    }
+    for (int i=0; i<kL; ++i)
+      for (int j=i+1; j<kL; ++j)
+      {
+        const FloatType dist = (j-i);
+        Jmatrix_host[i*kL+j] = J*std::pow(dist, -alpha);
+        Jmatrix_host[j*kL+i] = Jmatrix_host[i*kL+j];
+      }
   }
   Jmatrix_dev_ = Jmatrix_host;
-  std::cout << "done." << std::endl << std::flush;
 
   // Checkerboard link(To implement the MCMC update rule)
   for (int i=0; i<kL; ++i)
