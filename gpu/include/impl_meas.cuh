@@ -54,7 +54,7 @@ MeasRenyiEntropy<TraitsClass>::MeasRenyiEntropy(Sampler4SpinHalf<TraitsClass> & 
 {}
 
 template <typename TraitsClass>
-void MeasRenyiEntropy<TraitsClass>::measure(const int l, const int nIterations, const int nMCSteps, const int nwarmup)
+typename TraitsClass::FloatType MeasRenyiEntropy<TraitsClass>::measure(const int l, const int nIterations, const int nMCSteps, const int nwarmup)
 {
   if (l >= psi_.get_nInputs() || l < 0)
     throw std::invalid_argument("l >= psi_.get_nInputs() || l < 0");
@@ -95,6 +95,7 @@ void MeasRenyiEntropy<TraitsClass>::measure(const int l, const int nIterations, 
   // S_2 = -log(rho2)
   const FloatType S_2 = -1.0*std::log(rho2.real());
   std::cout << "# Renyi entropy(-log(Tr[rho^2])) : " << S_2 << std::endl;
+  return S_2;
 }
 
 namespace gpu_kernel
@@ -346,6 +347,56 @@ void MeasSpontaneousMagnetization<TraitsClass>::measure(const int nIterations, c
     smp_.do_mcmc_steps(nMCSteps);
     cublas::gemm(theCublasHandle_, 1, smp_.get_nChains(), smp_.get_nInputs(), koneOverNinputs, kzero,
       PTR_FROM_THRUST(kones.data()), smp_.get_quantumStates(), PTR_FROM_THRUST(tmpmag_dev_.data()));
+    // \sum_{i=1}(s_i) -> |\sum_{i=1}(s_i)|
+    thrust::transform(tmpmag_dev_.begin(), tmpmag_dev_.end(), mag_dev_.begin(), internal_impl::ComplexABSFunctor<FloatType>());
+    m1 += thrust::reduce(thrust::device, mag_dev_.begin(), mag_dev_.end(), kzero.real())*oneOverTotalMeas;
+    m2 += thrust::inner_product(thrust::device, mag_dev_.begin(), mag_dev_.end(), mag_dev_.begin(), kzero.real())*oneOverTotalMeas;
+    m4 += internal_impl::l4_norm(mag_dev_)*oneOverTotalMeas;
+  }
+  std::cout << std::endl;
+}
+
+
+template <typename TraitsClass>
+MeasOrderParameter<TraitsClass>::MeasOrderParameter(Sampler4SpinHalf<TraitsClass> & smp,
+  const thrust::host_vector<thrust::complex<FloatType>> coeff_host):
+  smp_(smp),
+  kzero(thrust::complex<FloatType>(0, 0)),
+  kone(thrust::complex<FloatType>(1, 0)),
+  koneOverNinputs(thrust::complex<FloatType>(1.0/smp_.get_nInputs(), 0)),
+  coeff_dev_(smp.get_nInputs()),
+  tmpmag_dev_(smp.get_nChains()),
+  mag_dev_(smp.get_nChains())
+{
+  if (smp.get_nInputs() != coeff_host.size())
+    throw std::invalid_argument("smp.get_nInputs() != coeff_host.size()");
+  coeff_dev_ = coeff_host;
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename TraitsClass>
+MeasOrderParameter<TraitsClass>::~MeasOrderParameter()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename TraitsClass>
+void MeasOrderParameter<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup,
+  FloatType & m1, FloatType & m2, FloatType & m4)
+{
+  std::cout << "# Now we are in warming up..." << std::flush;
+  smp_.warm_up(nwarmup);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring spontaneous magnetization... (current/total)" << std::endl << std::flush;
+  thrust::fill(tmpmag_dev_.begin(), tmpmag_dev_.end(), kzero);
+  const FloatType oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*smp_.get_nChains());
+  m1 = kzero.real(), m2 = kzero.real(), m4 = kzero.real();
+  for (int n=0; n<nIterations; ++n)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+    smp_.do_mcmc_steps(nMCSteps);
+    cublas::gemm(theCublasHandle_, 1, smp_.get_nChains(), smp_.get_nInputs(), koneOverNinputs, kzero,
+      PTR_FROM_THRUST(coeff_dev_.data()), smp_.get_quantumStates(), PTR_FROM_THRUST(tmpmag_dev_.data()));
     // \sum_{i=1}(s_i) -> |\sum_{i=1}(s_i)|
     thrust::transform(tmpmag_dev_.begin(), tmpmag_dev_.end(), mag_dev_.begin(), internal_impl::ComplexABSFunctor<FloatType>());
     m1 += thrust::reduce(thrust::device, mag_dev_.begin(), mag_dev_.end(), kzero.real())*oneOverTotalMeas;

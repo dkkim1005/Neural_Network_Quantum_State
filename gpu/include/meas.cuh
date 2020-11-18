@@ -46,7 +46,7 @@ public:
   // smp1 : P(n_A,q_B), smp2 : P(m_A,p_B)
   MeasRenyiEntropy(Sampler4SpinHalf<TraitsClass> & smp1, Sampler4SpinHalf<TraitsClass> & smp2, AnsatzType & psi);
   // l : subregion length
-  void measure(const int l, const int nIterations, const int nMCSteps, const int nwarmup);
+  FloatType measure(const int l, const int nIterations, const int nMCSteps, const int nwarmup);
 private:
   Sampler4SpinHalf<TraitsClass> & smp1_, & smp2_;
   AnsatzType & psi_;
@@ -162,4 +162,23 @@ private:
   thrust::device_vector<FloatType> mag_dev_;
 };
 
+// order parameter : \frac{1}{N}|\sum_{i}^{N} coeff_i*\sigma_i|
+template <typename TraitsClass>
+class MeasOrderParameter
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  explicit MeasOrderParameter(Sampler4SpinHalf<TraitsClass> & smp,
+    const thrust::host_vector<thrust::complex<FloatType>> coeff_host);
+  ~MeasOrderParameter();
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType & m1, FloatType & m2, FloatType & m4);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp_;
+  cublasHandle_t theCublasHandle_;
+  const thrust::complex<FloatType> kzero, kone, koneOverNinputs;
+  thrust::device_vector<thrust::complex<FloatType>> coeff_dev_;
+  thrust::device_vector<thrust::complex<FloatType>> tmpmag_dev_;
+  thrust::device_vector<FloatType> mag_dev_;
+};
 #include "impl_meas.cuh"
