@@ -395,7 +395,6 @@ ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha
   std::mt19937_64 ran(seed);
   std::normal_distribution<double>
     randw(0, std::sqrt(1.0/((1+kAlpha)*nInputs))),
-    randa(0, std::sqrt(1.0/nInputs)),
     randb(0, std::sqrt(1.0/(knInputs*kAlpha)));
   w_ = &variables_[0],
   a_ = &variables_[knInputs*kAlpha],
@@ -493,7 +492,9 @@ void ComplexRBMTrSymm<FloatType>::backward(std::complex<FloatType> * lnpsiGradie
   for (int k=0; k<knChains; ++k)
   {
     const int kvSize = k*variables_.size(), kiSize = k*knInputs;
-    d_da_[kvSize+0] = sa_[k]/a_[0];
+    d_da_[kvSize] = kzero;
+    for (int i=0; i<knInputs; ++i)
+      d_da_[kvSize] += spinStates_[kiSize+i].real();
     for (int f=0; f<kAlpha; ++f)
     {
       d_db_[kvSize+f] = kzero;
