@@ -1376,7 +1376,7 @@ void HubbardChain<TraitsClass>::initialize(std::complex<FloatType> * lnpsi)
   }
   machine_.initialize(lnpsi, &spin[0]);
   // initialize spin-exchange sampler
-  exchanger_.init(kawasaki::Equivfunc<std::complex<FloatType> >(), &spin[0]);
+  exchanger_.init(kawasaki::IsBondState<std::complex<FloatType> >(), &spin[0]);
   exchanger_.get_indexes_of_spin_pairs(idxSpinPairs_);
 }
 
