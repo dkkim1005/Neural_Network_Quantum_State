@@ -606,6 +606,133 @@ void TFICheckerBoard<TraitsClass>::save_() const
 }
 } // namespace spinhalf
 
+namespace fermion 
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
+  const int nParticles, const bool usePBC, const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix):
+  BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs()/2, machine.get_nChains(), seedNumber, seedDistance),
+  machine_(machine),
+  knSites(machine.get_nInputs()/2),
+  knChains(machine.get_nChains()),
+  knParticles(nParticles),
+  kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
+  kusePBC(usePBC),
+  kU(U),
+  kt(t),
+  kzero(0),
+  ktwo(2),
+  exchanger_(machine.get_nChains(), machine.get_nInputs(), seedNumber*12345ul, seedDistance),
+  spinPairIdx_dev_(machine.get_nChains()),
+  tmpspinPairIdx_dev_(machine.get_nChains()),
+  kprefix(prefix)
+{
+  // ranges of machine inputs:
+  // [0~knSites) -> spin up; [knSites~2*knSites) -> spin down
+  if (machine.get_nInputs()%2 != 0)
+    throw std::invalid_argument("machine.get_nInputs()%2 != 0");
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
+  thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev)
+{
+  const thrust::complex<FloatType> * spinStates_dev = machine_.get_spinStates();
+  // hopping term
+  gpu_kernel::common__SetValues__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(htilda_dev, knChains, kzero);
+  // s : 0 (spin up), 1 (spin down)
+  for (int s=0; s<2; ++s)
+  {
+    // left to right direction
+    for (int i=0; i<knSites-1; ++i)
+    {
+      thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites+i, s*knSites+i+1));
+      machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
+      gpu_kernel::HubbardChain__GetHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
+        knSites, spinStates_dev, PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
+    }
+    // right to left direction
+    for (int i=1; i<knSites; ++i)
+    {
+      thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites+i, s*knSites+i-1));
+      machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
+      gpu_kernel::HubbardChain__GetHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
+        knSites, spinStates_dev, PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
+    }
+    // edge to edge
+    if (!kusePBC)
+      continue;
+    thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites, s*knSites+knSites-1));
+    machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
+    gpu_kernel::HubbardChain__GetHoppingElemEdge__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(s, knChains, knSites, spinStates_dev,
+      PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
+  }
+  gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(-0.25*kt, knChains, htilda_dev);
+  // onsite interaction term
+  gpu_kernel::HubbardChain__GetOnSiteElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, kU, spinStates_dev, htilda_dev);
+
+  gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
+{
+  machine_.backward(lnpsiGradients_dev);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
+{
+  machine_.update_variables(trueGradients_dev, learningRate);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  // +1 : particle is filling at the site.
+  // -1 : particle is empty at the site.
+  const int nInputs = 2*knSites;
+  thrust::host_vector<thrust::complex<FloatType> > spinStates_host(knChains*nInputs, thrust::complex<FloatType>(-1.0, 0.0));
+  std::vector<int> idx(nInputs);
+  for (int i=0; i<nInputs; ++i)
+    idx[i] = i;
+  for (int k=0; k<knChains; ++k)
+  {
+    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(1234u*k));
+    for (int n=0; n<knParticles; ++n)
+      spinStates_host[k*nInputs+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+  }
+  thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
+  machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
+  // initialize spin-exchange sampler
+  exchanger_.init(kawasaki::IsBondState(), spinStates_dev.data());
+  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+  machine_.forward(spinPairIdx_dev_, lnpsi_dev);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
+{
+  machine_.spin_flip(isNewStateAccepted_dev, spinPairIdx_dev_);
+  exchanger_.do_exchange(isNewStateAccepted_dev);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::save_() const
+{
+  machine_.save(kprefix);
+}
+} // end namespace fermion
+} // end namespace jordanwigner 
+
 namespace gpu_kernel
 {
 template <typename FloatType>
@@ -678,6 +805,66 @@ __global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, cons
     for (int i=0; i<nSites; ++i)
       htilda[idx] += SJ[nSites*idx+i].real()*spinStates[nSites*idx+i].real();
     htilda[idx] = half*htilda[idx];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void HubbardChain__GetHoppingElem__(const int nChains, const int nSites,
+  const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
+  const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType one = 1;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    const int spinFlipIdx1 = spinPairIdx[k].first,
+              spinFlipIdx2 = spinPairIdx[k].second;
+    htilda[k] += (one+spinStates[k*2*nSites+spinFlipIdx1].real())*
+                 (one-spinStates[k*2*nSites+spinFlipIdx2].real())*
+                 thrust::exp(lnpsi1[k]-lnpsi0[k]);
+    idx += nstep;
+  }
+}
+
+// flavor : 0(spin up) or 1(spin down)
+template <typename FloatType>
+__global__ void HubbardChain__GetHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
+  const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
+  const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType one = 1, two = 2;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    const int spinFlipIdx1 = spinPairIdx[k].first,
+              spinFlipIdx2 = spinPairIdx[k].second;
+    FloatType sp = one;
+    for (int i=flavor*nSites+1; i<flavor*nSites+nSites-1; ++i)
+      sp *= -one*spinStates[k*2*nSites+i].real();
+    htilda[k] += two*sp*(one-spinStates[k*2*nSites+spinFlipIdx1].real()*
+                        spinStates[k*2*nSites+spinFlipIdx2].real())*
+                        thrust::exp(lnpsi1[k]-lnpsi0[k]);
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void HubbardChain__GetOnSiteElem__(const int nChains, const int nSites, const FloatType U,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType one = 1, Uquater = 0.25*U;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    for (int i=0; i<nSites; ++i)
+      htilda[k] += Uquater*(one+spinStates[k*2*nSites+i].real())*(one+spinStates[k*2*nSites+i+nSites].real());
     idx += nstep;
   }
 }

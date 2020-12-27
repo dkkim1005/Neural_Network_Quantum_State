@@ -4,6 +4,7 @@
 
 #include "mcmc_sampler.cuh"
 #include "neural_quantum_state.cuh"
+#include "kawasaki_updater.cuh"
 
 template <typename FloatType = int> class OneWayLinkedIndex;
 
@@ -143,6 +144,39 @@ private:
 };
 } //  namespace spinhalf
 
+namespace fermion
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+class HubbardChain: public BaseParallelSampler<HubbardChain, TraitsClass>
+{
+  friend BaseParallelSampler<HubbardChain, TraitsClass>;
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t, const int nParticles,
+    const bool usePBC, const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix);
+protected:
+  void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
+    thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
+  void get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate);
+  void initialize_(thrust::complex<FloatType> * lnpsi_dev);
+  void sampling_(thrust::complex<FloatType> * lnpsi_dev);
+  void accept_next_state_(bool * isNewStateAccepted_dev);
+  void save_() const;
+  AnsatzType & machine_;
+  const int knSites, knChains, knParticles, kgpuBlockSize;
+  const bool kusePBC;
+  const FloatType kU, kt, kzero, ktwo;
+  kawasaki::NNSpinExchanger1D<FloatType> exchanger_;
+  thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_, tmpspinPairIdx_dev_;
+  const std::string kprefix;
+};
+} // end namespace jordanwigner
+} // end namespace fermion
+
 namespace gpu_kernel
 {
 template <typename FloatType>
@@ -162,6 +196,21 @@ __global__ void TFI__GetOffDiagElem__(const int nChains, const FloatType hfield,
 template <typename FloatType>
 __global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, const thrust::complex<FloatType> * spinStates,
   const int nChains, const int nSites, thrust::complex<FloatType> * htilda);
+
+template <typename FloatType>
+__global__ void HubbardChain__GetHoppingElem__(const int nChains, const int nSites,
+  const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
+  const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda);
+
+// flavor : 0(spin up) or 1(spin down)
+template <typename FloatType>
+__global__ void HubbardChain__GetHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
+  const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
+  const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda);
+
+template <typename FloatType>
+__global__ void HubbardChain__GetOnSiteElem__(const int nChains, const int nSites, const FloatType U,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda);
 } // namespace gpu_kernel
 
 

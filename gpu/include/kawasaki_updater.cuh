@@ -13,7 +13,7 @@ __global__ void NNSpinExchanger__MakeTable__(const int nChains, const int maxBon
 template <typename FloatType>
 __global__ void NNSpinExchanger__AssignSpinPairs__(const int nChains, const int maxBondSize,
   const int * bondTable, const FloatType * rngValues, const int * bondIdxTospinIdx,
-  const int * nbond, int * tmpbondIdx, int * spinIdx);
+  const int * nbond, int * tmpbondIdx, thrust::pair<int, int> * spinPairIdx);
 
 template <int NNeighbors>
 __global__ void NNSpinExchanger__UpdateBondState__(const int nChains, const int maxBondSize,
@@ -58,7 +58,7 @@ public:
       PTR_FROM_THRUST(nbond_dev_.data()),
       PTR_FROM_THRUST(bondTable_dev_.data()));
   }
-  void get_indexes_of_spin_pairs(thrust::device_vector<int> & spinIdx_dev);
+  void get_indexes_of_spin_pairs(thrust::device_vector<thrust::pair<int, int> > & spinPairIdx_dev);
   void do_exchange(const bool * isExchanged_dev);
 private:
   constexpr static int kNNeighbors = LatticeTraits::NNeighbors;

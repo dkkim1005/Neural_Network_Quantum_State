@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
+
 #pragma once
 
 namespace kawasaki
@@ -27,7 +29,7 @@ NNSpinExchanger<LatticeTraits, RNGFloatType>::NNSpinExchanger(const int nChains,
 }
 
 template <typename LatticeTraits, typename RNGFloatType>
-void NNSpinExchanger<LatticeTraits, RNGFloatType>::get_indexes_of_spin_pairs(thrust::device_vector<int> & spinIdx_dev)
+void NNSpinExchanger<LatticeTraits, RNGFloatType>::get_indexes_of_spin_pairs(thrust::device_vector<thrust::pair<int, int> > & spinPairIdx_dev)
 {
   rng_.get_uniformDist(PTR_FROM_THRUST(rngValues_dev_.data()));
   gpu_kernel::NNSpinExchanger__AssignSpinPairs__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK >>>
@@ -37,7 +39,7 @@ void NNSpinExchanger<LatticeTraits, RNGFloatType>::get_indexes_of_spin_pairs(thr
      PTR_FROM_THRUST(bondIdxTospinIdx_dev_.data()), 
      PTR_FROM_THRUST(nbond_dev_.data()),
      PTR_FROM_THRUST(tmpbondIdx_dev_.data()),
-     PTR_FROM_THRUST(spinIdx_dev.data()));
+     PTR_FROM_THRUST(spinPairIdx_dev.data()));
 }
 
 template <typename LatticeTraits, typename RNGFloatType>
@@ -90,15 +92,15 @@ __global__ void NNSpinExchanger__MakeTable__(const int nChains, const int maxBon
 template <typename FloatType>
 __global__ void NNSpinExchanger__AssignSpinPairs__(const int nChains, const int maxBondSize,
   const int * bondTable, const FloatType * rngValues, const int * bondIdxTospinIdx,
-  const int * nbond, int * tmpbondIdx, int * spinIdx)
+  const int * nbond, int * tmpbondIdx, thrust::pair<int, int> * spinPairIdx)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < nChains)
   {
     tmpbondIdx[idx] = bondTable[idx*(maxBondSize+1)+static_cast<int>(nbond[idx]*rngValues[idx])];
-    spinIdx[2*idx+0] = bondIdxTospinIdx[2*tmpbondIdx[idx]+0];
-    spinIdx[2*idx+1] = bondIdxTospinIdx[2*tmpbondIdx[idx]+1];
+    spinPairIdx[idx].first = bondIdxTospinIdx[2*tmpbondIdx[idx]+0];
+    spinPairIdx[idx].second = bondIdxTospinIdx[2*tmpbondIdx[idx]+1];
     idx += nstep;
   }
 }
@@ -112,14 +114,15 @@ __global__ void NNSpinExchanger__UpdateBondState__(const int nChains, const int 
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
   while (idx < nChains)
   {
-    const int booleanIdx = static_cast<int>(isExchanged[idx]);
-    // spinPairIdx: pairing index of a spin mediating a bond state
-    for (int spinPairIdx=0; spinPairIdx<2; ++spinPairIdx)
+    const int boolIdx = static_cast<int>(isExchanged[idx]);
+    // sp : pairing index of a spin mediating a bond state
+    for (int sp=0; sp<2; ++sp)
+      // n : index of the nearest neighbor of a spin
       for (int n=0; n<NNeighbors; ++n)
       {
         // nearest bond index of a spin index
-        const int nnbondIdx = spinIdxTobondIdx[NNeighbors*bondIdxTospinIdx[2*tmpbondIdx[idx]+spinPairIdx]+n];
-        bondState[maxBondSize*idx+nnbondIdx] = static_cast<bool>(booleanIdx+static_cast<int>(bondState[maxBondSize*idx+nnbondIdx])*(1-2*booleanIdx));
+        const int nbIdx = spinIdxTobondIdx[NNeighbors*bondIdxTospinIdx[2*tmpbondIdx[idx]+sp]+n];
+        bondState[maxBondSize*idx+nbIdx] = static_cast<bool>(boolIdx+static_cast<int>(bondState[maxBondSize*idx+nbIdx])*(1-2*boolIdx));
       }
     idx += nstep;
   }
