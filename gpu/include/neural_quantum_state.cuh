@@ -21,12 +21,14 @@ public:
   ComplexRBM(const ComplexRBM & rhs) = delete;
   ComplexRBM & operator=(const ComplexRBM & rhs) = delete;
   ~ComplexRBM();
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
+  void forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev, thrust::complex<FloatType> * lnpsi_dev);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev);
   void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate);
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
+  void spin_flip(const bool * isSpinPairFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev);
   void save(const RBMDataType typeInfo, const std::string filePath, const int precision = 10, const bool useCopyFromDeviceToHost = true);
   void save(const std::string prefix, const int precision = 10);
   void load(const RBMDataType typeInfo, const std::string filePath);
@@ -209,6 +211,12 @@ __global__ void logcosh(const int nInputs, const int nHiddens, const int nChains
   const thrust::complex<FloatType> * y, thrust::complex<FloatType> * z);
 
 template <typename FloatType>
+__global__ void logcosh(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::pair<int, int> * spinPairFlipIdx,
+  const thrust::complex<FloatType> * wi1, const thrust::complex<FloatType> * spinStates,
+  const thrust::complex<FloatType> * y, thrust::complex<FloatType> * z);
+
+template <typename FloatType>
 __global__ void update_parameters(const int size, const thrust::complex<FloatType> * derivativeLoss,
   const FloatType learningRate, thrust::complex<FloatType> * variables);
 
@@ -218,7 +226,16 @@ __global__ void conditional_y_update(const int nInputs, const int nHiddens, cons
   thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * y);
 
 template <typename FloatType>
+__global__ void conditional_y_update(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::pair<int, int> * spinPairFlipIdx, const bool * isSpinFlipped, const thrust::complex<FloatType> * w,
+  thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * y);
+
+template <typename FloatType>
 __global__ void conditional_spin_update(const int nInputs, const int nChains, const int spinFlipIndex,
+  const bool * isSpinFlipped, thrust::complex<FloatType> * spinStates);
+
+template <typename FloatType>
+__global__ void conditional_spin_update(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
   const bool * isSpinFlipped, thrust::complex<FloatType> * spinStates);
 
 
@@ -229,12 +246,22 @@ __global__ void RBM__sadot__(const int nInputs, const int nChains, const int spi
   const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * lnpsi);
 
 template <typename FloatType>
+__global__ void RBM__sadot__(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
+  const thrust::complex<FloatType> * sa, const thrust::complex<FloatType> * a,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * lnpsi);
+
+template <typename FloatType>
 __global__ void RBM__GetGradientsOfParameters__(const int nInputs, const int nHiddens, const int nChains,
   const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates,
   thrust::complex<FloatType> * d_dw, thrust::complex<FloatType> * d_da, thrust::complex<FloatType> * d_db);
 
 template <typename FloatType>
 __global__ void RBM__saUpdate__(const int nInputs, const int nChains, const int spinFlipIndex,
+  const bool * isSpinFlipped, const thrust::complex<FloatType> * spinStates,
+  const thrust::complex<FloatType> * a, thrust::complex<FloatType> * sa);
+
+template <typename FloatType>
+__global__ void RBM__saUpdate__(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
   const bool * isSpinFlipped, const thrust::complex<FloatType> * spinStates,
   const thrust::complex<FloatType> * a, thrust::complex<FloatType> * sa);
 

@@ -62,9 +62,13 @@ ComplexRBM<FloatType>::~ComplexRBM()
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void ComplexRBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
-  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  if (spinStates_dev == nullptr)
+    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, knHiddens, knChains, kone, b_dev_,
@@ -122,6 +126,21 @@ void ComplexRBM<FloatType>::forward(const thrust::complex<FloatType> * spinState
 }
 
 template <typename FloatType>
+void ComplexRBM<FloatType>::forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev,
+  thrust::complex<FloatType> * lnpsi_dev)
+{
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), w_dev_, PTR_FROM_THRUST(spinStates_dev_.data()),
+    PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(ly_dev_.data()));
+  // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
+  gpu_kernel::RBM__sadot__<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), PTR_FROM_THRUST(sa_dev_.data()),
+    PTR_FROM_THRUST(a_dev_), PTR_FROM_THRUST(spinStates_dev_.data()), lnpsi_dev);
+  cublas::gemm(theCublasHandle_, 1, knChains, knHiddens, kone, kone, PTR_FROM_THRUST(koneHiddens_dev.data()),
+    PTR_FROM_THRUST(ly_dev_.data()), lnpsi_dev);
+}
+
+template <typename FloatType>
 void ComplexRBM<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   gpu_kernel::RBM__GetGradientsOfParameters__<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
@@ -157,6 +176,18 @@ void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int 
     isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(a_dev_), PTR_FROM_THRUST(sa_dev_.data()));
   gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
     isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+}
+
+template <typename FloatType>
+void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev)
+{
+  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), isSpinFlipped_dev, w_dev_,
+    PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::RBM__saUpdate__<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, PTR_FROM_THRUST(spinPairFlipIdx_dev.data()),
+    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(a_dev_), PTR_FROM_THRUST(sa_dev_.data()));
+  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
 }
 
 template <typename FloatType>
@@ -1001,6 +1032,26 @@ __global__ void logcosh(const int nInputs, const int nHiddens, const int nChains
 }
 
 template <typename FloatType>
+__global__ void logcosh(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::pair<int, int> * spinPairFlipIdx,
+  const thrust::complex<FloatType> * wi1, const thrust::complex<FloatType> * spinStates,
+  const thrust::complex<FloatType> * y, thrust::complex<FloatType> * z)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType two = 2;
+  while (idx < nChains*nHiddens)
+  {
+    const int k = idx/nHiddens, j = idx-nHiddens*k,
+      spinFlipIdx1 = spinPairFlipIdx[k].first, spinFlipIdx2 = spinPairFlipIdx[k].second;
+    z[idx] = gpu_device::logcosh(y[idx]
+      -wi1[spinFlipIdx1*nHiddens+j]*(two*spinStates[k*nInputs+spinFlipIdx1].real())
+      -wi1[spinFlipIdx2*nHiddens+j]*(two*spinStates[k*nInputs+spinFlipIdx2].real()));
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
 __global__ void update_parameters(const int size, const thrust::complex<FloatType> * derivativeLoss,
   const FloatType learningRate, thrust::complex<FloatType> * variables)
 {
@@ -1032,6 +1083,28 @@ __global__ void conditional_y_update(const int nInputs, const int nHiddens,
 }
 
 template <typename FloatType>
+__global__ void conditional_y_update(const int nInputs, const int nHiddens,
+  const int nChains, const thrust::pair<int, int> * spinPairFlipIdx, const bool * isSpinFlipped,
+  const thrust::complex<FloatType> * w, thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * y)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType twoDelta[2] = {0.0, 2.0};
+  // update y: y_{k,j} = y_{k,j} - 2*delta(k)*wi1_{spinFlipIndex,j}*spinStates_{k,spinFlipIndex}
+  while (idx < nChains*nHiddens)
+  {
+    const int k = idx/nHiddens,
+              j = idx-nHiddens*k;
+    const int spinFlipIdx1 = spinPairFlipIdx[k].first,
+              spinFlipIdx2 = spinPairFlipIdx[k].second;
+    y[idx] = y[idx]-twoDelta[isSpinFlipped[k]]*
+      (w[spinFlipIdx1*nHiddens+j]*spinStates[k*nInputs+spinFlipIdx1].real()
+      +w[spinFlipIdx2*nHiddens+j]*spinStates[k*nInputs+spinFlipIdx2].real());
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
 __global__ void conditional_spin_update(const int nInputs, const int nChains, const int spinFlipIndex,
   const bool * isSpinFlipped, thrust::complex<FloatType> * spinStates)
 {
@@ -1048,6 +1121,25 @@ __global__ void conditional_spin_update(const int nInputs, const int nChains, co
   }
 }
 
+template <typename FloatType>
+__global__ void conditional_spin_update(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
+  const bool * isSpinFlipped, thrust::complex<FloatType> * spinStates)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType one = 1.0, twoDelta[2] = {0.0, 2.0};
+  // update spin: spinState_{k,spinFlipIndex} = (1-2*delta(k))*spinStates_{k,spinFlipIndex}
+  idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    const int spinFlipIdx1 = spinPairFlipIdx[k].first,
+              spinFlipIdx2 = spinPairFlipIdx[k].second;
+    spinStates[k*nInputs+spinFlipIdx1] = (one-twoDelta[isSpinFlipped[k]])*spinStates[k*nInputs+spinFlipIdx1].real();
+    spinStates[k*nInputs+spinFlipIdx2] = (one-twoDelta[isSpinFlipped[k]])*spinStates[k*nInputs+spinFlipIdx2].real();
+    idx += nstep;
+  }
+}
 
 // GPU kernels for RBM and RBMTrSymm
 template <typename FloatType>
@@ -1060,8 +1152,27 @@ __global__ void RBM__sadot__(const int nInputs, const int nChains, const int spi
   const FloatType two = 2;
   while (idx < nChains)
   {
-
     lnpsi[idx] = sa[idx]-(two*spinStates[idx*nInputs+spinFlipIndex].real())*a[spinFlipIndex];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void RBM__sadot__(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
+  const thrust::complex<FloatType> * sa, const thrust::complex<FloatType> * a,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * lnpsi)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; 
+  const FloatType two = 2;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    const int spinFlipIdx1 = spinPairFlipIdx[k].first,
+              spinFlipIdx2 = spinPairFlipIdx[k].second;
+    lnpsi[k] = sa[k]
+      -(two*spinStates[k*nInputs+spinFlipIdx1].real())*a[spinFlipIdx1]
+      -(two*spinStates[k*nInputs+spinFlipIdx2].real())*a[spinFlipIdx2];
     idx += nstep;
   }
 }
@@ -1103,6 +1214,26 @@ __global__ void RBM__saUpdate__(const int nInputs, const int nChains, const int 
   while (idx < nChains)
   {
     sa[idx] = sa[idx]-(twoDelta[isSpinFlipped[idx]]*spinStates[idx*nInputs+spinFlipIndex].real())*a[spinFlipIndex];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void RBM__saUpdate__(const int nInputs, const int nChains, const thrust::pair<int, int> * spinPairFlipIdx,
+  const bool * isSpinFlipped, const thrust::complex<FloatType> * spinStates,
+  const thrust::complex<FloatType> * a, thrust::complex<FloatType> * sa)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType twoDelta[2] = {0.0, 2.0};
+  // update sa: sa_{k} = sa_{k} - 2*delta(k)*a_{spinFlipIndex}*spinStates_{k,spinFlipIndex}
+  while (idx < nChains)
+  {
+    const int k = idx;
+    const int spinFlipIdx1 = spinPairFlipIdx[k].first,
+              spinFlipIdx2 = spinPairFlipIdx[k].second;
+    sa[k] = sa[k]-twoDelta[isSpinFlipped[k]]*(spinStates[k*nInputs+spinFlipIdx1].real()*a[spinFlipIdx1]
+                                             +spinStates[k*nInputs+spinFlipIdx2].real()*a[spinFlipIdx2]);
     idx += nstep;
   }
 }
