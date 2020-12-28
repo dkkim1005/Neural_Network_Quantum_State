@@ -20,8 +20,7 @@ class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
   using RandEngineType = trng::yarn2;
 public:
   TFIChain(AnsatzType & machine, const FloatType h, const FloatType J,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0,
-    const FloatType dropOutRate = 1);
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
@@ -36,9 +35,6 @@ protected:
   std::vector<std::array<int, 2> > nnidx_;
   const int knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
-#ifndef NO_USE_BATCH
-  RandomBatchIndexing<RandEngineType> batchAllocater_;
-#endif
 };
 
 
@@ -52,8 +48,7 @@ class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
   using RandEngineType = trng::yarn2;
 public:
   TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0,
-    const FloatType dropOutRate = 1);
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
@@ -68,7 +63,6 @@ protected:
   std::vector<std::array<int, 4> > nnidx_;
   const int kL, knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
-  RandomBatchIndexing<RandEngineType> batchAllocater_;
 };
 
 
@@ -82,8 +76,7 @@ class TFITRI: public BaseParallelSampler<TFITRI, TraitsClass>
   using RandEngineType = trng::yarn2;
 public:
   TFITRI(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0,
-    const FloatType dropOutRate = 1);
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
@@ -98,7 +91,6 @@ private:
   std::vector<std::array<int, 6> > nnidx_;
   const int kL, knSites, knChains;
   const FloatType kh, kJ, kzero, ktwo;
-  RandomBatchIndexing<RandEngineType> batchAllocater_;
 };
 
 
@@ -113,8 +105,7 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
     const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary,
-    const unsigned long seedDistance, const unsigned long seedNumber = 0,
-    const FloatType dropOutRate = 1);
+    const unsigned long seedDistance, const unsigned long seedNumber = 0);
   void get_htilda(std::complex<FloatType> * htilda);
   void get_lnpsiGradients(std::complex<FloatType> * lnpsiGradients);
   void evolve(const std::complex<FloatType> * trueGradients, const FloatType learningRate);
@@ -130,7 +121,6 @@ private:
   std::vector<std::array<FloatType, 8> > Jmatrix_;
   const int kL, knSites, knChains;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
-  RandomBatchIndexing<RandEngineType> batchAllocater_;
 };
 } //  namespace spinhalf
 

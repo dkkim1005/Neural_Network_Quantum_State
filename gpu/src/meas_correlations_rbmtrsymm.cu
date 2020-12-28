@@ -6,6 +6,8 @@
 #include "../include/meas.cuh"
 #include "../../cpu/include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -49,7 +51,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexRBMTrSymm<double> psi(L, nf, nChains);
+  RBMTrSymm<double> psi(L, nf, nChains);
 
   const std::string filepath = parser.find<>("path") + "/" + parser.find<>("filename");
 
@@ -63,7 +65,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = ComplexRBMTrSymm<double>; using FloatType = double; };
+  struct TRAITS { using AnsatzType = RBMTrSymm<double>; using FloatType = double; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
   MeasSpinSpinCorrelation<TRAITS> corr(smp);

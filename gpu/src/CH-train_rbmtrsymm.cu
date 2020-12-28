@@ -1,11 +1,12 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
-#define NO_USE_BATCH
 
 #include "../include/common.cuh"
 #include "../include/neural_quantum_state.cuh"
 #include "../include/hamiltonians.cuh"
 #include "../include/optimizer.cuh"
 #include "../../cpu/include/argparse.hpp"
+
+using namespace spinhalf;
 
 int main(int argc, char* argv[])
 {
@@ -68,7 +69,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  struct SamplerTraits { using AnsatzType = ComplexRBMTrSymm<double>; using FloatType = double;};
+  struct SamplerTraits { using AnsatzType = RBMTrSymm<double>; using FloatType = double; };
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
     hstr.erase(hstr.find_last_not_of('0') + 1, std::string::npos);
     hstr.erase(hstr.find_last_not_of('.') + 1, std::string::npos);
 
-    ComplexRBMTrSymm<double> machine(nInputs, alpha, nChains);
+    RBMTrSymm<double> machine(nInputs, alpha, nChains);
 
     // load parameters
     const std::string prefix = path + "RBMTrSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
@@ -94,7 +95,7 @@ int main(int argc, char* argv[])
     machine.load(prefix0);
 
     // Transverse Field Ising Hamiltonian on the 1D chain lattice
-    spinhalf::TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, prefix);
+    TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, prefix);
 
     const auto start = std::chrono::system_clock::now();
 

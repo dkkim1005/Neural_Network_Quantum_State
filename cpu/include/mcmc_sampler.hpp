@@ -89,6 +89,7 @@ using BaseParallelTemperingSampler<DERIVED_SAMPLER, PROPERTIES>::lnpsi0_
 /*
  * return a randomly shuffled array: [0,1,2,3,4,5,...] => [[4,0,1,...],[2,3,5,...],[...],...]
  */
+/*
 template <typename RandEngineType>
 class RandomBatchIndexing
 {
@@ -102,5 +103,5 @@ private:
   int batchSetIdx_;
   RandEngineType rng_;
 };
-
+*/
 #include "impl_mcmc_sampler.hpp"

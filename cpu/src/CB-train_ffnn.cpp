@@ -5,6 +5,8 @@
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -13,28 +15,30 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("na", "# of iterations to average out observables"));
-  options.push_back(pair_t("niter", "# of iterations to train FNN"));
+  options.push_back(pair_t("niter", "# of iterations to train FFNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
   options.push_back(pair_t("nms", "# of MCMC steps for sampling spins"));
-  options.push_back(pair_t("J", "coupling constant"));
+  options.push_back(pair_t("J1", "J1 coupling constant"));
+  options.push_back(pair_t("J2", "J2 coupling constant"));
+  options.push_back(pair_t("pb", "use periodic boundary condition"));
   options.push_back(pair_t("lr", "learning_rate"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("nthread", "# of threads for openmp"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
-  options.push_back(pair_t("dr", "dropout rate"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
-  defaults.push_back(pair_t("J", "-1.0"));
+  defaults.push_back(pair_t("J1", "-1.0"));
+  defaults.push_back(pair_t("J2", "0.0"));
+  defaults.push_back(pair_t("pb", "1"));
   defaults.push_back(pair_t("lr", "5e-3"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("nthread", "1"));
   defaults.push_back(pair_t("ifprefix", "None"));
-  defaults.push_back(pair_t("dr", "5e-1"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
@@ -49,9 +53,10 @@ int main(int argc, char* argv[])
             num_omp_threads = parser.find<int>("nthread"),
             version = parser.find<int>("ver");
   const double h = parser.find<double>("h"),
-               J = parser.find<double>("J"),
-               lr = parser.find<double>("lr"),
-               dr = parser.find<double>("dr");
+               J1 = parser.find<double>("J1"),
+               J2 = parser.find<double>("J2"),
+               lr = parser.find<double>("lr");
+  const bool usePeriodicBoundary = parser.find<bool>("pb");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
                     nistr = std::to_string(nInputs),
@@ -67,14 +72,14 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  FFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
-  const std::string prefix = path + "TRI-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  const std::string prefix = path + "CB-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(spinhalf::FNNDataType::W1, prefix0 + "Dw1.dat");
-  machine.load(spinhalf::FNNDataType::W2, prefix0 + "Dw2.dat");
-  machine.load(spinhalf::FNNDataType::B1, prefix0 + "Db1.dat");
+  machine.load(FFNNDataType::W1, prefix0 + "Dw1.dat");
+  machine.load(FFNNDataType::W2, prefix0 + "Dw2.dat");
+  machine.load(FFNNDataType::B1, prefix0 + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -82,15 +87,15 @@ int main(int argc, char* argv[])
                                 static_cast<unsigned long>(nInputs)*
                                 static_cast<unsigned long>(nChains);
 
-  // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFITRI<AnsatzTraits<Ansatz::FNN, double> > sampler(machine, L, h, J, nBlocks, seed, dr);
+  // Transverse Field Ising Hamiltonian on the checkerboard lattce
+  TFICheckerBoard<AnsatzTraits<Ansatz::FFNN, double> >
+    sampler(machine, L, h, {J1, J2}, usePeriodicBoundary, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   sampler.warm_up(nWarmup);
 
   // imaginary time propagator
-  const int nCutHiddens = static_cast<int>(nHiddens*dr);
-  StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, (nInputs*nCutHiddens+2*nCutHiddens));
+  StochasticReconfiguration<double, linearsolver::BKF> iTimePropagator(nChains, machine.get_nVariables());
   iTimePropagator.propagate(sampler, nIterations, nAccumulation, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
@@ -98,9 +103,9 @@ int main(int argc, char* argv[])
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
   // save parameters
-  machine.save(spinhalf::FNNDataType::W1, prefix + "Dw1.dat");
-  machine.save(spinhalf::FNNDataType::W2, prefix + "Dw2.dat");
-  machine.save(spinhalf::FNNDataType::B1, prefix + "Db1.dat");
+  machine.save(FFNNDataType::W1, prefix + "Dw1.dat");
+  machine.save(FFNNDataType::W2, prefix + "Dw2.dat");
+  machine.save(FFNNDataType::B1, prefix + "Db1.dat");
 
   return 0;
 }

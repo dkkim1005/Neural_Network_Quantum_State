@@ -6,11 +6,7 @@ namespace spinhalf
 {
 template <typename TraitsClass>
 TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-  const unsigned long seedNumber, const unsigned long seedDistance,
-#ifndef NO_USE_BATCH
-  const FloatType dropOutRate,
-#endif
-  const std::string prefix):
+  const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix):
   BaseParallelSampler<TFIChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knChains(machine.get_nChains()),
@@ -23,9 +19,6 @@ TFIChain<TraitsClass>::TFIChain(AnsatzType & machine, const int L, const FloatTy
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(2*machine.get_nInputs()),
   kJmatrix_dev(2*machine.get_nInputs(), J),
-#ifndef NO_USE_BATCH
-  batchAllocater_(machine.get_nHiddens(), dropOutRate),
-#endif
   kprefix(prefix)
 {
   if (kL != machine.get_nInputs())
@@ -103,22 +96,13 @@ void TFIChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-#ifndef NO_USE_BATCH 
-  machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
-#else
   machine_.backward(lnpsiGradients_dev);
-#endif
 }
 
 template <typename TraitsClass>
 void TFIChain<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
-#ifndef NO_USE_BATCH
-  machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
-  batchAllocater_.next();
-#else
   machine_.update_variables(trueGradients_dev, learningRate);
-#endif
 }
 
 template <typename TraitsClass>
@@ -267,7 +251,7 @@ void LITFIChain<TraitsClass>::save_() const
 
 template <typename TraitsClass>
 TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J,
-  const unsigned long seedNumber, const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
+  const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix):
   BaseParallelSampler<TFISQ, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -281,8 +265,7 @@ TFISQ<TraitsClass>::TFISQ(AnsatzType & machine, const int L, const FloatType h, 
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(4*machine.get_nInputs()),
   kJmatrix_dev(4*machine.get_nInputs(), J),
-  kprefix(prefix),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate)
+  kprefix(prefix)
 {
   if (kL*kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L*L!");
@@ -371,14 +354,13 @@ void TFISQ<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * lnpsi0_d
 template <typename TraitsClass>
 void TFISQ<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-  machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
+  machine_.backward(lnpsiGradients_dev);
 }
 
 template <typename TraitsClass>
 void TFISQ<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
-  machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
-  batchAllocater_.next();
+  machine_.update_variables(trueGradients_dev, learningRate);
 }
 
 template <typename TraitsClass>
@@ -391,7 +373,7 @@ void TFISQ<TraitsClass>::save_() const
 template <typename TraitsClass>
 TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
   const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary, const unsigned long seedNumber,
-  const unsigned long seedDistance, const FloatType dropOutRate, const std::string prefix):
+  const unsigned long seedDistance, const std::string prefix):
   BaseParallelSampler<TFICheckerBoard, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   kL(L),
   knSites(machine.get_nInputs()),
@@ -407,8 +389,7 @@ TFICheckerBoard<TraitsClass>::TFICheckerBoard(AnsatzType & machine, const int L,
   diag_dev_(machine.get_nChains()),
   nnidx_dev_(8*machine.get_nInputs(), 0),
   Jmatrix_dev_(8*machine.get_nInputs(), 0),
-  kprefix(prefix),
-  batchAllocater_(machine.get_nHiddens(), dropOutRate)
+  kprefix(prefix)
 {
   if (kL*kL != machine.get_nInputs())
     throw std::length_error("machine.get_nInputs() is not the same as L*L!");
@@ -589,14 +570,13 @@ void TFICheckerBoard<TraitsClass>::get_htilda_(const thrust::complex<FloatType> 
 template <typename TraitsClass>
 void TFICheckerBoard<TraitsClass>::get_lnpsiGradients_(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-  machine_.backward(lnpsiGradients_dev, batchAllocater_.get_miniBatch());
+  machine_.backward(lnpsiGradients_dev);
 }
 
 template <typename TraitsClass>
 void TFICheckerBoard<TraitsClass>::evolve_(const thrust::complex<FloatType> * trueGradients_dev, const FloatType learningRate)
 {
-  machine_.update_variables(trueGradients_dev, learningRate, batchAllocater_.get_miniBatch());
-  batchAllocater_.next();
+  machine_.update_variables(trueGradients_dev, learningRate);
 }
 
 template <typename TraitsClass>
@@ -673,7 +653,7 @@ void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * l
   // onsite interaction term
   gpu_kernel::HubbardChain__GetOnSiteElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, kU, spinStates_dev, htilda_dev);
 
-  gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
+  //gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
 }
 
 template <typename TraitsClass>

@@ -5,6 +5,8 @@
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -47,18 +49,19 @@ int main(int argc, char* argv[])
   const bool usePBC = parser.find<bool>("pbc");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string prefix = parser.find<>("prefix");
+
   // print info of the registered args
   parser.print(std::cout);
 
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  RBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
-  machine.load(spinhalf::FNNDataType::W1, prefix + "w1.dat");
-  machine.load(spinhalf::FNNDataType::B1, prefix + "b1.dat");
-  machine.load(spinhalf::FNNDataType::W2, prefix + "w2.dat");
+  machine.load(RBMDataType::W, prefix + "w.dat");
+  machine.load(RBMDataType::V, prefix + "v.dat");
+  machine.load(RBMDataType::H, prefix + "h.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(niter)*
@@ -67,20 +70,21 @@ int main(int argc, char* argv[])
 
   struct TRAITS
   {
-    typedef spinhalf::ComplexFNN<double> AnsatzType; 
+    typedef RBM<double> AnsatzType; 
     typedef double FloatType;
   };
 
-  fermion::jordanwigner::HubbardChain<TRAITS> sampler(machine, U, t, nParticles, usePBC, nBlocks, seed);
+  fermion::jordanwigner::HubbardChain<TRAITS> sampler(machine, U, t, nParticles, usePBC, nBlocks);
+
   sampler.warm_up(nwarm);
 
   StochasticReconfigurationCG<double> optimizer(nChains, machine.get_nVariables());
   optimizer.propagate(sampler, niter, nms, lr);
 
   // save parameters: w,a,b
-  machine.save(spinhalf::FNNDataType::W1, prefix + "w1.dat");
-  machine.save(spinhalf::FNNDataType::B1, prefix + "b1.dat");
-  machine.save(spinhalf::FNNDataType::W2, prefix + "w2.dat");
+  machine.save(RBMDataType::W, prefix + "w.dat");
+  machine.save(RBMDataType::V, prefix + "v.dat");
+  machine.save(RBMDataType::H, prefix + "h.dat");
 
   return 0;
 }

@@ -58,6 +58,7 @@ __global__ void Sampler__ParallelMetropolisUpdate__(
 /*
  * return a randomly shuffled array: [0,1,2,3,4,5,...] => [[4,0,1,...],[2,3,5,...],[...],...]
  */
+/*
 class RandomBatchIndexing
 {
 public:
@@ -118,5 +119,5 @@ private:
   int miniBatchesIdx_;
   std::mt19937 rng_;
 };
-
+*/
 #include "impl_mcmc_sampler.cuh"

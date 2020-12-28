@@ -22,12 +22,12 @@ namespace spinhalf
 enum class RBMDataType { W, V, H };
 
 template <typename FloatType>
-class ComplexRBM
+class RBM
 {
 public:
-  ComplexRBM(const int nInputs, const int nHiddens, const int nChains);
-  ComplexRBM(const ComplexRBM & rhs) = delete;
-  ComplexRBM & operator=(const ComplexRBM & rhs) = delete;
+  RBM(const int nInputs, const int nHiddens, const int nChains);
+  RBM(const RBM & rhs) = delete;
+  RBM & operator=(const RBM & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void update_partial_variables(const std::complex<FloatType> * derivativeLoss,
     const FloatType learningRate, const std::vector<int> & hiddenNodes);
@@ -65,12 +65,12 @@ private:
 
 // complex RBM with spatial translational symmetry (periodic boundary condition is emposed.)
 template <typename FloatType>
-class ComplexRBMTrSymm
+class RBMTrSymm
 {
 public:
-  ComplexRBMTrSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexRBMTrSymm(const ComplexRBMTrSymm & rhs) = delete;
-  ComplexRBMTrSymm & operator=(const ComplexRBMTrSymm & rhs) = delete;
+  RBMTrSymm(const int nInputs, const int alpha, const int nChains);
+  RBMTrSymm(const RBMTrSymm & rhs) = delete;
+  RBMTrSymm & operator=(const RBMTrSymm & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
@@ -101,12 +101,12 @@ private:
 
 
 template <typename FloatType>
-class ComplexRBMSfSymm
+class RBMSfSymm
 {
 public:
-  ComplexRBMSfSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexRBMSfSymm(const ComplexRBMSfSymm & rhs) = delete;
-  ComplexRBMSfSymm & operator=(const ComplexRBMSfSymm & rhs) = delete;
+  RBMSfSymm(const int nInputs, const int alpha, const int nChains);
+  RBMSfSymm(const RBMSfSymm & rhs) = delete;
+  RBMSfSymm & operator=(const RBMSfSymm & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
@@ -137,15 +137,15 @@ private:
  * W2: weight matrix  "" the hidden and output layers
  * B1: bias vector added to the hidden layer
  */
-enum class FNNDataType { W1, W2, B1 };
+enum class FFNNDataType { W1, W2, B1 };
 
 template <typename FloatType>
-class ComplexFNN
+class FFNN
 {
 public:
-  ComplexFNN(const int nInputs, const int nHiddens, const int nChains);
-  ComplexFNN(const ComplexFNN & rhs) = delete;
-  ComplexFNN & operator=(const ComplexFNN & rhs) = delete;
+  FFNN(const int nInputs, const int nHiddens, const int nChains);
+  FFNN(const FFNN & rhs) = delete;
+  FFNN & operator=(const FFNN & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void update_partial_variables(const std::complex<FloatType> * derivativeLoss,
     const FloatType learningRate, const std::vector<int> & hiddenNodes);
@@ -156,8 +156,8 @@ public:
   void backward(std::complex<FloatType> * lnpsiGradients);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const int & nChains);
   void partial_backward(std::complex<FloatType> * lnpsiGradients, const std::vector<int> & hiddenNodes);
-  void load(const FNNDataType typeInfo, const std::string filePath);
-  void save(const FNNDataType typeInfo, const std::string filePath,
+  void load(const FFNNDataType typeInfo, const std::string filePath);
+  void save(const FFNNDataType typeInfo, const std::string filePath,
     const int precision = FloatTypeTrait_<FloatType>::precision) const;
   void spin_flip(const std::vector<bool> & doSpinFlip, const int spinFlipIndex = -1);
   void spin_flip(const std::vector<bool> & doSpinFlip, const std::vector<std::vector<int> > & spinFlipIndexes);
@@ -181,12 +181,12 @@ private:
 };
 
 template <typename FloatType>
-class ComplexFNNTrSymm
+class FFNNTrSymm
 {
 public:
-  ComplexFNNTrSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexFNNTrSymm(const ComplexFNNTrSymm & rhs) = delete;
-  ComplexFNNTrSymm & operator=(const ComplexFNNTrSymm & rhs) = delete;
+  FFNNTrSymm(const int nInputs, const int alpha, const int nChains);
+  FFNNTrSymm(const FFNNTrSymm & rhs) = delete;
+  FFNNTrSymm & operator=(const FFNNTrSymm & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);
@@ -216,12 +216,12 @@ private:
 
 
 template <typename FloatType>
-class ComplexFNNSfSymm
+class FFNNSfSymm
 {
 public:
-  ComplexFNNSfSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexFNNSfSymm(const ComplexFNNSfSymm & rhs) = delete;
-  ComplexFNNSfSymm & operator=(const ComplexFNNSfSymm & rhs) = delete;
+  FFNNSfSymm(const int nInputs, const int alpha, const int nChains);
+  FFNNSfSymm(const FFNNSfSymm & rhs) = delete;
+  FFNNSfSymm & operator=(const FFNNSfSymm & rhs) = delete;
   void update_variables(const std::complex<FloatType> * derivativeLoss, const FloatType learningRate);
   void initialize(std::complex<FloatType> * lnpsi, const std::complex<FloatType> * spinStates = NULL);
   void forward(const int spinFlipIndex, std::complex<FloatType> * lnpsi);

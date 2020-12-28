@@ -220,7 +220,7 @@ typename TraitsClass::FloatType BaseParallelTemperingSampler<DerivedParallelTemp
   return acceptanceRatio;
 }
 
-
+/*
 template <typename RandEngineType>
 RandomBatchIndexing<RandEngineType>::RandomBatchIndexing(const int size, const double rate):
   indexOfFullBatch_(size),
@@ -267,3 +267,4 @@ void RandomBatchIndexing<RandEngineType>::next()
         item = indexOfFullBatch_[nodeIdx++];
   }
 }
+*/

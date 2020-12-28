@@ -3,6 +3,8 @@
 #include "../include/meas.cuh"
 #include "../../cpu/include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -39,7 +41,7 @@ int main(int argc, char* argv[])
     nIterations =  parser.find<int>("niter"),
     subRegionLength = parser.find<int>("l"),
     version = parser.find<int>("ver");
-  const float h = parser.find<float>("h");
+  const double h = parser.find<double>("h");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
     nistr = std::to_string(nInputs),
@@ -70,25 +72,25 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<float> psi1(nInputs, nHiddens, nChains), psi2(nInputs, nHiddens, nChains), psi3(nInputs, nHiddens, nChains);
+  FFNN<double> psi1(nInputs, nHiddens, nChains), psi2(nInputs, nHiddens, nChains), psi3(nInputs, nHiddens, nChains);
 
   // load parameters
   const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
 
-  psi1.load(FNNDataType::W1, prefix0 + "Dw1.dat");
-  psi1.load(FNNDataType::W2, prefix0 + "Dw2.dat");
-  psi1.load(FNNDataType::B1, prefix0 + "Db1.dat");
+  psi1.load(FFNNDataType::W1, prefix0 + "Dw1.dat");
+  psi1.load(FFNNDataType::W2, prefix0 + "Dw2.dat");
+  psi1.load(FFNNDataType::B1, prefix0 + "Db1.dat");
   psi1.copy_to(psi2);
   psi1.copy_to(psi3);
 
-  struct TRAITS { using AnsatzType = ComplexFNN<float>; using FloatType = float; };
+  struct TRAITS { using AnsatzType = FFNN<double>; using FloatType = double; };
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
-                                static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs)*
-                                static_cast<unsigned long>(nChains);
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(nInputs)*
+    static_cast<unsigned long>(nChains);
 
   Sampler4SpinHalf<TRAITS> sampler1(psi1, seed, nBlocks), sampler2(psi2, seed+987654321ul, nBlocks);
   MeasRenyiEntropy<TRAITS> S2measure(sampler1, sampler2, psi3);

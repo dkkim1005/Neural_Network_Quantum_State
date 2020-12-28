@@ -2,8 +2,10 @@
 
 #pragma once
 
+namespace spinhalf
+{
 template <typename FloatType>
-ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const int nChains):
+RBM<FloatType>::RBM(const int nInputs, const int nHiddens, const int nChains):
   knInputs(nInputs),
   knHiddens(nHiddens),
   knChains(nChains),
@@ -56,13 +58,13 @@ ComplexRBM<FloatType>::ComplexRBM(const int nInputs, const int nHiddens, const i
 }
 
 template <typename FloatType>
-ComplexRBM<FloatType>::~ComplexRBM()
+RBM<FloatType>::~RBM()
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
+void RBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
   if (spinStates_dev == nullptr)
     thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
@@ -88,7 +90,7 @@ void ComplexRBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, c
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+void RBM<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
 {
   index_ = spinFlipIndex;
   gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains, index_, w_dev_,
@@ -101,7 +103,7 @@ void ComplexRBM<FloatType>::forward(const int spinFlipIndex, thrust::complex<Flo
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev,
+void RBM<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev,
   thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
 {
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
@@ -126,7 +128,7 @@ void ComplexRBM<FloatType>::forward(const thrust::complex<FloatType> * spinState
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev,
+void RBM<FloatType>::forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev,
   thrust::complex<FloatType> * lnpsi_dev)
 {
   gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
@@ -141,7 +143,7 @@ void ComplexRBM<FloatType>::forward(const thrust::device_vector<thrust::pair<int
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
+void RBM<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   gpu_kernel::RBM__GetGradientsOfParameters__<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
     PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()),
@@ -151,7 +153,7 @@ void ComplexRBM<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+void RBM<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
 {
   gpu_kernel::update_parameters<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
@@ -167,7 +169,7 @@ void ComplexRBM<FloatType>::update_variables(const thrust::complex<FloatType> * 
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+void RBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
 {
   index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains, index_,
@@ -179,7 +181,7 @@ void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int 
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev)
+void RBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev)
 {
   gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
     PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), isSpinFlipped_dev, w_dev_,
@@ -191,7 +193,7 @@ void ComplexRBM<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const thru
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string filePath, const int precision, const bool useCopyFromDeviceToHost)
+void RBM<FloatType>::save(const RBMDataType typeInfo, const std::string filePath, const int precision, const bool useCopyFromDeviceToHost)
 {
   if (useCopyFromDeviceToHost)
     variables_host_ = variables_dev_; // copy memory from device to host
@@ -220,7 +222,7 @@ void ComplexRBM<FloatType>::save(const RBMDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::save(const std::string prefix, const int precision)
+void RBM<FloatType>::save(const std::string prefix, const int precision)
 {
   variables_host_ = variables_dev_; // copy memory from device to host
   this->save(RBMDataType::W, prefix + "Dw.dat", precision, false);
@@ -229,7 +231,7 @@ void ComplexRBM<FloatType>::save(const std::string prefix, const int precision)
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::load(const RBMDataType typeInfo, const std::string filePath)
+void RBM<FloatType>::load(const RBMDataType typeInfo, const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
   thrust::host_vector<thrust::complex<FloatType>> rawdata;
@@ -275,7 +277,7 @@ void ComplexRBM<FloatType>::load(const RBMDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::load(const std::string prefix)
+void RBM<FloatType>::load(const std::string prefix)
 {
   this->load(RBMDataType::W, prefix + "Dw.dat");
   this->load(RBMDataType::V, prefix + "Da.dat");
@@ -283,7 +285,7 @@ void ComplexRBM<FloatType>::load(const std::string prefix)
 }
 
 template <typename FloatType>
-void ComplexRBM<FloatType>::copy_to(ComplexRBM<FloatType> & rbm) const
+void RBM<FloatType>::copy_to(RBM<FloatType> & rbm) const
 {
   if (knChains != rbm.get_nChains())
     throw std::length_error("knChains != rbm.get_nChains()");
@@ -296,7 +298,7 @@ void ComplexRBM<FloatType>::copy_to(ComplexRBM<FloatType> & rbm) const
 
 
 template <typename FloatType>
-ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha, const int nChains):
+RBMTrSymm<FloatType>::RBMTrSymm(const int nInputs, const int alpha, const int nChains):
   knInputs(nInputs),
   kAlpha(alpha),
   knChains(nChains),
@@ -352,13 +354,13 @@ ComplexRBMTrSymm<FloatType>::ComplexRBMTrSymm(const int nInputs, const int alpha
 }
 
 template <typename FloatType>
-ComplexRBMTrSymm<FloatType>::~ComplexRBMTrSymm()
+RBMTrSymm<FloatType>::~RBMTrSymm()
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void RBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 {
   thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
   this->symmetrize_variables();
@@ -381,7 +383,7 @@ void ComplexRBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+void RBMTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
 {
   index_ = spinFlipIndex;
   gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
@@ -394,7 +396,7 @@ void ComplexRBMTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::compl
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev,
+void RBMTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev,
   thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
 {
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
@@ -419,7 +421,7 @@ void ComplexRBMTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spi
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
+void RBMTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   gpu_kernel::RBMTrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha, knChains,
     PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), d_dw_dev_, d_da_dev_, d_db_dev_);
@@ -428,7 +430,7 @@ void ComplexRBMTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGra
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+void RBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
 {
   gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
@@ -445,7 +447,7 @@ void ComplexRBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatTy
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+void RBMTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
 {
   index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
@@ -457,7 +459,7 @@ void ComplexRBMTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, cons
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::save(const std::string filePath, const int precision)
+void RBMTrSymm<FloatType>::save(const std::string filePath, const int precision)
 {
   std::ofstream writer(filePath);
   writer << std::setprecision(precision);
@@ -468,7 +470,7 @@ void ComplexRBMTrSymm<FloatType>::save(const std::string filePath, const int pre
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::load(const std::string filePath)
+void RBMTrSymm<FloatType>::load(const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
   std::vector<std::complex<FloatType>> rawdata;
@@ -497,7 +499,7 @@ void ComplexRBMTrSymm<FloatType>::load(const std::string filePath)
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::copy_to(ComplexRBMTrSymm<FloatType> & rbm) const
+void RBMTrSymm<FloatType>::copy_to(RBMTrSymm<FloatType> & rbm) const
 {
   if (knChains != rbm.get_nChains())
     throw std::length_error("knChains != rbm.get_nChains()");
@@ -510,7 +512,7 @@ void ComplexRBMTrSymm<FloatType>::copy_to(ComplexRBMTrSymm<FloatType> & rbm) con
 }
 
 template <typename FloatType>
-void ComplexRBMTrSymm<FloatType>::symmetrize_variables()
+void RBMTrSymm<FloatType>::symmetrize_variables()
 {
   gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
     w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
@@ -518,7 +520,7 @@ void ComplexRBMTrSymm<FloatType>::symmetrize_variables()
 
 
 template <typename FloatType>
-ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const int nChains):
+FFNN<FloatType>::FFNN(const int nInputs, const int nHiddens, const int nChains):
   knInputs(nInputs),
   knHiddens(nHiddens),
   knChains(nChains),
@@ -566,15 +568,19 @@ ComplexFNN<FloatType>::ComplexFNN(const int nInputs, const int nHiddens, const i
 }
 
 template <typename FloatType>
-ComplexFNN<FloatType>::~ComplexFNN()
+FFNN<FloatType>::~FFNN()
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void FFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
-  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  if (spinStates_dev == nullptr)
+    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, knHiddens, knChains, kone, b1_dev_,
@@ -588,7 +594,7 @@ void ComplexFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+void FFNN<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
 {
   index_ = spinFlipIndex;
   gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains, index_, wi1_dev_,
@@ -597,7 +603,7 @@ void ComplexFNN<FloatType>::forward(const int spinFlipIndex, thrust::complex<Flo
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
+void FFNN<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
 {
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
@@ -615,30 +621,29 @@ void ComplexFNN<FloatType>::forward(const thrust::complex<FloatType> * spinState
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<int> & hiddenNodesIdx_host)
+void FFNN<FloatType>::forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev,
+  thrust::complex<FloatType> * lnpsi_dev)
 {
-  /* index notation
-     hiddenNodes = [j_0, j_1, j_2, ...]
-     lnpsiGradients_k = [d_dwi1_k0j_0, d_dwi1_k1j_0, d_dwi1_k2j_0,... d_dwi1_k0j_1, d_dwi1_k1j_1, d_dwi1_k2j_1,...,
-                         d_db1_kj_0, d_db1_kj_1, d_db1_kj_2,..., d_dw1o_kj_0, d_dw1o_kj_1, d_dw1o_kj_2,...] */
-  const thrust::device_vector<int> hiddenNodesIdx_dev(hiddenNodesIdx_host);
-  gpu_kernel::FNN__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
-    PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(), PTR_FROM_THRUST(y_dev_.data()),
-    PTR_FROM_THRUST(spinStates_dev_.data()), w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_);
-  gpu_kernel::FNN__GetlnpsiGradients__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
-    PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(), d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), wi1_dev_, PTR_FROM_THRUST(spinStates_dev_.data()),
+    PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(acty_dev_.data()));
+  cublas::gemm(theCublasHandle_, 1, knChains, knHiddens, kone, kzero, w1o_dev_, PTR_FROM_THRUST(acty_dev_.data()), lnpsi_dev);
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate, const thrust::host_vector<int> & hiddenNodesIdx_host)
+void FFNN<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-  // * index notation
-  // hiddenNodes = [j_0, j_1, j_2, ...]
-  // derivativeLoss = [wi1_0j_0, wi1_1j_0, wi1_2j_0,... wi1_0j_1, wi1_1j_1, wi1_2j_1,..., b1_j_0, b1_j_1, b1_j_2,..., w1o_j_0, w1o_j_1, w1o_j_2]
-  const thrust::device_vector<int> hiddenNodesIdx_dev(hiddenNodesIdx_host);
-  gpu_kernel::FNN__UpdateParameters__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
-    PTR_FROM_THRUST(hiddenNodesIdx_dev.data()), hiddenNodesIdx_host.size(),
-    derivativeLoss_dev, learningRate, wi1_dev_, b1_dev_, w1o_dev_);
+  gpu_kernel::FFNN__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), w1o_dev_, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_);
+  gpu_kernel::FFNN__GetlnpsiGradients__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs,
+    knHiddens, knChains, d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_, lnpsiGradients_dev);
+}
+
+template <typename FloatType>
+void FFNN<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+{
+  gpu_kernel::FFNN__UpdateParameters__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(knInputs,
+    knHiddens, knChains, derivativeLoss_dev, learningRate, wi1_dev_, b1_dev_, w1o_dev_);
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, knHiddens, knChains, kone, b1_dev_,
@@ -648,7 +653,7 @@ void ComplexFNN<FloatType>::update_variables(const thrust::complex<FloatType> * 
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+void FFNN<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
 {
   index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains, index_,
@@ -658,14 +663,24 @@ void ComplexFNN<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int 
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string filePath, const int precision, const bool useCopyFromDeviceToHost)
+void FFNN<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev)
+{
+  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, knHiddens, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), isSpinFlipped_dev, wi1_dev_, PTR_FROM_THRUST(spinStates_dev_.data()),
+    PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+}
+
+template <typename FloatType>
+void FFNN<FloatType>::save(const FFNNDataType typeInfo, const std::string filePath, const int precision, const bool useCopyFromDeviceToHost)
 {
   if (useCopyFromDeviceToHost)
     variables_host_ = variables_dev_; // copy memory from device to host
-  // save data according to the FNNDataType
+  // save data according to the FFNNDataType
   std::ofstream writer(filePath);
   writer << std::setprecision(precision);
-  if (typeInfo == FNNDataType::W1)
+  if (typeInfo == FFNNDataType::W1)
   {
     for (int i=0; i<knInputs; ++i)
     {
@@ -674,29 +689,29 @@ void ComplexFNN<FloatType>::save(const FNNDataType typeInfo, const std::string f
       writer << std::endl;
     }
   }
-  else if (typeInfo == FNNDataType::W2)
+  else if (typeInfo == FFNNDataType::W2)
   {
     for (int j=0; j<knHiddens; ++j)
       writer << w1o_host_[j] << " ";
     writer << std::endl;
   }
-  else if (typeInfo == FNNDataType::B1)
+  else if (typeInfo == FFNNDataType::B1)
     for (int j=0; j<knHiddens; ++j)
       writer << b1_host_[j] << " ";
   writer.close();
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::save(const std::string prefix, const int precision)
+void FFNN<FloatType>::save(const std::string prefix, const int precision)
 {
   variables_host_ = variables_dev_; // copy memory from device to host
-  this->save(FNNDataType::W1, prefix + "Dw1.dat", precision, false);
-  this->save(FNNDataType::W2, prefix + "Dw2.dat", precision, false);
-  this->save(FNNDataType::B1, prefix + "Db1.dat", precision, false);
+  this->save(FFNNDataType::W1, prefix + "Dw1.dat", precision, false);
+  this->save(FFNNDataType::W2, prefix + "Dw2.dat", precision, false);
+  this->save(FFNNDataType::B1, prefix + "Db1.dat", precision, false);
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string filePath)
+void FFNN<FloatType>::load(const FFNNDataType typeInfo, const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
   thrust::host_vector<thrust::complex<FloatType>> rawdata;
@@ -714,7 +729,7 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
     return;
   }
   // insert rawdata into 'variables_'
-  if (typeInfo == FNNDataType::W1)
+  if (typeInfo == FFNNDataType::W1)
   {
     if (rawdata.size() == knInputs*knHiddens)
       for (int i=0; i<rawdata.size(); ++i)
@@ -722,7 +737,7 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
     else
       std::cout << "# check 'w1' size... " << std::endl;
   }
-  else if (typeInfo == FNNDataType::W2)
+  else if (typeInfo == FFNNDataType::W2)
   {
     if (rawdata.size() == knHiddens)
       for (int i=0; i<rawdata.size(); ++i)
@@ -730,7 +745,7 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
     else
       std::cout << "# check 'w2' size... " << std::endl;
   }
-  else if (typeInfo == FNNDataType::B1)
+  else if (typeInfo == FFNNDataType::B1)
   {
     if (rawdata.size() == knHiddens)
       for (int i=0; i<rawdata.size(); ++i)
@@ -742,15 +757,15 @@ void ComplexFNN<FloatType>::load(const FNNDataType typeInfo, const std::string f
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::load(const std::string prefix)
+void FFNN<FloatType>::load(const std::string prefix)
 {
-  this->load(FNNDataType::W1, prefix + "Dw1.dat");
-  this->load(FNNDataType::W2, prefix + "Dw2.dat");
-  this->load(FNNDataType::B1, prefix + "Db1.dat");
+  this->load(FFNNDataType::W1, prefix + "Dw1.dat");
+  this->load(FFNNDataType::W2, prefix + "Dw2.dat");
+  this->load(FFNNDataType::B1, prefix + "Db1.dat");
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::copy_to(ComplexFNN<FloatType> & fnn) const
+void FFNN<FloatType>::copy_to(FFNN<FloatType> & fnn) const
 {
   if (knChains != fnn.get_nChains())
     throw std::length_error("knChains != fnn.get_nChains()");
@@ -762,7 +777,7 @@ void ComplexFNN<FloatType>::copy_to(ComplexFNN<FloatType> & fnn) const
 }
 
 template <typename FloatType>
-void ComplexFNN<FloatType>::look_inside() const
+void FFNN<FloatType>::look_inside() const
 {
   std::cout << "---- wi1" << std::flush << std::endl;
   gpu_kernel::common__Print__<<<1,1>>>(wi1_dev_, knInputs, knHiddens);
@@ -777,7 +792,7 @@ void ComplexFNN<FloatType>::look_inside() const
 
 
 template <typename FloatType>
-ComplexFNNTrSymm<FloatType>::ComplexFNNTrSymm(const int nInputs, const int alpha, const int nChains):
+FFNNTrSymm<FloatType>::FFNNTrSymm(const int nInputs, const int alpha, const int nChains):
   knInputs(nInputs),
   kAlpha(alpha),
   knChains(nChains),
@@ -830,13 +845,13 @@ ComplexFNNTrSymm<FloatType>::ComplexFNNTrSymm(const int nInputs, const int alpha
 }
 
 template <typename FloatType>
-ComplexFNNTrSymm<FloatType>::~ComplexFNNTrSymm()
+FFNNTrSymm<FloatType>::~FFNNTrSymm()
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void FFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
 {
   thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
   // construct full weight matrices and a bias vector
@@ -854,7 +869,7 @@ void ComplexFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+void FFNNTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
 {
   index_ = spinFlipIndex;
   gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_, PTR_FROM_THRUST(wi1f_dev_.data()),
@@ -864,7 +879,7 @@ void ComplexFNNTrSymm<FloatType>::forward(const int spinFlipIndex, thrust::compl
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
+void FFNNTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
 {
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
@@ -882,9 +897,9 @@ void ComplexFNNTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spi
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
+void FFNNTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
-  gpu_kernel::FNNTrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs,
+  gpu_kernel::FFNNTrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs,
     kAlpha, knChains, PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()),
     PTR_FROM_THRUST(w1of_dev_.data()), d_dwi1_dev_, d_db1_dev_, d_dw1o_dev_);
   CHECK_ERROR(cudaSuccess, cudaMemcpy(lnpsiGradients_dev, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
@@ -892,7 +907,7 @@ void ComplexFNNTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGra
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+void FFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
 {
   gpu_kernel::update_parameters<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
@@ -907,7 +922,7 @@ void ComplexFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatTy
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+void FFNNTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
 {
   index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
   gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains, index_,
@@ -917,7 +932,7 @@ void ComplexFNNTrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, cons
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::save(const std::string filePath, const int precision)
+void FFNNTrSymm<FloatType>::save(const std::string filePath, const int precision)
 {
   std::ofstream writer(filePath);
   writer << std::setprecision(precision);
@@ -928,7 +943,7 @@ void ComplexFNNTrSymm<FloatType>::save(const std::string filePath, const int pre
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::load(const std::string filePath)
+void FFNNTrSymm<FloatType>::load(const std::string filePath)
 {
   // read rawdata from the text file located at 'filePath'
   std::vector<std::complex<FloatType>> rawdata;
@@ -957,7 +972,7 @@ void ComplexFNNTrSymm<FloatType>::load(const std::string filePath)
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::copy_to(ComplexFNNTrSymm<FloatType> & fnn) const
+void FFNNTrSymm<FloatType>::copy_to(FFNNTrSymm<FloatType> & fnn) const
 {
   if (knChains != fnn.get_nChains())
     throw std::length_error("knChains != fnn.get_nChains()");
@@ -970,13 +985,13 @@ void ComplexFNNTrSymm<FloatType>::copy_to(ComplexFNNTrSymm<FloatType> & fnn) con
 }
 
 template <typename FloatType>
-void ComplexFNNTrSymm<FloatType>::symmetrize_variables()
+void FFNNTrSymm<FloatType>::symmetrize_variables()
 {
-  gpu_kernel::FNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
+  gpu_kernel::FFNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
     knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
     PTR_FROM_THRUST(b1f_dev_.data()), PTR_FROM_THRUST(w1of_dev_.data()));
 }
-
+} // end namespace spinhalf
 
 namespace gpu_device
 {
@@ -1307,21 +1322,20 @@ __global__ void RBMTrSymm__ConstructWeightAndBias__(const int alpha, const int n
 }
 
 
-// GPU kernels for FNN
+// GPU kernels for FFNN
 template <typename FloatType>
-__global__ void FNN__GetGradientsOfParameters__(const int nInputs, const int nHiddens,
-  const int nChains, const int * hiddenNodesIdx, const int nNodes,
-  const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates,
-  const thrust::complex<FloatType> * w1o, thrust::complex<FloatType> * d_dwi1,
-  thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o)
+__global__ void FFNN__GetGradientsOfParameters__(const int nInputs, const int nHiddens,
+  const int nChains, const thrust::complex<FloatType> * y,
+  const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1o,
+  thrust::complex<FloatType> * d_dwi1, thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   const int varSize = nInputs*nHiddens+2*nHiddens; // # of total variables
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,i0] : k is the parallel chain number and i0 is the order of hiddenNodesIdx.
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,j] : k is the parallel chain number and j is the hidden node index.
   // calculate gradients
-  while (idx < nChains*nNodes)
+  while (idx < nChains*nHiddens)
   {
-    const int k = idx/nNodes, i0 = idx-k*nNodes, j = hiddenNodesIdx[i0], kv = k*varSize, ki = k*nInputs, kh = k*nHiddens;
+    const int k = idx/nHiddens, j = idx-k*nHiddens, kv = k*varSize, ki = k*nInputs, kh = k*nHiddens;
     const thrust::complex<FloatType> tany_j = thrust::tanh(y[kh+j]);
     for (int i=0; i<nInputs; ++i)
       d_dwi1[kv+i*nHiddens+j] = tany_j*spinStates[ki+i].real()*w1o[j];
@@ -1332,57 +1346,55 @@ __global__ void FNN__GetGradientsOfParameters__(const int nInputs, const int nHi
 }
 
 template <typename FloatType>
-__global__ void FNN__GetlnpsiGradients__(const int nInputs, const int nHiddens,
-  const int nChains, const int * hiddenNodesIdx, const int nNodes,
+__global__ void FFNN__GetlnpsiGradients__(const int nInputs, const int nHiddens, const int nChains,
   const thrust::complex<FloatType> * d_dwi1, const thrust::complex<FloatType> * d_db1,
   const thrust::complex<FloatType> * d_dw1o, thrust::complex<FloatType> * lnpsiGradients)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   const int varSize = nInputs*nHiddens+2*nHiddens; // # of total variables
-  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,i0] : k is the parallel chain number and i0 is the order of hiddenNodesIdx.
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; // [k,j] : k is the parallel chain number and j is the hidden node index.
   // save the results into lnpsiGradients
-  const int pvarSize = nInputs*nNodes+2*nNodes;
-  while (idx < nChains*nNodes)
+  const int pvarSize = nInputs*nHiddens+2*nHiddens;
+  while (idx < nChains*nHiddens)
   {
-    const int k = idx/nNodes, i0 = idx-k*nNodes, j = hiddenNodesIdx[i0], kv = k*varSize, kpv = k*pvarSize;
+    const int k = idx/nHiddens, j = idx-k*nHiddens, kv = k*varSize, kpv = k*pvarSize;
     for (int i=0; i<nInputs; ++i)
-      lnpsiGradients[kpv+i0*nInputs+i] = d_dwi1[kv+i*nHiddens+j];
-    lnpsiGradients[kpv+nNodes*nInputs+i0] = d_db1[kv+j];
-    lnpsiGradients[kpv+nNodes*(nInputs+1)+i0] = d_dw1o[kv+j];
+      lnpsiGradients[kpv+j*nInputs+i] = d_dwi1[kv+i*nHiddens+j];
+    lnpsiGradients[kpv+nHiddens*nInputs+j] = d_db1[kv+j];
+    lnpsiGradients[kpv+nHiddens*(nInputs+1)+j] = d_dw1o[kv+j];
     idx += nstep;
   }
 }
 
 template <typename FloatType>
-__global__ void FNN__UpdateParameters__(const int nInputs, const int nHiddens, const int nChains,
-  const int * hiddenNodesIdx, const int nNodes, const thrust::complex<FloatType> * derivativeLoss,
-  const FloatType learningRate, thrust::complex<FloatType> * wi1,
-  thrust::complex<FloatType> * b1, thrust::complex<FloatType> * w1o)
+__global__ void FFNN__UpdateParameters__(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::complex<FloatType> * derivativeLoss, const FloatType learningRate,
+  thrust::complex<FloatType> * wi1, thrust::complex<FloatType> * b1, thrust::complex<FloatType> * w1o)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
   unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; 
   // update wi1
-  while (idx < nNodes*nInputs)
+  while (idx < nHiddens*nInputs)
   {
-    // idx : [i0,i] (i0 is the order of hiddenNodesIdx and i represents the spin site.
-    const int i0 = idx/nInputs, i = idx-i0*nInputs, j = hiddenNodesIdx[i0];
+    // idx : [j,i] (j is the hidden node index and i represents the spin site.)
+    const int j = idx/nInputs, i = idx-j*nInputs;
     wi1[i*nHiddens+j] = wi1[i*nHiddens+j]-learningRate*derivativeLoss[idx];
     idx += nstep;
   }
   idx = blockDim.x*blockIdx.x+threadIdx.x;
   // update b1 and w1o
-  while (idx < nNodes)
+  while (idx < nHiddens)
   {
-    // idx : [i0]
-    const int j = hiddenNodesIdx[idx];
-    b1[j] = b1[j]-learningRate*derivativeLoss[nNodes*nInputs+idx];
-    w1o[j] = w1o[j]-learningRate*derivativeLoss[nNodes*(nInputs+1)+idx];
+    // idx : [j]
+    const int j = idx;
+    b1[j] = b1[j]-learningRate*derivativeLoss[nHiddens*nInputs+j];
+    w1o[j] = w1o[j]-learningRate*derivativeLoss[nHiddens*(nInputs+1)+j];
     idx += nstep;
   }
 }
 
 template <typename FloatType>
-__global__ void FNNTrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
+__global__ void FFNNTrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
   const thrust::complex<FloatType> * wi1, const thrust::complex<FloatType> * b1, const thrust::complex<FloatType> * w1o,
   thrust::complex<FloatType> * wi1f, thrust::complex<FloatType> * b1f, thrust::complex<FloatType> * w1of)
 {
@@ -1409,7 +1421,7 @@ __global__ void FNNTrSymm__ConstructWeightAndBias__(const int alpha, const int n
 }
 
 template <typename FloatType>
-__global__ void FNNTrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
+__global__ void FFNNTrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
   const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1of,
   thrust::complex<FloatType> * d_dwi1, thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o)
 {

@@ -5,6 +5,9 @@
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
 
+using namespace spinhalf;
+using namespace fermion::jordanwigner;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -47,19 +50,18 @@ int main(int argc, char* argv[])
   const bool usePBC = parser.find<bool>("pbc");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string prefix = parser.find<>("prefix");
-
   // print info of the registered args
   parser.print(std::cout);
 
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBM<double> machine(nInputs, nHiddens, nChains);
+  FFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters: w,a,b
-  machine.load(spinhalf::RBMDataType::W, prefix + "w.dat");
-  machine.load(spinhalf::RBMDataType::V, prefix + "v.dat");
-  machine.load(spinhalf::RBMDataType::H, prefix + "h.dat");
+  machine.load(FFNNDataType::W1, prefix + "w1.dat");
+  machine.load(FFNNDataType::B1, prefix + "b1.dat");
+  machine.load(FFNNDataType::W2, prefix + "w2.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(niter)*
@@ -68,21 +70,20 @@ int main(int argc, char* argv[])
 
   struct TRAITS
   {
-    typedef spinhalf::ComplexRBM<double> AnsatzType; 
+    typedef FFNN<double> AnsatzType; 
     typedef double FloatType;
   };
 
-  fermion::jordanwigner::HubbardChain<TRAITS> sampler(machine, U, t, nParticles, usePBC, nBlocks);
-
+  HubbardChain<TRAITS> sampler(machine, U, t, nParticles, usePBC, nBlocks, seed);
   sampler.warm_up(nwarm);
 
   StochasticReconfigurationCG<double> optimizer(nChains, machine.get_nVariables());
   optimizer.propagate(sampler, niter, nms, lr);
 
   // save parameters: w,a,b
-  machine.save(spinhalf::RBMDataType::W, prefix + "w.dat");
-  machine.save(spinhalf::RBMDataType::V, prefix + "v.dat");
-  machine.save(spinhalf::RBMDataType::H, prefix + "h.dat");
+  machine.save(FFNNDataType::W1, prefix + "w1.dat");
+  machine.save(FFNNDataType::B1, prefix + "b1.dat");
+  machine.save(FFNNDataType::W2, prefix + "w2.dat");
 
   return 0;
 }

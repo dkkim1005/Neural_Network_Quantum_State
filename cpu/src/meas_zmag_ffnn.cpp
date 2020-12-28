@@ -9,6 +9,8 @@
 #include "../include/hamiltonians.hpp"
 #include "../include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -59,22 +61,22 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  FFNN<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
-  machine.load(spinhalf::FNNDataType::W1, path + "/" + prefix + "Dw1.dat");
-  machine.load(spinhalf::FNNDataType::W2, path + "/" + prefix + "Dw2.dat");
-  machine.load(spinhalf::FNNDataType::B1, path + "/" + prefix + "Db1.dat");
+  machine.load(FFNNDataType::W1, path + "/" + prefix + "Dw1.dat");
+  machine.load(FFNNDataType::W2, path + "/" + prefix + "Dw2.dat");
+  machine.load(FFNNDataType::B1, path + "/" + prefix + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nTrials)*
-                                static_cast<unsigned long>(nMonteCarloSteps)*
-                                static_cast<unsigned long>(nInputs)*
-                                static_cast<unsigned long>(nChains);
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(nInputs)*
+    static_cast<unsigned long>(nChains);
 
   // measurements of the spontaneous magnetization with the given wave functions
-  spinhalf::magnetization<double> outputs;
-  spinhalf::MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FNN, double> >
+  magnetization<double> outputs;
+  MeasSpontaneousMagnetization<AnsatzTraits<Ansatz::FFNN, double> >
     sampler(machine, nBlocks, seed);
   sampler.meas(nTrials, nWarmup, nMonteCarloSteps, outputs);
 

@@ -19,11 +19,7 @@ class TFIChain: public BaseParallelSampler<TFIChain, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFIChain(AnsatzType & machine, const int L, const FloatType h, const FloatType J, const unsigned long seedNumber,
-    const unsigned long seedDistance,
-#ifndef NO_USE_BATCH
-    const FloatType dropOutRate = 1,
-#endif
-    const std::string prefix = "./");
+    const unsigned long seedDistance, const std::string prefix = "./");
 private:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -42,9 +38,6 @@ private:
   const FloatType kh, kzero, ktwo;
   const thrust::device_vector<FloatType> kJmatrix_dev;
   const std::string kprefix;
-#ifndef NO_USE_BATCH
-  RandomBatchIndexing batchAllocater_;
-#endif
 };
 
 // long-range interaction (J_{i,j} ~ 1/d(i,j)^{alpha}) Ising model on the 1D chain lattice
@@ -90,7 +83,7 @@ class TFISQ: public BaseParallelSampler<TFISQ, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   TFISQ(AnsatzType & machine, const int L, const FloatType h, const FloatType J, const unsigned long seedNumber,
-    const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
+    const unsigned long seedDistance, const std::string prefix = "./");
 private:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -109,7 +102,6 @@ private:
   const FloatType kh, kzero, ktwo;
   const thrust::device_vector<FloatType> kJmatrix_dev;
   const std::string kprefix;
-  RandomBatchIndexing batchAllocater_;
 };
 
 // transverse field Ising model on the checker board lattice
@@ -122,7 +114,7 @@ class TFICheckerBoard: public BaseParallelSampler<TFICheckerBoard, TraitsClass>
 public:
   TFICheckerBoard(AnsatzType & machine, const int L, const FloatType h,
     const std::array<FloatType, 2> J1_J2, const bool isPeriodicBoundary, const unsigned long seedNumber,
-    const unsigned long seedDistance, const FloatType dropOutRate = 1, const std::string prefix = "./");
+    const unsigned long seedDistance, const std::string prefix = "./");
 private:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -140,7 +132,6 @@ private:
   const int kL, knSites, knChains, kgpuBlockSize;
   const FloatType kh, kJ1, kJ2, kzero, ktwo;
   const std::string kprefix;
-  RandomBatchIndexing batchAllocater_;
 };
 } //  namespace spinhalf
 

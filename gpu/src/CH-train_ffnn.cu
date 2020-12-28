@@ -1,5 +1,4 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
-#define NO_USE_BATCH
 
 #include "../include/common.cuh"
 #include "../include/neural_quantum_state.cuh"
@@ -7,14 +6,16 @@
 #include "../include/optimizer.cuh"
 #include "../../cpu/include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
   options.push_back(pair_t("L", "# of lattice sites"));
-  options.push_back(pair_t("alpha", "# of filters"));
+  options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train FNN"));
+  options.push_back(pair_t("niter", "# of iterations to train FFNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -37,22 +38,22 @@ int main(int argc, char* argv[])
   argsparse parser(argc, argv, options, defaults);
 
   const int L = parser.find<int>("L"),
-    nInputs = L,
-    alpha = parser.find<int>("alpha"),
-    nChains = parser.find<int>("ns"),
-    nWarmup = parser.find<int>("nwarm"),
-    nMonteCarloSteps = parser.find<int>("nms"),
-    deviceNumber = parser.find<int>("dev"),
-    nIterations =  parser.find<int>("niter"),
-    version = parser.find<int>("ver");
+        nInputs = L,
+        nHiddens = parser.find<int>("nh"),
+        nChains = parser.find<int>("ns"),
+        nWarmup = parser.find<int>("nwarm"),
+        nMonteCarloSteps = parser.find<int>("nms"),
+        deviceNumber = parser.find<int>("dev"),
+        nIterations =  parser.find<int>("niter"),
+        version = parser.find<int>("ver");
   const double J = parser.find<double>("J"),
-    lr = parser.find<double>("lr");
+        lr = parser.find<double>("lr");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
-    nstr = std::to_string(nInputs),
-    alphastr = std::to_string(alpha),
-    vestr = std::to_string(version),
-    ifprefix = parser.find<>("ifprefix");
+        nistr = std::to_string(nInputs),
+        nhstr = std::to_string(nHiddens),
+        vestr = std::to_string(version),
+        ifprefix = parser.find<>("ifprefix");
   const auto hfields = parser.mfind<double>("h");
 
   // print info of the registered args
@@ -68,7 +69,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  struct SamplerTraits { using AnsatzType = ComplexFNNTrSymm<double>; using FloatType = double;};
+  struct SamplerTraits { using AnsatzType = FFNN<double>; using FloatType = double; };
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -81,24 +82,25 @@ int main(int argc, char* argv[])
     const double h = hfields[i];
     if (hfields.size() > 1)
       std::cout << "# h: " << h << " --- job id:" << (i+1) << " / " << hfields.size() << std::endl;
-    std::string hstr = std::to_string(h);
-    hstr.erase(hstr.find_last_not_of('0') + 1, std::string::npos);
-    hstr.erase(hstr.find_last_not_of('.') + 1, std::string::npos);
+    std::string hfstr = std::to_string(h);
+    hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
+    hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
 
-    ComplexFNNTrSymm<double> machine(nInputs, alpha, nChains);
+    FFNN<double> machine(nInputs, nHiddens, nChains);
 
     // load parameters
-    const std::string prefix = path + "FNNTrSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
+    const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
     const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
 
     machine.load(prefix0);
 
     // Transverse Field Ising Hamiltonian on the 1D chain lattice
-    spinhalf::TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, prefix);
+    TFIChain<SamplerTraits> sampler(machine, L, h, J, seed, nBlocks, prefix);
 
     const auto start = std::chrono::system_clock::now();
 
     sampler.warm_up(nWarmup);
+
     StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
     iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
 

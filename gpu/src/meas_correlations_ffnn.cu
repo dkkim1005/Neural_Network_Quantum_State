@@ -6,6 +6,8 @@
 #include "../include/meas.cuh"
 #include "../../cpu/include/argparse.hpp"
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -37,7 +39,7 @@ int main(int argc, char* argv[])
     nMonteCarloSteps = parser.find<int>("nms"),
     deviceNumber = parser.find<int>("dev"),
     ver = parser.find<int>("ver");
-  const float h = parser.find<float>("h");
+  const double h = parser.find<double>("h");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path");
   std::string hfstr = std::to_string(h);
@@ -57,16 +59,16 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  ComplexFNN<float> psi(nInputs, nHiddens, nChains);
+  FFNN<double> psi(nInputs, nHiddens, nChains);
 
   const std::string filename = parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + "Nh"
     + parser.find<>("Nh") + "Hf" + hfstr + "V" + parser.find<>("ver");
   const std::string filepath = parser.find<>("path") + "/" + filename;
 
   // load parameters: w,a,b
-  psi.load(FNNDataType::W1, filepath + "Dw1.dat");
-  psi.load(FNNDataType::W2, filepath + "Dw2.dat");
-  psi.load(FNNDataType::B1, filepath + "Db1.dat");
+  psi.load(FFNNDataType::W1, filepath + "Dw1.dat");
+  psi.load(FFNNDataType::W2, filepath + "Dw2.dat");
+  psi.load(FFNNDataType::B1, filepath + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(niter)*
@@ -75,11 +77,11 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = ComplexFNN<float>; using FloatType = float; };
+  struct TRAITS { using AnsatzType = FFNN<double>; using FloatType = double; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
   MeasSpinSpinCorrelation<TRAITS> corr(smp);
-  std::vector<float> ss(nInputs*nInputs, 0);
+  std::vector<double> ss(nInputs*nInputs, 0);
   corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data());
 
   std::ofstream wfile(parser.find<>("path") + "/Corr-" + filename + ".dat");

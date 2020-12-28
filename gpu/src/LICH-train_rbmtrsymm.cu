@@ -9,6 +9,8 @@
 template <typename FloatType>
 std::string remove_zeros_in_str(const FloatType val);
 
+using namespace spinhalf;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
@@ -66,7 +68,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  struct SamplerTraits { using AnsatzType = ComplexRBMTrSymm<double>; using FloatType = double; };
+  struct SamplerTraits { using AnsatzType = RBMTrSymm<double>; using FloatType = double; };
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -83,14 +85,14 @@ int main(int argc, char* argv[])
             nfstr = std::to_string(nf),
             alphastr = remove_zeros_in_str(alpha),
             thetastr = remove_zeros_in_str(theta);
-          ComplexRBMTrSymm<double> machine(L, nf, nChains);
+          RBMTrSymm<double> machine(L, nf, nChains);
           const double J = std::sin(theta), h = -std::cos(theta);
           // load parameters
           const std::string prefix = path + "RBMTrSymmLICH-L" + Lstr + "NF" + nfstr + "A" + alphastr + "T" + thetastr + "V" + verstr;
           const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
           machine.load(prefix0);
           // Transverse Field Ising Hamiltonian with long-range interaction on the 1D chain lattice
-          spinhalf::LITFIChain<SamplerTraits> sampler(machine, L, h, J, alpha, true, seed, nBlocks, prefix);
+          LITFIChain<SamplerTraits> sampler(machine, L, h, J, alpha, true, seed, nBlocks, prefix);
           const auto start = std::chrono::system_clock::now();
           sampler.warm_up(nWarmup);
           StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());

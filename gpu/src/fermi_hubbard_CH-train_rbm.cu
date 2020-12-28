@@ -9,11 +9,14 @@
 template <typename FloatType>
 std::string remove_zeros_in_str(const FloatType val);
 
+using namespace spinhalf;
+using namespace fermion::jordanwigner;
+
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("N", "# of lattice sites (2 x nInputs)"));
+  options.push_back(pair_t("L", "# of lattice sites (2 x nInputs)"));
   options.push_back(pair_t("al", "ratio of hidden nodes to input nodes"));
   options.push_back(pair_t("niter", "# of iterations"));
   options.push_back(pair_t("nms", "# of montecarlo steps"));
@@ -28,6 +31,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   // env; default value
+  defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("lr", "1e-2"));
   defaults.push_back(pair_t("t", "1"));
@@ -36,7 +40,7 @@ int main(int argc, char* argv[])
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
-  const int nInputs = 2*parser.find<int>("N"),
+  const int nInputs = 2*parser.find<int>("L"),
     nHiddens = static_cast<int>(nInputs*parser.find<double>("al")),
     nChains = parser.find<int>("ns"),
     nParticles = parser.find<int>("np"),
@@ -53,14 +57,16 @@ int main(int argc, char* argv[])
   // print info of the registered args
   parser.print(std::cout);
 
-  ComplexRBM<double> machine(nInputs, nHiddens, nChains);
+  RBM<double> machine(nInputs, nHiddens, nChains);
 
   // load parameters
-  const std::string prefix = path + "RBM-Hubbard-L" + parser.find<>("N")
-                            + "AL" + parser.find<>("al")
-                            + "NP" + parser.find<>("np")
-                            + "U" + remove_zeros_in_str(U)
-                            + "V" + parser.find<>("ver");
+  const std::string prefix = path
+    + "RBM-Hubbard-L" + parser.find<>("L")
+    + "AL" + parser.find<>("al")
+    + "NP" + parser.find<>("np")
+    + "U" + remove_zeros_in_str(U)
+    + "V" + parser.find<>("ver");
+
   // load parameters: w,a,b
   machine.load(prefix);
 
@@ -69,9 +75,9 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nms)*static_cast<unsigned long>(nInputs)*
     static_cast<unsigned long>(nChains);
 
-  struct SamplerTraits { using AnsatzType = ComplexRBM<double>; using FloatType = double; };
+  struct SamplerTraits { using AnsatzType = RBM<double>; using FloatType = double; };
 
-  fermion::jordanwigner::HubbardChain<SamplerTraits> sampler(machine, U, t, nParticles, usePBC, seed, nBlocks, prefix);
+  HubbardChain<SamplerTraits> sampler(machine, U, t, nParticles, usePBC, seed, nBlocks, prefix);
 
   const auto start = std::chrono::system_clock::now();
   sampler.warm_up(nwarm);

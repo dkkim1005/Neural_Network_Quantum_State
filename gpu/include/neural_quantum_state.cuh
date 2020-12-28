@@ -10,17 +10,18 @@
 #include "common.cuh"
 #include "cublas_template.cuh"
 
-
+namespace spinhalf
+{
 enum class RBMDataType { W, V, H };
 
 template <typename FloatType>
-class ComplexRBM
+class RBM
 {
 public:
-  ComplexRBM(const int nInputs, const int nHiddens, const int nChains);
-  ComplexRBM(const ComplexRBM & rhs) = delete;
-  ComplexRBM & operator=(const ComplexRBM & rhs) = delete;
-  ~ComplexRBM();
+  RBM(const int nInputs, const int nHiddens, const int nChains);
+  RBM(const RBM & rhs) = delete;
+  RBM & operator=(const RBM & rhs) = delete;
+  ~RBM();
   void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
@@ -33,14 +34,14 @@ public:
   void save(const std::string prefix, const int precision = 10);
   void load(const RBMDataType typeInfo, const std::string filePath);
   void load(const std::string prefix);
-  void copy_to(ComplexRBM<FloatType> & fnn) const;
+  void copy_to(RBM<FloatType> & fnn) const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
   int get_nHiddens() const { return knHiddens; }
   int get_nVariables() const { return variables_host_.size(); }
 private:
-  const int knInputs, knHiddens; // hyperparameters for network size
+  const int knInputs, knHiddens; // hyperparameters of network size
   const int knChains; // # of parallel states
   const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3, kgpuBlockSize4;
   thrust::host_vector<thrust::complex<FloatType>> variables_host_;
@@ -59,13 +60,13 @@ private:
 
 
 template <typename FloatType>
-class ComplexRBMTrSymm
+class RBMTrSymm
 {
 public:
-  ComplexRBMTrSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexRBMTrSymm(const ComplexRBMTrSymm & rhs) = delete;
-  ComplexRBMTrSymm & operator=(const ComplexRBMTrSymm & rhs) = delete;
-  ~ComplexRBMTrSymm();
+  RBMTrSymm(const int nInputs, const int alpha, const int nChains);
+  RBMTrSymm(const RBMTrSymm & rhs) = delete;
+  RBMTrSymm & operator=(const RBMTrSymm & rhs) = delete;
+  ~RBMTrSymm();
   void initialize(thrust::complex<FloatType> * lnpsi_dev);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
@@ -74,7 +75,7 @@ public:
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
   void save(const std::string prefix, const int precision = 10);
   void load(const std::string prefix);
-  void copy_to(ComplexRBMTrSymm<FloatType> & fnn) const;
+  void copy_to(RBMTrSymm<FloatType> & fnn) const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
@@ -101,28 +102,29 @@ private:
 };
 
 
-enum class FNNDataType { W1, W2, B1 };
+enum class FFNNDataType { W1, W2, B1 };
 
 template <typename FloatType>
-class ComplexFNN
+class FFNN
 {
 public:
-  ComplexFNN(const int nInputs, const int nHiddens, const int nChains);
-  ComplexFNN(const ComplexFNN & rhs) = delete;
-  ComplexFNN & operator=(const ComplexFNN & rhs) = delete;
-  ~ComplexFNN();
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
+  FFNN(const int nInputs, const int nHiddens, const int nChains);
+  FFNN(const FFNN & rhs) = delete;
+  FFNN & operator=(const FFNN & rhs) = delete;
+  ~FFNN();
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
-  void backward(thrust::complex<FloatType> * lnpsiGradients_dev, const thrust::host_vector<int> & hiddenNodesIdx_host);
-  void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate,
-    const thrust::host_vector<int> & hiddenNodes_host);
+  void forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev, thrust::complex<FloatType> * lnpsi_dev);
+  void backward(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate);
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
-  void save(const FNNDataType typeInfo, const std::string filePath, const int precision = 10, const bool useCopyFromDeviceToHost = true);
+  void spin_flip(const bool * isSpinFlipped_dev, const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev);
+  void save(const FFNNDataType typeInfo, const std::string filePath, const int precision = 10, const bool useCopyFromDeviceToHost = true);
   void save(const std::string filePath, const int precision = 10);
-  void load(const FNNDataType typeInfo, const std::string filePath);
+  void load(const FFNNDataType typeInfo, const std::string filePath);
   void load(const std::string prefix);
-  void copy_to(ComplexFNN<FloatType> & fnn) const;
+  void copy_to(FFNN<FloatType> & fnn) const;
   void look_inside() const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }
@@ -130,7 +132,7 @@ public:
   int get_nHiddens() const { return knHiddens; }
   int get_nVariables() const { return variables_host_.size(); }
 private:
-  const int knInputs, knHiddens; // hyperparameters for network size
+  const int knInputs, knHiddens; // hyperparameters of network size
   const int knChains; // # of parallel states
   const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3;
   thrust::host_vector<thrust::complex<FloatType>> variables_host_;
@@ -149,13 +151,13 @@ private:
 
 
 template <typename FloatType>
-class ComplexFNNTrSymm
+class FFNNTrSymm
 {
 public:
-  ComplexFNNTrSymm(const int nInputs, const int alpha, const int nChains);
-  ComplexFNNTrSymm(const ComplexFNNTrSymm & rhs) = delete;
-  ComplexFNNTrSymm & operator=(const ComplexFNNTrSymm & rhs) = delete;
-  ~ComplexFNNTrSymm();
+  FFNNTrSymm(const int nInputs, const int alpha, const int nChains);
+  FFNNTrSymm(const FFNNTrSymm & rhs) = delete;
+  FFNNTrSymm & operator=(const FFNNTrSymm & rhs) = delete;
+  ~FFNNTrSymm();
   void initialize(thrust::complex<FloatType> * lnpsi_dev);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
@@ -164,7 +166,7 @@ public:
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
   void save(const std::string filePath, const int precision = 10);
   void load(const std::string filePath);
-  void copy_to(ComplexFNNTrSymm<FloatType> & fnn) const;
+  void copy_to(FFNNTrSymm<FloatType> & fnn) const;
   thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
   int get_nChains() const { return knChains; }
   int get_nInputs() const { return knInputs; }
@@ -172,7 +174,7 @@ public:
   int get_nVariables() const { return variables_host_.size(); }
   void symmetrize_variables();
 private:
-  const int knInputs, kAlpha; // hyperparameters for network size
+  const int knInputs, kAlpha; // hyperparameters of network size
   const int knChains; // # of parallel states
   const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3;
   thrust::host_vector<thrust::complex<FloatType>> variables_host_;
@@ -189,6 +191,7 @@ private:
   const thrust::device_vector<thrust::complex<FloatType>> koneChains_dev; // [1, 1, 1,...,1]
   cublasHandle_t theCublasHandle_;
 };
+} // end namespace spinhalf
 
 
 namespace gpu_device
@@ -276,31 +279,29 @@ __global__ void RBMTrSymm__ConstructWeightAndBias__(const int alpha, const int n
   thrust::complex<FloatType> * wf, thrust::complex<FloatType> * af, thrust::complex<FloatType> * bf);
 
 
-// GPU kernels for FNN
+// GPU kernels for FFNN
 template <typename FloatType>
-__global__ void FNN__GetGradientsOfParameters__(const int nInputs, const int nHiddens, const int nChains,
-  const int * hiddenNodesIdx, const int nNodes, const thrust::complex<FloatType> * y,
-  const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1o,
+__global__ void FFNN__GetGradientsOfParameters__(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1o,
   thrust::complex<FloatType> * d_dwi1, thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o);
 
 template <typename FloatType>
-__global__ void FNN__GetlnpsiGradients__(const int nInputs, const int nHiddens, const int nChains,
-  const int * hiddenNodesIdx, const int nNodes, const thrust::complex<FloatType> * d_dwi1,
-  const thrust::complex<FloatType> * d_db1, const thrust::complex<FloatType> * d_dw1o, thrust::complex<FloatType> * lnpsiGradients);
+__global__ void FFNN__GetlnpsiGradients__(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::complex<FloatType> * d_dwi1, const thrust::complex<FloatType> * d_db1, const thrust::complex<FloatType> * d_dw1o,
+  thrust::complex<FloatType> * lnpsiGradients);
 
 template <typename FloatType>
-__global__ void FNN__UpdateParameters__(const int nInputs, const int nHiddens, const int nChains,
-  const int * hiddenNodesIdx, const int nNodes, const thrust::complex<FloatType> * derivativeLoss,
-  const FloatType learningRate, thrust::complex<FloatType> * wi1, thrust::complex<FloatType> * b1,
-  thrust::complex<FloatType> * w1o);
+__global__ void FFNN__UpdateParameters__(const int nInputs, const int nHiddens, const int nChains,
+  const thrust::complex<FloatType> * derivativeLoss, const FloatType learningRate, thrust::complex<FloatType> * wi1,
+  thrust::complex<FloatType> * b1, thrust::complex<FloatType> * w1o);
 
 template <typename FloatType>
-__global__ void FNNTrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
+__global__ void FFNNTrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
   const thrust::complex<FloatType> * wi1, const thrust::complex<FloatType> * b1, const thrust::complex<FloatType> * w1o,
   thrust::complex<FloatType> * wi1f, thrust::complex<FloatType> * b1f, thrust::complex<FloatType> * w1of);
 
 template <typename FloatType>
-__global__ void FNNTrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
+__global__ void FFNNTrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
   const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1of,
   thrust::complex<FloatType> * d_dwi1, thrust::complex<FloatType> * d_db1, thrust::complex<FloatType> * d_dw1o);
 } // namespace gpu_kernel

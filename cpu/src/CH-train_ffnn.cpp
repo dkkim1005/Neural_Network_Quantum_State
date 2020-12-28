@@ -11,10 +11,10 @@ int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("ninput", "# of visible nodes"));
+  options.push_back(pair_t("ninput", "# of input nodes"));
   options.push_back(pair_t("nh", "# of hidden nodes"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train RBM"));
+  options.push_back(pair_t("niter", "# of iterations to train FFNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
     lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
-    nvstr = std::to_string(nInputs),
+    nistr = std::to_string(nInputs),
     nhstr = std::to_string(nHiddens),
     vestr = std::to_string(version),
     ifprefix = parser.find<>("ifprefix");
@@ -63,14 +63,14 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  RBM<double> machine(nInputs, nHiddens, nChains);
+  FFNN<double> machine(nInputs, nHiddens, nChains);
 
-  // load parameters: w,a,b
-  const std::string prefix = path + "CH-Nv" + nvstr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  // load parameters
+  const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(RBMDataType::W, prefix0 + "Dw.dat");
-  machine.load(RBMDataType::V, prefix0 + "Da.dat");
-  machine.load(RBMDataType::H, prefix0 + "Db.dat");
+  machine.load(FFNNDataType::W1, prefix0 + "Dw1.dat");
+  machine.load(FFNNDataType::W2, prefix0 + "Dw2.dat");
+  machine.load(FFNNDataType::B1, prefix0 + "Db1.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  TFIChain<AnsatzTraits<Ansatz::RBM, double> > sampler(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzTraits<Ansatz::FFNN, double> > sampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   sampler.warm_up(nWarmup);
@@ -92,10 +92,10 @@ int main(int argc, char* argv[])
   std::chrono::duration<double> elapsed_seconds = end-start;
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
-  // save parameters: w,a,b
-  machine.save(RBMDataType::W, prefix + "Dw.dat");
-  machine.save(RBMDataType::V, prefix + "Da.dat");
-  machine.save(RBMDataType::H, prefix + "Db.dat");
+  // save parameters
+  machine.save(FFNNDataType::W1, prefix + "Dw1.dat");
+  machine.save(FFNNDataType::W2, prefix + "Dw2.dat");
+  machine.save(FFNNDataType::B1, prefix + "Db1.dat");
 
   return 0;
 }

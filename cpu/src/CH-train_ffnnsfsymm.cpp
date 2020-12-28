@@ -1,19 +1,20 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
-#define NO_USE_BATCH
 #include <chrono>
 #include "../include/hamiltonians.hpp"
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
+
+using namespace spinhalf;
 
 int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
   options.push_back(pair_t("ninput", "# of input nodes"));
-  options.push_back(pair_t("nh", "# of hidden nodes"));
+  options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train FNN"));
+  options.push_back(pair_t("niter", "# of iterations to train FFNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -37,7 +38,7 @@ int main(int argc, char* argv[])
   argsparse parser(argc, argv, options, defaults);
 
   const int nInputs = parser.find<int>("ninput"),
-    nHiddens = parser.find<int>("nh"),
+    alpha = parser.find<int>("alpha"),
     nChains = parser.find<int>("ns"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
@@ -49,27 +50,25 @@ int main(int argc, char* argv[])
     lr = parser.find<double>("lr");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/",
-    nistr = std::to_string(nInputs),
-    nhstr = std::to_string(nHiddens),
+    nstr = std::to_string(nInputs),
+    alphastr = std::to_string(alpha),
     vestr = std::to_string(version),
     ifprefix = parser.find<>("ifprefix");
-  std::string hfstr = std::to_string(h);
-  hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
-  hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
+  std::string hstr = std::to_string(h);
+  hstr.erase(hstr.find_last_not_of('0') + 1, std::string::npos);
+  hstr.erase(hstr.find_last_not_of('.') + 1, std::string::npos);
   // print info of the registered args
   parser.print(std::cout);
 
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexFNN<double> machine(nInputs, nHiddens, nChains);
+  FFNNSfSymm<double> machine(nInputs, alpha, nChains);
 
-  // load parameters
-  const std::string prefix = path + "CH-Ni" + nistr + "Nh" + nhstr + "Hf" + hfstr + "V" + vestr;
+  // load parameters: w,a,b
+  const std::string prefix = path + "FFNNSfSymm-CH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
-  machine.load(spinhalf::FNNDataType::W1, prefix0 + "Dw1.dat");
-  machine.load(spinhalf::FNNDataType::W2, prefix0 + "Dw2.dat");
-  machine.load(spinhalf::FNNDataType::B1, prefix0 + "Db1.dat");
+  machine.load(prefix0 + "-params.dat");
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
@@ -78,23 +77,21 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::FNN, double> > sampler(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzTraits<Ansatz::FFNNSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
-  sampler.warm_up(nWarmup);
+  Hsampler.warm_up(nWarmup);
 
   // imaginary time propagator
   StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+  iTimePropagator.propagate(Hsampler, nIterations, nMonteCarloSteps, lr);
 
   const auto end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = end-start;
   std::cout << "# elapsed time: " << elapsed_seconds.count() << "(sec)" << std::endl;
 
-  // save parameters
-  machine.save(spinhalf::FNNDataType::W1, prefix + "Dw1.dat");
-  machine.save(spinhalf::FNNDataType::W2, prefix + "Dw2.dat");
-  machine.save(spinhalf::FNNDataType::B1, prefix + "Db1.dat");
+  // save parameters: w,a,b
+  machine.save(prefix + "-params.dat");
 
   return 0;
 }

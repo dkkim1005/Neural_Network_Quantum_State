@@ -1,10 +1,11 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
-#define NO_USE_BATCH
 #include <chrono>
 #include "../include/hamiltonians.hpp"
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
+
+using namespace spinhalf;
 
 int main(int argc, char* argv[])
 {
@@ -13,7 +14,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("ninput", "# of input nodes"));
   options.push_back(pair_t("alpha", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("niter", "# of iterations to train RBM"));
+  options.push_back(pair_t("niter", "# of iterations to train FFNN"));
   options.push_back(pair_t("h", "transverse-field strength"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
@@ -62,10 +63,10 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexFNNSfSymm<double> machine(nInputs, alpha, nChains);
+  FFNNTrSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
-  const std::string prefix = path + "FNNSfSymm-CH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
+  const std::string prefix = path + "FFNNTrSymm-CH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
   const std::string prefix0 = (ifprefix.compare("None")) ? path+ifprefix : prefix;
   machine.load(prefix0 + "-params.dat");
 
@@ -76,7 +77,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::FNNSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzTraits<Ansatz::FFNNTrSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   Hsampler.warm_up(nWarmup);

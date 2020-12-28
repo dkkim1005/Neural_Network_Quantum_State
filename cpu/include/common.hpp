@@ -3,23 +3,23 @@
 #pragma once
 
 // List up all variational wave functions here...
-enum class Ansatz {RBM, RBMTrSymm, RBMSfSymm, FNN, FNNTrSymm, FNNSfSymm};
+enum class Ansatz {RBM, RBMTrSymm, RBMSfSymm, FFNN, FFNNTrSymm, FFNNSfSymm};
 namespace spinhalf
 {
-template <typename FloatType> class ComplexRBM;
-template <typename FloatType> class ComplexRBMTrSymm;
-template <typename FloatType> class ComplexRBMSfSymm;
-template <typename FloatType> class ComplexFNN;
-template <typename FloatType> class ComplexFNNTrSymm;
-template <typename FloatType> class ComplexFNNSfSymm;
+template <typename FloatType> class RBM;
+template <typename FloatType> class RBMTrSymm;
+template <typename FloatType> class RBMSfSymm;
+template <typename FloatType> class FFNN;
+template <typename FloatType> class FFNNTrSymm;
+template <typename FloatType> class FFNNSfSymm;
 } // namespace spinhalf
 template <Ansatz T, typename Property> struct Ansatz_;
-template <typename FloatType> struct Ansatz_<Ansatz::RBM, FloatType> { using T = spinhalf::ComplexRBM<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::RBMTrSymm, FloatType> { using T = spinhalf::ComplexRBMTrSymm<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::RBMSfSymm, FloatType> { using T = spinhalf::ComplexRBMSfSymm<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::FNN, FloatType> { using T = spinhalf::ComplexFNN<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::FNNTrSymm, FloatType> { using T = spinhalf::ComplexFNNTrSymm<FloatType>; };
-template <typename FloatType> struct Ansatz_<Ansatz::FNNSfSymm, FloatType> { using T = spinhalf::ComplexFNNSfSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::RBM, FloatType> { using T = spinhalf::RBM<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::RBMTrSymm, FloatType> { using T = spinhalf::RBMTrSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::RBMSfSymm, FloatType> { using T = spinhalf::RBMSfSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::FFNN, FloatType> { using T = spinhalf::FFNN<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::FFNNTrSymm, FloatType> { using T = spinhalf::FFNNTrSymm<FloatType>; };
+template <typename FloatType> struct Ansatz_<Ansatz::FFNNSfSymm, FloatType> { using T = spinhalf::FFNNSfSymm<FloatType>; };
 //
 template <Ansatz T, typename FT>
 struct AnsatzTraits

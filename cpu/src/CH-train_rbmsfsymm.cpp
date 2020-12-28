@@ -1,10 +1,11 @@
 // Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
-#define NO_USE_BATCH
 #include <chrono>
 #include "../include/hamiltonians.hpp"
 #include "../include/optimizer.hpp"
 #include "../include/argparse.hpp"
+
+using namespace spinhalf;
 
 int main(int argc, char* argv[])
 {
@@ -62,7 +63,7 @@ int main(int argc, char* argv[])
   // set number of threads for openmp
   omp_set_num_threads(num_omp_threads);
 
-  spinhalf::ComplexRBMSfSymm<double> machine(nInputs, alpha, nChains);
+  RBMSfSymm<double> machine(nInputs, alpha, nChains);
 
   // load parameters: w,a,b
   const std::string prefix = path + "RBMSfSymmCH-N" + nstr + "A" + alphastr + "H" + hstr + "V" + vestr;
@@ -76,7 +77,7 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // Transverse Field Ising Hamiltonian with 1D chain system
-  spinhalf::TFIChain<AnsatzTraits<Ansatz::RBMSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
+  TFIChain<AnsatzTraits<Ansatz::RBMSfSymm, double> > Hsampler(machine, h, J, nBlocks, seed);
   const auto start = std::chrono::system_clock::now();
 
   Hsampler.warm_up(nWarmup);
