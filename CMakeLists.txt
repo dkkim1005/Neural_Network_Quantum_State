@@ -2,10 +2,32 @@
 PROJECT (VMC_NEURAL_NET)
 CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
 
-SET (TARGETS "CH-train_rbm;CH-train_fnn;CH-train_rbmtrsymm;CH-train_fnntrsymm")
-#SET (USE_INTEL_MKL TRUE)
-SET (USE_CUDA TRUE) # --> Currently, only CUDA 10.x version has been tested on this code.
-#SET (USE_MAGMA TRUE) # If one use a routine with the MAGMA solver, set it to 'TRUE'.
+SET (USE_INTEL_MKL TRUE)
+SET (USE_CUDA_GPU TRUE) # --> Currently, only CUDA 10.x version has been tested on this code.
+#SET (USE_MAGMA TRUE) # Should one use a routine with the MAGMA solver, set it to 'TRUE'.
+
+# RBM solver of the 1D quantum Ising model with PBC
+SET (TARGETS ${TARGETS} "CH-train_rbmtrsymm")
+# FFNN solver of the 1D quantum Ising model with PBC
+SET (TARGETS ${TARGETS} "CH-train_ffnntrsymm")
+# FFNN solver of the 2D square lattice quantum Ising model with PBC
+SET (TARGETS ${TARGETS} "SQ-train_ffnn")
+# FFNN solver of the 2D checker-board lattice quantum Ising model
+SET (TARGETS ${TARGETS} "CB-train_ffnn")
+# RBM solver of the 1D Fermi-Hubbard model
+SET (TARGETS ${TARGETS} "fermi_hubbard_CH-train_rbm")
+# FFNN solver of the 1D Fermi-Hubbard model
+SET (TARGETS ${TARGETS} "fermi_hubbard_CH-train_ffnn")
+IF (USE_CUDA_GPU)
+  # RBM solver of the 1D long-range quantum Ising model with PBC
+  SET (TARGETS ${TARGETS} "LICH-train_rbmtrsymm")
+  # RBM solver of the 1D long-range quantum Ising model with OBC
+  SET (TARGETS ${TARGETS} "LICH-train_rbm")
+  # estimator of Renyi entropy for 'RBMTrSymm' ansatz
+  SET (TARGETS ${TARGETS} "meas_renyi_entropy_rbmtrsymm")
+  # estimator of Renyi entropy for 'RBM' ansatz
+  SET (TARGETS ${TARGETS} "meas_renyi_entropy_rbm")
+ENDIF ()
 
 IF (APPLE)
   # Plz check that clang++ is installed at the below directory.
@@ -26,7 +48,7 @@ ENDIF ()
 
 INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindTRNG4.cmake)
 
-IF (USE_CUDA)
+IF (USE_CUDA_GPU)
   FIND_PACKAGE (CUDA)
   SET (CUDA_NVCC_FLAGS "-O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700")
   SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} "cublas")
@@ -39,7 +61,7 @@ ELSE ()
 ENDIF ()
 LINK_LIBRARIES (${BLAS_LIBRARIES} ${TRNG4_LIBRARIES} ${CUDA_LIBRARIES})
 FOREACH (TARGET ${TARGETS})
-  IF (USE_CUDA)
+  IF (USE_CUDA_GPU)
     CUDA_ADD_EXECUTABLE (${TARGET}-gpu ${CMAKE_CURRENT_SOURCE_DIR}/gpu/src/${TARGET}.cu)
   ELSE ()
     ADD_EXECUTABLE (${TARGET}-cpu ${CMAKE_CURRENT_SOURCE_DIR}/cpu/src/${TARGET}.cpp)
