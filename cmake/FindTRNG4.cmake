@@ -38,11 +38,6 @@ ELSE()
   SET (TRNG4_FOUND FALSE)
 ENDIF (TRNG4_LIBRARY_DIR)
 
-# ========================
-#       for test!
-SET (TRNG4_FOUND FALSE)
-# ========================
-
 IF (TRNG4_FOUND MATCHES FALSE)
   IF (APPLE OR UNIX)
     # download trng4 source files from the external git repository
