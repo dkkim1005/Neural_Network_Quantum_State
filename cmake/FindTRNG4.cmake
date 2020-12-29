@@ -1,6 +1,9 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 
 IF (NOT TRNG4_FOUND)
+SET (TRNG4_GIT_REPOSITORY "https://github.com/rabauke/trng4.git")
+# commit id of trng4 library compatible to cuda 10
+SET (TRNG4_GIT_COMMIT_ID "b4321913cd4202b4aa456439be6367e4b3fd90e4")
 
 # Setting default paths
 IF (NOT TRNG4_INCLUDE_DIR)
@@ -13,7 +16,7 @@ ENDIF (NOT TRNG4_LIBRARY_DIR)
 MESSAGE (STATUS "TRNG4_LIBRARY_DIR : ${TRNG4_LIBRARY_DIR}")
 
 # Check whether header files are in TRNG4_INCLUDE_DIR or not.
-MESSAGE (STATUS "Checking for trng4")
+MESSAGE (STATUS "Checking for trng4 in the default path")
 SET (HEADER_FILES "yarn5.hpp;uniform01_dist.hpp;uniform_int_dist.hpp")
 FOREACH (HEADER_FILE ${HEADER_FILES})
   MESSAGE (STATUS "  Looking for ${HEADER_FILE}")
@@ -21,17 +24,49 @@ FOREACH (HEADER_FILE ${HEADER_FILES})
   IF (HEADER_FILE_PATH)
     MESSAGE (STATUS "  Looking for ${HEADER_FILE} - found")
   ELSE ()
-    MESSAGE (FATAL_ERROR "  ${HEADER_FILE} is not detected.")
+    MESSAGE (STATUS "  ${HEADER_FILE} is not detected.")
+    SET (TRNG4_FOUND FALSE)
   ENDIF (HEADER_FILE_PATH)
 ENDFOREACH ()
 
 # Check library
 FIND_LIBRARY (TRNG4_LIBRARY_DIR NAMES trng4 libtrng4 HINTS ${TRNG4_LIBRARY_DIR})
 IF (TRNG4_LIBRARY_DIR)
-  MESSAGE (STATUS "TRNG4 library found")
+  MESSAGE (STATUS "TRNG4 library - found")
 ELSE()
-  MESSAGE (FATAL_ERROR "  Library trng4 is not detected.")
+  MESSAGE (STATUS "Library trng4 is not detected.")
+  SET (TRNG4_FOUND FALSE)
 ENDIF (TRNG4_LIBRARY_DIR)
+
+# ========================
+#       for test!
+SET (TRNG4_FOUND FALSE)
+# ========================
+
+IF (TRNG4_FOUND MATCHES FALSE)
+  IF (APPLE OR UNIX)
+    # download trng4 source files from the external git repository
+    IF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4/CMakeLists.txt)
+      EXECUTE_PROCESS (COMMAND "git" "clone" "${TRNG4_GIT_REPOSITORY}" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      EXECUTE_PROCESS (COMMAND "git" "checkout" ${TRNG4_GIT_COMMIT_ID} "-b" "vmc-lib" WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/trng4)
+    ENDIF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4/CMakeLists.txt)
+    # The library will be installed at "trng4.build".
+    IF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4.build)
+      EXECUTE_PROCESS (COMMAND "mkdir" "${CMAKE_CURRENT_SOURCE_DIR}/trng4.build" WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
+    ENDIF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4.build)
+    IF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4.build/trng/libtrng4.so)
+      EXECUTE_PROCESS (COMMAND "${CMAKE_COMMAND}" "${CMAKE_CURRENT_SOURCE_DIR}/trng4" WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/trng4.build")
+      EXECUTE_PROCESS (COMMAND "make" WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/trng4.build")
+      IF (APPLE)
+        MESSAGE (NOTICE "Type command: echo 'export DYLD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/trng4.build/trng4:$DYLD_LIBRARY_PATH' >> ~/.bashrc")
+      ELSEIF (UNIX)
+        MESSAGE (NOTICE "Type command: echo 'export LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/trng4.build/trng4:$LD_LIBRARY_PATH' >> ~/.bashrc")
+      ENDIF ()
+    ENDIF (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trng4.build/trng/libtrng4.so)
+    SET (TRNG4_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/trng4/)
+    SET (TRNG4_LIBRARY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/trng4.build/trng)
+  ENDIF ()
+ENDIF (TRNG4_FOUND MATCHES FALSE)
 
 # final
 SET (TRNG4_FOUND TRUE)

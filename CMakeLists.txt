@@ -50,7 +50,7 @@ INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindTRNG4.cmake)
 
 IF (USE_CUDA_GPU)
   FIND_PACKAGE (CUDA)
-  SET (CUDA_NVCC_FLAGS "-O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700")
+  SET (CUDA_NVCC_FLAGS "-O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700 --expt-relaxed-constexpr")
   SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} "cublas")
   IF (USE_MAGMA)
     INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindMAGMA.cmake)
