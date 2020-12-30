@@ -2,8 +2,8 @@
 PROJECT (VMC_NEURAL_NET)
 CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
 
-SET (USE_INTEL_MKL TRUE)
-SET (USE_CUDA_GPU TRUE) # --> Currently, only CUDA 10.x version has been tested on this code.
+#SET (USE_INTEL_MKL TRUE)
+#SET (USE_CUDA_GPU TRUE) # --> Currently, only CUDA 10.x version has been tested on this code.
 #SET (USE_MAGMA TRUE) # Should one use a routine with the MAGMA solver, set it to 'TRUE'.
 
 # RBM solver of the 1D quantum Ising model with PBC
@@ -49,7 +49,7 @@ ENDIF ()
 INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindTRNG4.cmake)
 
 IF (USE_CUDA_GPU)
-  FIND_PACKAGE (CUDA)
+  FIND_PACKAGE (CUDA REQUIRED)
   SET (CUDA_NVCC_FLAGS "-O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700 --expt-relaxed-constexpr")
   SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} "cublas")
   IF (USE_MAGMA)
@@ -57,7 +57,7 @@ IF (USE_CUDA_GPU)
     SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} ${MAGMA_LIBRARIES} "cusparse" "cudart" "cudadevrt")
   ENDIF ()
 ELSE ()
-  SET (CMAKE_CXX_FLAGS "-std=c++11 -O3 -fopenmp")
+  SET (CMAKE_CXX_FLAGS "-std=c++11 -O3 -Xpreprocessor -fopenmp")
 ENDIF ()
 LINK_LIBRARIES (${BLAS_LIBRARIES} ${TRNG4_LIBRARIES} ${CUDA_LIBRARIES})
 FOREACH (TARGET ${TARGETS})
