@@ -7,26 +7,26 @@ CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
 #SET (USE_MAGMA TRUE) # Should one use a routine with the MAGMA solver, set it to 'TRUE'.
 
 # RBM solver of the 1D quantum Ising model with PBC
-SET (TARGETS ${TARGETS} "CH-train_rbmtrsymm")
+SET (TARGETS ${TARGETS} CH-train_rbmtrsymm)
 # FFNN solver of the 1D quantum Ising model with PBC
-SET (TARGETS ${TARGETS} "CH-train_ffnntrsymm")
+SET (TARGETS ${TARGETS} CH-train_ffnntrsymm)
 # FFNN solver of the 2D square lattice quantum Ising model with PBC
-SET (TARGETS ${TARGETS} "SQ-train_ffnn")
+SET (TARGETS ${TARGETS} SQ-train_ffnn)
 # FFNN solver of the 2D checker-board lattice quantum Ising model
-SET (TARGETS ${TARGETS} "CB-train_ffnn")
+SET (TARGETS ${TARGETS} CB-train_ffnn)
 # RBM solver of the 1D Fermi-Hubbard model
-SET (TARGETS ${TARGETS} "fermi_hubbard_CH-train_rbm")
+SET (TARGETS ${TARGETS} fermi_hubbard_CH-train_rbm)
 # FFNN solver of the 1D Fermi-Hubbard model
-SET (TARGETS ${TARGETS} "fermi_hubbard_CH-train_ffnn")
+SET (TARGETS ${TARGETS} fermi_hubbard_CH-train_ffnn)
 IF (USE_CUDA_GPU)
   # RBM solver of the 1D long-range quantum Ising model with PBC
-  SET (TARGETS ${TARGETS} "LICH-train_rbmtrsymm")
+  SET (TARGETS ${TARGETS} LICH-train_rbmtrsymm)
   # RBM solver of the 1D long-range quantum Ising model with OBC
-  SET (TARGETS ${TARGETS} "LICH-train_rbm")
+  SET (TARGETS ${TARGETS} LICH-train_rbm)
   # estimator of Renyi entropy for 'RBMTrSymm' ansatz
-  SET (TARGETS ${TARGETS} "meas_renyi_entropy_rbmtrsymm")
+  SET (TARGETS ${TARGETS} meas_renyi_entropy_rbmtrsymm)
   # estimator of Renyi entropy for 'RBM' ansatz
-  SET (TARGETS ${TARGETS} "meas_renyi_entropy_rbm")
+  SET (TARGETS ${TARGETS} meas_renyi_entropy_rbm)
 ENDIF ()
 
 IF (APPLE)
@@ -41,7 +41,12 @@ ENDIF ()
 
 IF (USE_INTEL_MKL)
   INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindMKL.cmake)
-  SET (BLAS_LIBRARIES ${MKL_LIBRARIES} ${MKL_OPENMP_LIBRARY})
+  IF (MKL_FOUND)
+    SET (BLAS_LIBRARIES ${MKL_LIBRARIES} ${MKL_OPENMP_LIBRARY})
+  ELSE ()
+    MESSAGE(NOTICE "  Other BLAS libraries are being searched...")
+    FIND_PACKAGE(BLAS REQUIRED)
+  ENDIF ()
 ELSE ()
   FIND_PACKAGE(BLAS REQUIRED)
 ENDIF ()
@@ -50,14 +55,19 @@ INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindTRNG4.cmake)
 
 IF (USE_CUDA_GPU)
   FIND_PACKAGE (CUDA REQUIRED)
-  SET (CUDA_NVCC_FLAGS "-O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700 --expt-relaxed-constexpr")
-  SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} "cublas")
+  SET (CUDA_NVCC_FLAGS -O3 -Xcompiler -fopenmp -std=c++11 -DMIN_CUDA_ARCH=700 --expt-relaxed-constexpr)
+  SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} cublas)
   IF (USE_MAGMA)
     INCLUDE (${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindMAGMA.cmake)
-    SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} ${MAGMA_LIBRARIES} "cusparse" "cudart" "cudadevrt")
+    SET (CUDA_LIBRARIES ${CUDA_LIBRARIES} ${MAGMA_LIBRARIES} cusparse cudart cudadevrt)
   ENDIF ()
 ELSE ()
-  SET (CMAKE_CXX_FLAGS "-std=c++11 -O3 -Xpreprocessor -fopenmp")
+  SET (CMAKE_CXX_FLAGS "-std=c++11 -O3")
+  IF (APPLE)
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xpreprocessor -fopenmp")
+  ELSEIF (UNIX)
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+  ENDIF ()
 ENDIF ()
 LINK_LIBRARIES (${BLAS_LIBRARIES} ${TRNG4_LIBRARIES} ${CUDA_LIBRARIES})
 FOREACH (TARGET ${TARGETS})
