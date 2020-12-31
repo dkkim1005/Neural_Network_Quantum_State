@@ -191,6 +191,18 @@ private:
   const thrust::device_vector<thrust::complex<FloatType>> koneChains_dev; // [1, 1, 1,...,1]
   cublasHandle_t theCublasHandle_;
 };
+
+template <typename FloatType>
+void generate_random_binary_dist(thrust::device_vector<thrust::complex<FloatType> > & vector_dev)
+{
+  thrust::host_vector<thrust::complex<FloatType> > vector_host(vector_dev.size());
+  std::mt19937_64 rand(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  std::uniform_real_distribution<FloatType> dist;
+  constexpr FloatType half = 0.5, one = 1.0;
+  for (auto & item : vector_host)
+    item = ((dist(rand) > half) ? one : -one);
+  vector_dev = vector_host;
+}
 } // end namespace spinhalf
 
 

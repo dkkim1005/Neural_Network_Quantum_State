@@ -66,8 +66,9 @@ RBM<FloatType>::~RBM()
 template <typename FloatType>
 void RBM<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
+  // random spin distribution
   if (spinStates_dev == nullptr)
-    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+    generate_random_binary_dist(spinStates_dev_);
   else
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
@@ -362,8 +363,9 @@ RBMTrSymm<FloatType>::~RBMTrSymm()
 template <typename FloatType>
 void RBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
+  // random spin distribution
   if (spinStates_dev == nullptr)
-    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+    generate_random_binary_dist(spinStates_dev_);
   else
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
@@ -580,8 +582,9 @@ FFNN<FloatType>::~FFNN()
 template <typename FloatType>
 void FFNN<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
+  // random spin distribution
   if (spinStates_dev == nullptr)
-    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+    generate_random_binary_dist(spinStates_dev_);
   else
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
@@ -857,8 +860,9 @@ FFNNTrSymm<FloatType>::~FFNNTrSymm()
 template <typename FloatType>
 void FFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
+  // random spin distribution
   if (spinStates_dev == nullptr)
-    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+    generate_random_binary_dist(spinStates_dev_);
   else
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
