@@ -1,6 +1,6 @@
 # Copyright (c) 2020 Dongkyu Kim (dkkim1005@gmail.com)
 PROJECT (VMC_NEURAL_NET)
-CMAKE_MINIMUM_REQUIRED (VERSION 3.0 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED (VERSION 3.10 FATAL_ERROR)
 
 #SET (USE_INTEL_MKL TRUE)
 #SET (USE_CUDA_GPU TRUE) # --> Currently, only CUDA 10.x version has been tested on this code.
