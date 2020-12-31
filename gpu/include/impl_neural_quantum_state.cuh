@@ -360,9 +360,13 @@ RBMTrSymm<FloatType>::~RBMTrSymm()
 }
 
 template <typename FloatType>
-void RBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void RBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
-  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  if (spinStates_dev == nullptr)
+    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
   this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
@@ -851,9 +855,13 @@ FFNNTrSymm<FloatType>::~FFNNTrSymm()
 }
 
 template <typename FloatType>
-void FFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev)
+void FFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
 {
-  thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  if (spinStates_dev == nullptr)
+    thrust::fill(spinStates_dev_.begin(), spinStates_dev_.end(), kone); // spin states are initialized with 1
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
   // construct full weight matrices and a bias vector
   this->symmetrize_variables();
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j

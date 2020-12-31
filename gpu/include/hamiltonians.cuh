@@ -68,7 +68,7 @@ private:
   std::vector<OneWayLinkedIndex<>> list_;
   thrust::device_vector<thrust::complex<FloatType> > Jmatrix_dev_, SJ_dev_;
   const int kL, knChains, kgpuBlockSize;
-  const FloatType kh;
+  const FloatType kh, kJ;
   const thrust::complex<FloatType> kzero, kone;
   const std::string kprefix;
   cublasHandle_t theCublasHandle_;

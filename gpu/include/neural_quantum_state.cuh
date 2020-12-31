@@ -67,7 +67,7 @@ public:
   RBMTrSymm(const RBMTrSymm & rhs) = delete;
   RBMTrSymm & operator=(const RBMTrSymm & rhs) = delete;
   ~RBMTrSymm();
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev);
@@ -158,7 +158,7 @@ public:
   FFNNTrSymm(const FFNNTrSymm & rhs) = delete;
   FFNNTrSymm & operator=(const FFNNTrSymm & rhs) = delete;
   ~FFNNTrSymm();
-  void initialize(thrust::complex<FloatType> * lnpsi_dev);
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev);

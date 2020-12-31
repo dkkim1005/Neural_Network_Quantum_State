@@ -123,6 +123,7 @@ LITFIChain<TraitsClass>::LITFIChain(AnsatzType & machine, const int L, const Flo
   knChains(machine.get_nChains()),
   kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
   kh(h),
+  kJ(J),
   kzero(0.0),
   kone(1.0),
   machine_(machine),
@@ -190,7 +191,16 @@ LITFIChain<TraitsClass>::~LITFIChain()
 template <typename TraitsClass>
 void LITFIChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
 {
-  machine_.initialize(lnpsi_dev);
+  thrust::host_vector<thrust::complex<FloatType> > spinStates_host(kL*knChains, kone);
+  // Neel order as a starting point of spin states.
+  if (kJ > 0)
+  {
+    for (int k=0; k<knChains; ++k)
+      for (int i=0; i<kL; ++i)
+        spinStates_host[k*kL+i] = ((i%2 == 0) ? kone : -kone);
+  }
+  thrust::device_vector<thrust::complex<FloatType> > tmpspinStates_dev(spinStates_host);
+  machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(tmpspinStates_dev.data()));
 }
 
 template <typename TraitsClass>
