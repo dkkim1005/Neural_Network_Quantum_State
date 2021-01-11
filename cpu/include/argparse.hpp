@@ -27,7 +27,7 @@ public:
     // separating options from the cmd line
     for (int i=1; i<argc; ++i)
       strArgv[i-1] = std::string(argv[i]);
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
       options_[i] = options[i].first;
     for (const auto & str : strArgv)
     {
@@ -37,7 +37,7 @@ public:
         for (const auto & option : options)
         {
           std::cout << std::setw(8) << (option.first) << " : " << option.second;
-          for (const auto defv : defaults)
+          for (const auto & defv : defaults)
           {
             if (defv.first.compare(option.first) == 0)
               std::cout << " (default : " << defv.second << ")";
@@ -52,7 +52,7 @@ public:
     // searching an argument
     for (const auto & str : strArgv)
     {
-      for (int i=0; i<options_.size(); ++i)
+      for (size_t i=0; i<options_.size(); ++i)
       {
         if (options_[i].compare(str.substr(1, options_[i].length())) == 0)
         {
@@ -82,7 +82,7 @@ public:
       }
     }
     // inserting a default value
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
     {
       if (!areOptionsChecked[i])
       {
@@ -98,7 +98,7 @@ public:
       }
     }
 
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
     {
       if (!areOptionsChecked[i])
       {
@@ -121,7 +121,7 @@ public:
   {
     bool raiseError = true;
     std::string returnValue;
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
     {
       if (callOption.compare(options_[i]) == 0)
       {
@@ -153,7 +153,7 @@ public:
   {
     bool raiseError = true;
     std::string returnValues;
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
     {
       if (callOption.compare(options_[i]) == 0)
       {
@@ -175,7 +175,7 @@ public:
       const std::string returnValue(returnValues, idx0, idx1-idx0);
       if (returnValue.size() == 0)
       {
-	std::cerr << "# error has occured: remove ',' at the last part" << std::endl;
+	      std::cerr << "# error has occured: remove ',' at the last part" << std::endl;
         exit(1);
       }
       std::stringstream os;
@@ -195,12 +195,28 @@ public:
     return data;
   }
 
+  // calling multiple options
+  template <typename T, int N>
+  std::array<T, N> mfind(const std::string callOption) const
+  {
+    const auto data = this->mfind<T>(callOption);
+    if (data.size() != N)
+    {
+      std::cerr << "# error: mfind<" << N << ", T>(\""
+                << callOption << "\").size() != " << N << std::endl;
+      exit(1);
+    }
+    std::array<T, N> res;
+    std::copy(data.begin(), data.end(), res.begin());
+    return res;
+  }
+
   // printing a current status
   template <typename FstreamType>
   void print(FstreamType & fstream) const
   {
     fstream << "#===== updated arguments =====" << std::endl;
-    for (int i=0; i<options_.size(); ++i)
+    for (size_t i=0; i<options_.size(); ++i)
     {
       fstream << "# " << std::setw(8)
               << options_[i] << " : "
