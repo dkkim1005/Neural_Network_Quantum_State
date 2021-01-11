@@ -146,8 +146,9 @@ class HubbardChain: public BaseParallelSampler<HubbardChain, TraitsClass>
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t, const int nParticles,
-    const bool usePBC, const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix);
+  HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
+    const std::array<int, 2> np, const bool usePBC, const unsigned long seedNumber,
+    const unsigned long seedDistance, const std::string prefix);
 protected:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -158,10 +159,10 @@ protected:
   void accept_next_state_(bool * isNewStateAccepted_dev);
   void save_() const;
   AnsatzType & machine_;
-  const int knSites, knChains, knParticles, kgpuBlockSize;
+  const int knSites, knChains, knParticles_up, knParticles_dw, kgpuBlockSize;
   const bool kusePBC;
   const FloatType kU, kt, kzero, ktwo;
-  kawasaki::NNSpinExchanger1D<FloatType> exchanger_;
+  kawasaki::NNSpinExchanger<kawasaki::mChainLattice, FloatType> exchanger_;
   thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_, tmpspinPairIdx_dev_;
   const std::string kprefix;
 };

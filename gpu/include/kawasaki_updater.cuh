@@ -105,8 +105,49 @@ struct ChainLattice
   }
 };
 
-template <typename RNGFloatType>
-using NNSpinExchanger1D = NNSpinExchanger<ChainLattice, RNGFloatType>;
+struct mChainLattice
+{
+  //  schematic diagram for spin-bond structure
+  // O : spin / (x) : bond
+  //                      cluster-1                                             cluster-2
+  // 0           1          2          3              L-1  L          L+1        L+2        L+3            2L-1
+  // O -- (x) -- O -- (x) --O -- (x) --O ... -- (x) -- O   O -- (x) -- O -- (x) --O -- (x) --O ... -- (x) -- O
+  // |     0           1          2             L-2    |   |     L          L+1        L+2           2L-2    |
+  // |----------------------- (x) ---------------------|   |----------------------- (x) ---------------------|
+  //                          L-1                                                  2L-1
+  constexpr static int NNeighbors = 2;
+  static void construct_spin_bond_indexing_rule(thrust::device_vector<int> & spinIdxTobondIdx_dev,
+    thrust::device_vector<int> & bondIdxTospinIdx_dev)
+  {
+    const int L = spinIdxTobondIdx_dev.size()/NNeighbors/2;
+    thrust::host_vector<int> spinIdxTobondIdx_host(spinIdxTobondIdx_dev.size()),
+      bondIdxTospinIdx_host(bondIdxTospinIdx_dev.size());
+    for (int i=0; i<L; ++i)
+    {
+      // left side (cluster-1)
+      spinIdxTobondIdx_host[2*i+0] = ((i != 0) ? i-1 : L-1);
+      // right side (cluster-1)
+      spinIdxTobondIdx_host[2*i+1] = i;
+      // left side (cluster-2)
+      spinIdxTobondIdx_host[2*(L+i)+0] = ((i != 0) ? L+i-1 : 2*L-1);
+      // right side (cluster-2)
+      spinIdxTobondIdx_host[2*(L+i)+1] = L+i;
+    }
+    for (int bondIdx=0; bondIdx<L; ++bondIdx)
+    {
+      // left side (cluster-1)
+      bondIdxTospinIdx_host[2*bondIdx+0] = bondIdx;
+      // right side (cluster-1)
+      bondIdxTospinIdx_host[2*bondIdx+1] = (bondIdx != L-1) ? bondIdx+1 : 0;
+      // left side (cluster-2)
+      bondIdxTospinIdx_host[2*(L+bondIdx)+0] = L+bondIdx;
+      // right side (cluster-2)
+      bondIdxTospinIdx_host[2*(L+bondIdx)+1] = (bondIdx != L-1) ? L+bondIdx+1 : L;
+    }
+    spinIdxTobondIdx_dev = spinIdxTobondIdx_host;
+    bondIdxTospinIdx_dev = bondIdxTospinIdx_host;
+  }
+};
 } // end namespace kawasaki 
 
 #include "impl_kawasaki_updater.cuh"

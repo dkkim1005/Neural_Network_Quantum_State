@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("niter", "# of iterations"));
   options.push_back(pair_t("nms", "# of montecarlo steps"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
-  options.push_back(pair_t("np", "# of particles"));
+  options.push_back(pair_t("np", "# of particles: up, down"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
   options.push_back(pair_t("lr", "learning rate"));
   options.push_back(pair_t("t", "hopping element"));
@@ -43,10 +43,10 @@ int main(int argc, char* argv[])
   const int nInputs = 2*parser.find<int>("L"),
     nHiddens = static_cast<int>(nInputs*parser.find<double>("al")),
     nChains = parser.find<int>("ns"),
-    nParticles = parser.find<int>("np"),
     niter = parser.find<int>("niter"),
     nms = parser.find<int>("nms"),
     nwarm = parser.find<int>("nwarm");
+  const auto np = parser.mfind<int, 2>("np");
   const double lr = parser.find<double>("lr"),
     t = parser.find<double>("t"),
     U = parser.find<double>("U");
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 
   struct SamplerTraits { using AnsatzType = FFNN<double>; using FloatType = double; };
 
-  HubbardChain<SamplerTraits> sampler(machine, U, t, nParticles, usePBC, seed, nBlocks, prefix);
+  HubbardChain<SamplerTraits> sampler(machine, U, t, np, usePBC, seed, nBlocks, prefix);
 
   const auto start = std::chrono::system_clock::now();
   sampler.warm_up(nwarm);

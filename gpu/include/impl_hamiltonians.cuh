@@ -602,12 +602,14 @@ namespace jordanwigner
 {
 template <typename TraitsClass>
 HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
-  const int nParticles, const bool usePBC, const unsigned long seedNumber, const unsigned long seedDistance, const std::string prefix):
-  BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs()/2, machine.get_nChains(), seedNumber, seedDistance),
+  const std::array<int, 2> np, const bool usePBC, const unsigned long seedNumber,
+  const unsigned long seedDistance, const std::string prefix):
+  BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   machine_(machine),
   knSites(machine.get_nInputs()/2),
   knChains(machine.get_nChains()),
-  knParticles(nParticles),
+  knParticles_up(np[0]),
+  knParticles_dw(np[1]),
   kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
   kusePBC(usePBC),
   kU(U),
@@ -663,7 +665,7 @@ void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * l
   // onsite interaction term
   gpu_kernel::HubbardChain__GetOnSiteElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, kU, spinStates_dev, htilda_dev);
 
-  //gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
+  gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
 }
 
 template <typename TraitsClass>
@@ -685,14 +687,17 @@ void HubbardChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_d
   // -1 : particle is empty at the site.
   const int nInputs = 2*knSites;
   thrust::host_vector<thrust::complex<FloatType> > spinStates_host(knChains*nInputs, thrust::complex<FloatType>(-1.0, 0.0));
-  std::vector<int> idx(nInputs);
-  for (int i=0; i<nInputs; ++i)
+  std::vector<int> idx(knSites);
+  for (int i=0; i<idx.size(); ++i)
     idx[i] = i;
   for (int k=0; k<knChains; ++k)
   {
-    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(1234u*k));
-    for (int n=0; n<knParticles; ++n)
+    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(12345u*k));
+    for (int n=0; n<knParticles_up; ++n)
       spinStates_host[k*nInputs+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(67890u*k));
+    for (int n=0; n<knParticles_dw; ++n)
+      spinStates_host[k*nInputs+knSites+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
   }
   thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
   machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
