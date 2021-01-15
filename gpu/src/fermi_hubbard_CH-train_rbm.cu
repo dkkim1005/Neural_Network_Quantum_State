@@ -8,6 +8,7 @@
 
 template <typename FloatType>
 std::string remove_zeros_in_str(const FloatType val);
+std::vector<double> generate_harmonic_potential(const int L, const double V);
 
 using namespace spinhalf;
 using namespace fermion::jordanwigner;
@@ -26,6 +27,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("lr", "learning rate"));
   options.push_back(pair_t("t", "hopping element"));
   options.push_back(pair_t("U", "onsite interaction"));
+  options.push_back(pair_t("V", "strength of the harmonic potential"));
   options.push_back(pair_t("pbc", "use periodic boundary condition (true : 1 or false : 0)"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("path", "directory to load and save files"));
@@ -53,6 +55,7 @@ int main(int argc, char* argv[])
   const bool usePBC = parser.find<bool>("pbc");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/";
+  const std::vector<double> V = generate_harmonic_potential(parser.find<int>("L"), parser.find<double>("V"));
 
   // print info of the registered args
   parser.print(std::cout);
@@ -65,7 +68,8 @@ int main(int argc, char* argv[])
     + "AL" + parser.find<>("al")
     + "NP" + parser.find<>("np")
     + "U" + remove_zeros_in_str(U)
-    + "V" + parser.find<>("ver");
+    + "V" + parser.find<>("V")
+    + "VER" + parser.find<>("ver");
 
   // load parameters: w,a,b
   machine.load(prefix);
@@ -77,7 +81,7 @@ int main(int argc, char* argv[])
 
   struct SamplerTraits { using AnsatzType = RBM<double>; using FloatType = double; };
 
-  HubbardChain<SamplerTraits> sampler(machine, U, t, np, usePBC, seed, nBlocks, prefix);
+  HubbardChain<SamplerTraits> sampler(machine, U, t, V, np, usePBC, seed, nBlocks, prefix);
 
   const auto start = std::chrono::system_clock::now();
   sampler.warm_up(nwarm);
@@ -101,5 +105,18 @@ std::string remove_zeros_in_str(const FloatType val)
   std::string tmp = std::to_string(val);
   tmp.erase(tmp.find_last_not_of('0') + 1, std::string::npos);
   tmp.erase(tmp.find_last_not_of('.') + 1, std::string::npos);
+  return tmp;
+}
+
+std::vector<double> generate_harmonic_potential(const int L, const double V)
+{
+  std::vector<double> tmp(2*L);
+  for (int i=0; i<L; ++i)
+  {
+    // potential on spin-up state
+    tmp[i] = V*std::pow(i-(L-1.0)/2.0, 2);
+    // potential on spin-down state
+    tmp[i+L] = V*std::pow(i-(L-1.0)/2.0, 2);
+  }
   return tmp;
 }

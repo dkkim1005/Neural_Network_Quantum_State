@@ -139,6 +139,7 @@ namespace fermion
 {
 namespace jordanwigner
 {
+// H = -t\sum_{ijs}(c^+_{i,s} c_{j,s}) + U\sum_{i}n_{i,up}n_{i,dw} + \sum_{i}V_{i}(c^+_{i,up}c_{i,up} + c^+_{i,dw}c_{i,dw})
 template <typename TraitsClass>
 class HubbardChain: public BaseParallelSampler<HubbardChain, TraitsClass>
 {
@@ -147,7 +148,8 @@ class HubbardChain: public BaseParallelSampler<HubbardChain, TraitsClass>
   using FloatType = typename TraitsClass::FloatType;
 public:
   HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
-    const std::array<int, 2> np, const bool usePBC, const unsigned long seedNumber,
+    const std::vector<FloatType> & V, const std::array<int, 2> & np,
+    const bool usePBC, const unsigned long seedNumber,
     const unsigned long seedDistance, const std::string prefix);
 protected:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
@@ -159,11 +161,13 @@ protected:
   void accept_next_state_(bool * isNewStateAccepted_dev);
   void save_() const;
   AnsatzType & machine_;
-  const int knSites, knChains, knParticles_up, knParticles_dw, kgpuBlockSize;
+  const int knSites, knChains, kgpuBlockSize;
+  const std::array<int, 2> np_;
   const bool kusePBC;
   const FloatType kU, kt, kzero, ktwo;
   kawasaki::NNSpinExchanger<kawasaki::mChainLattice, FloatType> exchanger_;
   thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_, tmpspinPairIdx_dev_;
+  thrust::device_vector<FloatType> V_dev_;
   const std::string kprefix;
 };
 } // end namespace jordanwigner
@@ -190,18 +194,22 @@ __global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, cons
   const int nChains, const int nSites, thrust::complex<FloatType> * htilda);
 
 template <typename FloatType>
-__global__ void HubbardChain__GetHoppingElem__(const int nChains, const int nSites,
+__global__ void HubbardChain__AddedHoppingElem__(const int nChains, const int nSites,
   const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
   const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda);
 
 // flavor : 0(spin up) or 1(spin down)
 template <typename FloatType>
-__global__ void HubbardChain__GetHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
+__global__ void HubbardChain__AddedHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
   const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
   const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda);
 
 template <typename FloatType>
-__global__ void HubbardChain__GetOnSiteElem__(const int nChains, const int nSites, const FloatType U,
+__global__ void HubbardChain__AddedOnSiteInteraction__(const int nChains, const int nSites, const FloatType U,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda);
+
+template <typename FloatType>
+__global__ void HubbardChain__AddedPotentialTrap__(const int nChains, const int nSites, const FloatType * V,
   const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda);
 } // namespace gpu_kernel
 

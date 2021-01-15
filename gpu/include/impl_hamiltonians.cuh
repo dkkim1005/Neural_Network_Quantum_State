@@ -601,16 +601,16 @@ namespace fermion
 namespace jordanwigner
 {
 template <typename TraitsClass>
-HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
-  const std::array<int, 2> np, const bool usePBC, const unsigned long seedNumber,
+HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
+  const FloatType t, const std::vector<FloatType> & V, const std::array<int, 2> & np,
+  const bool usePBC, const unsigned long seedNumber,
   const unsigned long seedDistance, const std::string prefix):
   BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   machine_(machine),
   knSites(machine.get_nInputs()/2),
   knChains(machine.get_nChains()),
-  knParticles_up(np[0]),
-  knParticles_dw(np[1]),
   kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
+  np_(np),
   kusePBC(usePBC),
   kU(U),
   kt(t),
@@ -619,12 +619,15 @@ HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
   exchanger_(machine.get_nChains(), machine.get_nInputs(), seedNumber*12345ul, seedDistance),
   spinPairIdx_dev_(machine.get_nChains()),
   tmpspinPairIdx_dev_(machine.get_nChains()),
+  V_dev_(V.begin(), V.end()),
   kprefix(prefix)
 {
   // ranges of machine inputs:
   // [0~knSites) -> spin up; [knSites~2*knSites) -> spin down
   if (machine.get_nInputs()%2 != 0)
     throw std::invalid_argument("machine.get_nInputs()%2 != 0");
+  if (V.size() != machine.get_nInputs())
+    throw std::invalid_argument("V.size() != machine.get_nInputs()");
 }
 
 template <typename TraitsClass>
@@ -642,7 +645,7 @@ void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * l
     {
       thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites+i, s*knSites+i+1));
       machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
-      gpu_kernel::HubbardChain__GetHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
+      gpu_kernel::HubbardChain__AddedHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
         knSites, spinStates_dev, PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
     }
     // right to left direction
@@ -650,7 +653,7 @@ void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * l
     {
       thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites+i, s*knSites+i-1));
       machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
-      gpu_kernel::HubbardChain__GetHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
+      gpu_kernel::HubbardChain__AddedHoppingElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains,
         knSites, spinStates_dev, PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
     }
     // edge to edge
@@ -658,12 +661,15 @@ void HubbardChain<TraitsClass>::get_htilda_(const thrust::complex<FloatType> * l
       continue;
     thrust::fill(tmpspinPairIdx_dev_.begin(), tmpspinPairIdx_dev_.end(), thrust::pair<int, int>(s*knSites, s*knSites+knSites-1));
     machine_.forward(tmpspinPairIdx_dev_, lnpsi1_dev);
-    gpu_kernel::HubbardChain__GetHoppingElemEdge__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(s, knChains, knSites, spinStates_dev,
+    gpu_kernel::HubbardChain__AddedHoppingElemEdge__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(s, knChains, knSites, spinStates_dev,
       PTR_FROM_THRUST(tmpspinPairIdx_dev_.data()), lnpsi0_dev, lnpsi1_dev, htilda_dev);
   }
   gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(-0.25*kt, knChains, htilda_dev);
   // onsite interaction term
-  gpu_kernel::HubbardChain__GetOnSiteElem__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, kU, spinStates_dev, htilda_dev);
+  gpu_kernel::HubbardChain__AddedOnSiteInteraction__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, kU, spinStates_dev, htilda_dev);
+  // onsite potential trap
+  gpu_kernel::HubbardChain__AddedPotentialTrap__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites,
+    PTR_FROM_THRUST(V_dev_.data()), spinStates_dev, htilda_dev);
 
   gpu_kernel::common__ScalingVector__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(1.0/knSites, knChains, htilda_dev);
 }
@@ -692,12 +698,13 @@ void HubbardChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_d
     idx[i] = i;
   for (int k=0; k<knChains; ++k)
   {
-    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(12345u*k));
-    for (int n=0; n<knParticles_up; ++n)
-      spinStates_host[k*nInputs+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
-    std::shuffle(idx.begin(), idx.end(), std::default_random_engine(67890u*k));
-    for (int n=0; n<knParticles_dw; ++n)
-      spinStates_host[k*nInputs+knSites+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+    // s : 0 (spin up), 1 (spin down)
+    for (int s=0; s<2; ++s)
+    {
+      std::shuffle(idx.begin(), idx.end(), std::default_random_engine((12345u*k+9876543210u*s)));
+      for (int n=0; n<np_[s]; ++n)
+        spinStates_host[k*nInputs+s*knSites+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+    }
   }
   thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
   machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
@@ -805,7 +812,7 @@ __global__ void LITFI__GetDiagElem__(const thrust::complex<FloatType> * SJ, cons
 }
 
 template <typename FloatType>
-__global__ void HubbardChain__GetHoppingElem__(const int nChains, const int nSites,
+__global__ void HubbardChain__AddedHoppingElem__(const int nChains, const int nSites,
   const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
   const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda)
 {
@@ -826,7 +833,7 @@ __global__ void HubbardChain__GetHoppingElem__(const int nChains, const int nSit
 
 // flavor : 0(spin up) or 1(spin down)
 template <typename FloatType>
-__global__ void HubbardChain__GetHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
+__global__ void HubbardChain__AddedHoppingElemEdge__(const int flavor, const int nChains, const int nSites,
   const thrust::complex<FloatType> * spinStates, const thrust::pair<int, int> * spinPairIdx,
   const thrust::complex<FloatType> * lnpsi0, const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * htilda)
 {
@@ -849,7 +856,7 @@ __global__ void HubbardChain__GetHoppingElemEdge__(const int flavor, const int n
 }
 
 template <typename FloatType>
-__global__ void HubbardChain__GetOnSiteElem__(const int nChains, const int nSites, const FloatType U,
+__global__ void HubbardChain__AddedOnSiteInteraction__(const int nChains, const int nSites, const FloatType U,
   const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda)
 {
   const unsigned int nstep = gridDim.x*blockDim.x;
@@ -860,6 +867,22 @@ __global__ void HubbardChain__GetOnSiteElem__(const int nChains, const int nSite
     const int k = idx;
     for (int i=0; i<nSites; ++i)
       htilda[k] += Uquater*(one+spinStates[k*2*nSites+i].real())*(one+spinStates[k*2*nSites+i+nSites].real());
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void HubbardChain__AddedPotentialTrap__(const int nChains, const int nSites, const FloatType * V,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * htilda)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const FloatType one = 1, half = 0.5;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    for (int i=0; i<nSites; ++i)
+      htilda[k] += half*(V[i]*(one+spinStates[k*2*nSites+i].real())+V[i+nSites]*(one+spinStates[k*2*nSites+i+nSites].real()));
     idx += nstep;
   }
 }
