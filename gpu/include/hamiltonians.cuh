@@ -150,7 +150,7 @@ public:
   HubbardChain(AnsatzType & machine, const FloatType U, const FloatType t,
     const std::vector<FloatType> & V, const std::array<int, 2> & np,
     const bool usePBC, const unsigned long seedNumber,
-    const unsigned long seedDistance, const std::string prefix);
+    const unsigned long seedDistance, const std::string prefix, const bool useSpinStates);
 protected:
   void get_htilda_(const thrust::complex<FloatType> * lnpsi0_dev,
     thrust::complex<FloatType> * lnpsi1_dev, thrust::complex<FloatType> * htilda_dev);
@@ -160,14 +160,17 @@ protected:
   void sampling_(thrust::complex<FloatType> * lnpsi_dev);
   void accept_next_state_(bool * isNewStateAccepted_dev);
   void save_() const;
+  void load_spin_data_(thrust::host_vector<thrust::complex<FloatType>> & spinStates_host);
+  void initialize_spins_randomly_(thrust::host_vector<thrust::complex<FloatType>> & spinStates_host);
   AnsatzType & machine_;
   const int knSites, knChains, kgpuBlockSize;
   const std::array<int, 2> np_;
-  const bool kusePBC;
+  const bool kusePBC, kuseSpinStates;
   const FloatType kU, kt, kzero, ktwo;
   kawasaki::NNSpinExchanger<kawasaki::mChainLattice, FloatType> exchanger_;
   thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_, tmpspinPairIdx_dev_;
   thrust::device_vector<FloatType> V_dev_;
+  thrust::host_vector<thrust::complex<FloatType> > spinStates_host_;
   const std::string kprefix;
 };
 } // end namespace jordanwigner

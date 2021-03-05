@@ -181,4 +181,69 @@ private:
   thrust::device_vector<thrust::complex<FloatType>> tmpmag_dev_;
   thrust::device_vector<FloatType> mag_dev_;
 };
+
+
+namespace fermion
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+class Sampler4SpinHalf : public BaseParallelSampler<fermion::jordanwigner::Sampler4SpinHalf, TraitsClass>
+{
+  friend BaseParallelSampler<fermion::jordanwigner::Sampler4SpinHalf, TraitsClass>;
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+  using LatticeTraits = typename TraitsClass::LatticeTraits;
+public:
+  Sampler4SpinHalf(AnsatzType & psi, const std::array<int, 2> & np,
+    const unsigned long seedNumber, const unsigned long seedDistance);
+  const thrust::complex<FloatType> * get_quantumStates() { return psi_.get_spinStates(); }
+  int get_nInputs() const { return psi_.get_nInputs(); }
+private:
+  void initialize_(thrust::complex<FloatType> * lnpsi_dev);
+  void sampling_(thrust::complex<FloatType> * lnpsi_dev);
+  void accept_next_state_(bool * isNewStateAccepted_dev);
+  AnsatzType & psi_;
+  // # of particles for each flavor: up, down
+  const std::array<int, 2> np_;
+  const int knSites;
+  kawasaki::NNSpinExchanger<LatticeTraits, FloatType> exchanger_;
+  thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_;
+};
+
+template <typename TraitsClass>
+class MeasOPDM
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasOPDM(fermion::jordanwigner::Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi);
+  // meas <b^+_{n+m}b_{n}> = <\psi|c^+_{n+m,up}c^+_{n+m,down}c_{n,down}c_{n,up}|\psi>
+  std::complex<FloatType> measure(const int n, const int m, const int nIterations, const int nMCSteps, const int nwarmup);
+private:
+  fermion::jordanwigner::Sampler4SpinHalf<TraitsClass> & smp_;
+  typename TraitsClass::AnsatzType & psi_;
+  thrust::device_vector<thrust::complex<FloatType> > tmpspinStates_dev_, tmplnpsi_dev_, OPDM_dev_;
+  const int knChains, knSites, kgpuBlockSize;
+};
+} // end namespace jordanwigner
+} // end namespace fermion
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void OPDM__FlipSpins__(const int nChains, const int nSites,
+  const int n, const int m, thrust::complex<FloatType> * spinStates);
+
+template <typename FloatType>
+__global__ void meas__OPDM__(const int nChains, const int nSites, const int n, const int m,
+  const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * lnpsi0,
+  const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * OPDM);
+
+template <typename FloatType>
+__global__ void meas__OPDM__(const int nChains, const int nSites, const int n,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * OPDM);
+} // end namespace gpu_kernel
+
+
 #include "impl_meas.cuh"

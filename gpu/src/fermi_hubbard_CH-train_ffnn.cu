@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("U", "onsite interaction"));
   options.push_back(pair_t("V", "strength of the harmonic potential"));
   options.push_back(pair_t("pbc", "use periodic boundary condition (true : 1 or false : 0)"));
+  options.push_back(pair_t("lsd", "load spin data (true : 1 or false : 0)"));
   options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
@@ -39,6 +40,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("t", "1"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
+  defaults.push_back(pair_t("lsd", "0"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
 
@@ -52,7 +54,8 @@ int main(int argc, char* argv[])
   const double lr = parser.find<double>("lr"),
     t = parser.find<double>("t"),
     U = parser.find<double>("U");
-  const bool usePBC = parser.find<bool>("pbc");
+  const bool usePBC = parser.find<bool>("pbc"),
+    lsd = parser.find<bool>("lsd");
   const unsigned long seed = parser.find<unsigned long>("seed");
   const std::string path = parser.find<>("path") + "/";
   const std::vector<double> V = generate_harmonic_potential(parser.find<int>("L"), parser.find<double>("V"));
@@ -81,7 +84,7 @@ int main(int argc, char* argv[])
 
   struct SamplerTraits { using AnsatzType = FFNN<double>; using FloatType = double; };
 
-  HubbardChain<SamplerTraits> sampler(machine, U, t, V, np, usePBC, seed, nBlocks, prefix);
+  HubbardChain<SamplerTraits> sampler(machine, U, t, V, np, usePBC, seed, nBlocks, prefix, lsd);
 
   const auto start = std::chrono::system_clock::now();
   sampler.warm_up(nwarm);

@@ -604,7 +604,7 @@ template <typename TraitsClass>
 HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
   const FloatType t, const std::vector<FloatType> & V, const std::array<int, 2> & np,
   const bool usePBC, const unsigned long seedNumber,
-  const unsigned long seedDistance, const std::string prefix):
+  const unsigned long seedDistance, const std::string prefix, const bool useSpinStates):
   BaseParallelSampler<HubbardChain, TraitsClass>(machine.get_nInputs(), machine.get_nChains(), seedNumber, seedDistance),
   machine_(machine),
   knSites(machine.get_nInputs()/2),
@@ -612,6 +612,7 @@ HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
   kgpuBlockSize(1+(machine.get_nChains()-1)/NUM_THREADS_PER_BLOCK),
   np_(np),
   kusePBC(usePBC),
+  kuseSpinStates(useSpinStates),
   kU(U),
   kt(t),
   kzero(0),
@@ -620,6 +621,7 @@ HubbardChain<TraitsClass>::HubbardChain(AnsatzType & machine, const FloatType U,
   spinPairIdx_dev_(machine.get_nChains()),
   tmpspinPairIdx_dev_(machine.get_nChains()),
   V_dev_(V.begin(), V.end()),
+  spinStates_host_(machine.get_nChains()*machine.get_nInputs()),
   kprefix(prefix)
 {
   // ranges of machine inputs:
@@ -692,8 +694,73 @@ void HubbardChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_d
   // +1 : particle is filling at the site.
   // -1 : particle is empty at the site.
   const int nInputs = 2*knSites;
-  thrust::host_vector<thrust::complex<FloatType> > spinStates_host(knChains*nInputs, thrust::complex<FloatType>(-1.0, 0.0));
+  thrust::host_vector<thrust::complex<FloatType> > spinStates_host(knChains*nInputs);
+  if (kuseSpinStates)
+  {
+    try
+    {
+      this->load_spin_data_(spinStates_host);
+    }
+    catch (const std::string & warning)
+    {
+      std::cout << warning << std::endl;
+      this->initialize_spins_randomly_(spinStates_host);
+    } 
+  }
+  else
+    this->initialize_spins_randomly_(spinStates_host);
+  thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
+  machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
+  // initialize spin-exchange sampler
+  exchanger_.init(kawasaki::IsBondState(), spinStates_dev.data());
+  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::load_spin_data_(thrust::host_vector<thrust::complex<FloatType>> & spinStates_host)
+{
+  assert(spinStates_host.size() == knChains*2*knSites);
+  const std::string filename = kprefix + "Ds.dat";
+  std::ifstream rfile(filename);
+  if (!(rfile.is_open()))
+  {
+    const std::string warning = "# WARNING: " + filename + " is not exist...";
+    throw warning;
+  }
+  // read data
+  for (auto & item : spinStates_host)
+    if (!(rfile >> item))
+    {
+      const std::string warning = "# WARNING: spinStates_host.size() < knChain*2*knSites";
+      throw warning;
+    }
+  // check # of particles
+  for (int k=0; k<knChains; ++k)
+  {
+    // s : 0 (spin up), 1 (spin down)
+    for (int s=0; s<2; ++s)
+    {
+      int sum = 0;
+      for (int i=0; i<knSites; ++i)
+        sum += static_cast<int>(spinStates_host[k*2*knSites+s*knSites+i].real());
+      if (sum != 2*np_[s]-knSites)
+      {
+        const std::string warning = "# WARNING: The # of particles is not same as np[s] (k: "
+          + std::to_string(k) + ", s:" + std::to_string(s) + ").";
+        throw warning;
+      }
+    }
+  }
+  rfile.close();
+}
+
+template <typename TraitsClass>
+void HubbardChain<TraitsClass>::initialize_spins_randomly_(thrust::host_vector<thrust::complex<FloatType>> & spinStates_host)
+{
+  assert(spinStates_host.size() == knChains*2*knSites);
+  thrust::fill(spinStates_host.begin(), spinStates_host.end(), -1.0);
   std::vector<int> idx(knSites);
+  const thrust::complex<FloatType> one(1);
   for (int i=0; i<idx.size(); ++i)
     idx[i] = i;
   for (int k=0; k<knChains; ++k)
@@ -703,14 +770,10 @@ void HubbardChain<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_d
     {
       std::shuffle(idx.begin(), idx.end(), std::default_random_engine((12345u*k+9876543210u*s)));
       for (int n=0; n<np_[s]; ++n)
-        spinStates_host[k*nInputs+s*knSites+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+        spinStates_host[k*2*knSites+s*knSites+idx[n]] = one;
     }
   }
-  thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
-  machine_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
-  // initialize spin-exchange sampler
-  exchanger_.init(kawasaki::IsBondState(), spinStates_dev.data());
-  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+  std::cout << "# spin states are randomly initialized..." << std::endl << std::flush;
 }
 
 template <typename TraitsClass>
@@ -731,6 +794,18 @@ template <typename TraitsClass>
 void HubbardChain<TraitsClass>::save_() const
 {
   machine_.save(kprefix);
+  // save spin states
+  CHECK_ERROR(cudaSuccess, cudaMemcpy((void*)spinStates_host_.data(), (void*)machine_.get_spinStates(),
+    sizeof(thrust::complex<FloatType>)*spinStates_host_.size(), cudaMemcpyDeviceToHost));
+  const std::string filename = kprefix + "Ds.dat";
+  std::ofstream wfile(filename);
+  for (int k=0; k<machine_.get_nChains(); ++k)
+  {
+    for (int i=0; i<machine_.get_nInputs(); ++i)
+      wfile << static_cast<int>(spinStates_host_[k*machine_.get_nInputs()+i].real()) << " ";
+    wfile << std::endl;
+  }
+  wfile.close();
 }
 } // end namespace fermion
 } // end namespace jordanwigner 

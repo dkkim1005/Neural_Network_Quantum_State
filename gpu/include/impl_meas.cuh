@@ -405,3 +405,183 @@ void MeasOrderParameter<TraitsClass>::measure(const int nIterations, const int n
   }
   std::cout << std::endl;
 }
+
+
+namespace fermion
+{
+namespace jordanwigner
+{
+template <typename TraitsClass>
+Sampler4SpinHalf<TraitsClass>::Sampler4SpinHalf(AnsatzType & psi, const std::array<int, 2> & np,
+  const unsigned long seedNumber, const unsigned long seedDistance):
+  BaseParallelSampler<fermion::jordanwigner::Sampler4SpinHalf, TraitsClass>(psi.get_nInputs(), psi.get_nChains(), seedNumber, seedDistance),
+  psi_(psi),
+  np_(np),
+  knSites(psi.get_nInputs()/2),
+  exchanger_(psi.get_nChains(), psi.get_nInputs(), seedNumber*12345ul, seedDistance),
+  spinPairIdx_dev_(psi.get_nChains())
+{
+  // ranges of machine inputs:
+  // [0~knSites) -> spin up; [knSites~2*knSites) -> spin down
+  if (psi_.get_nInputs()%2 != 0)
+    throw std::invalid_argument("psi_.get_nInputs()%2 != 0");
+}
+
+template <typename TraitsClass>
+void Sampler4SpinHalf<TraitsClass>::initialize_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  // +1 : particle is filling at the site.
+  // -1 : particle is empty at the site.
+  thrust::host_vector<thrust::complex<FloatType> > spinStates_host(psi_.get_nChains()*psi_.get_nInputs(), thrust::complex<FloatType>(-1.0, 0.0));
+  std::vector<int> idx(knSites);
+  for (int i=0; i<idx.size(); ++i)
+    idx[i] = i;
+  for (int k=0; k<psi_.get_nChains(); ++k)
+  {
+    // s : 0 (spin up), 1 (spin down)
+    for (int s=0; s<2; ++s)
+    {
+      std::shuffle(idx.begin(), idx.end(), std::default_random_engine((12345u*k+9876543210u*s)));
+      for (int n=0; n<np_[s]; ++n)
+        spinStates_host[k*psi_.get_nInputs()+s*knSites+idx[n]] = thrust::complex<FloatType>(1.0, 0.0);
+    }
+  }
+  thrust::device_vector<thrust::complex<FloatType> > spinStates_dev(spinStates_host);
+  psi_.initialize(lnpsi_dev, PTR_FROM_THRUST(spinStates_dev.data()));
+  // initialize spin-exchange sampler
+  exchanger_.init(kawasaki::IsBondState(), spinStates_dev.data());
+  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+}
+
+template <typename TraitsClass>
+void Sampler4SpinHalf<TraitsClass>::sampling_(thrust::complex<FloatType> * lnpsi_dev)
+{
+  exchanger_.get_indexes_of_spin_pairs(spinPairIdx_dev_);
+  psi_.forward(spinPairIdx_dev_, lnpsi_dev);
+}
+
+template <typename TraitsClass>
+void Sampler4SpinHalf<TraitsClass>::accept_next_state_(bool * isNewStateAccepted_dev)
+{
+  psi_.spin_flip(isNewStateAccepted_dev, spinPairIdx_dev_);
+  exchanger_.do_exchange(isNewStateAccepted_dev);
+}
+
+
+template <typename TraitsClass>
+MeasOPDM<TraitsClass>::MeasOPDM(fermion::jordanwigner::Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi):
+  smp_(smp),
+  psi_(psi),
+  tmpspinStates_dev_(psi.get_nChains()*psi.get_nInputs()),
+  tmplnpsi_dev_(psi.get_nChains()),
+  OPDM_dev_(psi.get_nChains()),
+  knChains(psi.get_nChains()),
+  knSites(psi.get_nInputs()/2),
+  kgpuBlockSize(CHECK_BLOCK_SIZE(1+(smp.get_nChains()-1)/NUM_THREADS_PER_BLOCK))
+{
+  if (smp.get_nInputs() != psi.get_nInputs())
+    throw std::invalid_argument("smp.get_nInputs() != psi.get_nInputs()");
+  if (smp.get_nChains() != psi.get_nChains())
+    throw std::invalid_argument("smp.get_nChains() != psi.get_nChains()");
+}
+
+// OPDM = <\psi|c^+_{n+m,up}c^+_{n+m,down}c_{n,down}c_{n,up}|\psi>
+template <typename TraitsClass>
+std::complex<typename TraitsClass::FloatType> MeasOPDM<TraitsClass>::measure(const int n, const int m,
+  const int nIterations, const int nMCSteps, const int nwarmup)
+{
+  if ((n+m) >= knSites)
+    throw std::invalid_argument("(n+m) >= knSites");
+  std::cout << "# OPDM = <\\psi|c^+_{" << n+m << ",up}c^+_{" << n+m << ",down}c_{"
+    << n << ",down}c_{" << n << ",up}|\\psi>" << std::endl;
+  std::cout << "# Now we are in warming up..." << std::flush;
+  smp_.warm_up(nwarmup);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring OPDM ... (current/total)" << std::endl << std::flush;
+  thrust::complex<FloatType> SumOfOPDM(0.0);
+  for (int niter=0; niter<nIterations; ++niter)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (niter+1) << " / " << std::setw(4) << nIterations << std::flush;
+    smp_.do_mcmc_steps(nMCSteps);
+    // OPDM = 1/16*(1+s_{n+m})*(1+s_{n+m+nSites})*(1-s_{n})*(1-s_{n+nSites})*\prod_{l=n}^{n+m-1}(s_{l}*s_{l+nSites})*psi1/psi0
+    if (m != 0)
+    {
+      CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(tmpspinStates_dev_.data()),
+        smp_.get_quantumStates(), sizeof(thrust::complex<FloatType>)*tmpspinStates_dev_.size(), cudaMemcpyDeviceToDevice));
+      // flip s_{n+m},s_{n+m+nSites},s_{n},and s_{n+nSites}
+      gpu_kernel::OPDM__FlipSpins__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites,
+        n, m, PTR_FROM_THRUST(tmpspinStates_dev_.data()));
+      // lnpsi_1 = <...-s_{n}...-s_{n+m}...-s_{n+nSites}...-s_{n+m+nSites}|\psi>
+      psi_.forward(PTR_FROM_THRUST(tmpspinStates_dev_.data()), PTR_FROM_THRUST(tmplnpsi_dev_.data()), false);
+      gpu_kernel::meas__OPDM__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, n, m,
+        smp_.get_quantumStates(), smp_.get_lnpsi(), PTR_FROM_THRUST(tmplnpsi_dev_.data()), PTR_FROM_THRUST(OPDM_dev_.data()));
+    }
+    else
+      gpu_kernel::meas__OPDM__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(knChains, knSites, n,
+        smp_.get_quantumStates(), PTR_FROM_THRUST(OPDM_dev_.data()));
+    SumOfOPDM = thrust::reduce(thrust::device, OPDM_dev_.begin(), OPDM_dev_.end(), SumOfOPDM);
+  }
+  std::cout << std::endl;
+  SumOfOPDM /= static_cast<FloatType>((nIterations*psi_.get_nChains()));
+  return std::complex<FloatType>(SumOfOPDM.real(), SumOfOPDM.imag());
+}
+} // end namespace jordanwigner
+} // end namespace fermion
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void OPDM__FlipSpins__(const int nChains, const int nSites, const int n, const int m, thrust::complex<FloatType> * spinStates)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned nstep = gridDim.x*blockDim.x;
+  while (idx < nChains)
+  {
+    const int k = idx;
+    for (int s=0; s<2; ++s)
+    {
+      const int idx = k*2*nSites+s*nSites+n+m;
+      spinStates[idx] = -spinStates[idx].real();
+      spinStates[idx-m] = -spinStates[idx-m].real();
+    }
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void meas__OPDM__(const int nChains, const int nSites, const int n, const int m,
+  const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * lnpsi0,
+  const thrust::complex<FloatType> * lnpsi1, thrust::complex<FloatType> * OPDM)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned nstep = gridDim.x*blockDim.x;
+  const FloatType zero = 0, one = 1, fac = 1.0/16.0;
+  while (idx < nChains)
+  {
+    const int k = idx, kup = k*2*nSites, kdw = k*2*nSites+nSites;
+    OPDM[k] = zero;
+    FloatType spinProduct = one;
+    for (int l=n+1; l<n+m; ++l)
+      spinProduct *= (spinStates[kup+l].real()*spinStates[kdw+l].real());
+    OPDM[k] = fac*(one+spinStates[kup+n+m].real())*(one+spinStates[kdw+n+m].real())*
+                  (one-spinStates[kup+n].real())*(one-spinStates[kdw+n].real())*
+                  spinProduct*thrust::exp(lnpsi1[k]-lnpsi0[k]);
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void meas__OPDM__(const int nChains, const int nSites, const int n,
+  const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * OPDM)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned nstep = gridDim.x*blockDim.x;
+  const FloatType one = 1.0, fac = 0.25;
+  while (idx < nChains)
+  {
+    const int k = idx, kup = k*2*nSites, kdw = k*2*nSites+nSites;
+    OPDM[k] = fac*(one+spinStates[kup+n].real())*(one+spinStates[kdw+n].real());
+    idx += nstep;
+  }
+}
+} // end namespace gpu_kernel
