@@ -81,8 +81,8 @@ public:
   int get_nInputs() const { return knInputs; }
   int get_alpha() const { return kAlpha; }
   int get_nVariables() const { return variables_host_.size(); }
-  void symmetrize_variables();
 private:
+  void symmetrize_variables_();
   const int knInputs, kAlpha; // hyperparameters of network size
   const int knChains; // # of parallel states
   const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3, kgpuBlockSize4;
@@ -95,6 +95,49 @@ private:
   thrust::complex<FloatType> * w_dev_, * a_dev_, * b_dev_;
   thrust::device_vector<thrust::complex<FloatType>> wf_dev_, af_dev_, bf_dev_;
   thrust::complex<FloatType> * d_dw_dev_, * d_da_dev_, * d_db_dev_; // pointer alias for gradients
+  int index_; // index of spin sites to flip
+  const thrust::complex<FloatType> kzero, kone;
+  const thrust::device_vector<thrust::complex<FloatType>> koneChains_dev, koneHiddens_dev; // [1, 1, 1,...,1]
+  cublasHandle_t theCublasHandle_;
+};
+
+
+template <typename FloatType>
+class RBMZ2PrSymm
+{
+public:
+  RBMZ2PrSymm(const int nInputs, const int alpha, const int nChains);
+  RBMZ2PrSymm(const RBMZ2PrSymm & rhs) = delete;
+  RBMZ2PrSymm & operator=(const RBMZ2PrSymm & rhs) = delete;
+  ~RBMZ2PrSymm();
+  void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
+  void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
+  void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
+  void backward(thrust::complex<FloatType> * lnpsiGradients_dev);
+  void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate);
+  void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
+  void save(const std::string prefix, const int precision = 10);
+  void load(const std::string prefix);
+  void copy_to(RBMZ2PrSymm<FloatType> & rhs) const;
+  thrust::complex<FloatType> * get_spinStates() { return PTR_FROM_THRUST(spinStates_dev_.data()); };
+  int get_nChains() const { return knChains; }
+  int get_nInputs() const { return knInputs; }
+  int get_alpha() const { return kAlpha; }
+  int get_nVariables() const { return variables_host_.size(); }
+private:
+  void symmetrize_variables_();
+  const int knInputs, kAlpha; // hyperparameters of network size
+  const int knChains; // # of parallel states
+  const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3, kgpuBlockSize4;
+  thrust::host_vector<thrust::complex<FloatType>> variables_host_;
+  thrust::device_vector<thrust::complex<FloatType>> variables_dev_;
+  thrust::device_vector<thrust::complex<FloatType>> lnpsiGradients_dev_; // derivative of lnpsi with variables
+  thrust::device_vector<thrust::complex<FloatType>> spinStates_dev_; // spin states (1 or -1)
+  thrust::device_vector<thrust::complex<FloatType>> y_dev_, ly_dev_;
+  thrust::complex<FloatType> * w_host_, * b_host_; // pointer alias for weight matrix and bias vector
+  thrust::complex<FloatType> * w_dev_, * b_dev_;
+  thrust::device_vector<thrust::complex<FloatType>> wf_dev_, bf_dev_;
+  thrust::complex<FloatType> * d_dw_dev_, * d_db_dev_; // pointer alias for gradients
   int index_; // index of spin sites to flip
   const thrust::complex<FloatType> kzero, kone;
   const thrust::device_vector<thrust::complex<FloatType>> koneChains_dev, koneHiddens_dev; // [1, 1, 1,...,1]
@@ -172,8 +215,8 @@ public:
   int get_nInputs() const { return knInputs; }
   int get_alpha() const { return kAlpha; }
   int get_nVariables() const { return variables_host_.size(); }
-  void symmetrize_variables();
 private:
+  void symmetrize_variables_();
   const int knInputs, kAlpha; // hyperparameters of network size
   const int knChains; // # of parallel states
   const int kgpuBlockSize1, kgpuBlockSize2, kgpuBlockSize3;
@@ -254,7 +297,7 @@ __global__ void conditional_spin_update(const int nInputs, const int nChains, co
   const bool * isSpinFlipped, thrust::complex<FloatType> * spinStates);
 
 
-// GPU kernels for RBM and RBMTrSymm
+// GPU kernels for RBM, RBMTrSymm, and RBMZ2PrSymm
 template <typename FloatType>
 __global__ void RBM__sadot__(const int nInputs, const int nChains, const int spinFlipIndex,
   const thrust::complex<FloatType> * sa, const thrust::complex<FloatType> * a,
@@ -290,8 +333,18 @@ __global__ void RBMTrSymm__ConstructWeightAndBias__(const int alpha, const int n
   const thrust::complex<FloatType> * w, const thrust::complex<FloatType> * a, const thrust::complex<FloatType> * b,
   thrust::complex<FloatType> * wf, thrust::complex<FloatType> * af, thrust::complex<FloatType> * bf);
 
+template <typename FloatType>
+__global__ void RBMZ2PrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
+  const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, thrust::complex<FloatType> * d_dw,
+  thrust::complex<FloatType> * d_db);
 
-// GPU kernels for FFNN
+template <typename FloatType>
+__global__ void RBMZ2PrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
+  const thrust::complex<FloatType> * w, const thrust::complex<FloatType> * b,
+  thrust::complex<FloatType> * wf, thrust::complex<FloatType> * bf);
+
+
+// GPU kernels for FFNN and FFNNTrSymm
 template <typename FloatType>
 __global__ void FFNN__GetGradientsOfParameters__(const int nInputs, const int nHiddens, const int nChains,
   const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates, const thrust::complex<FloatType> * w1o,

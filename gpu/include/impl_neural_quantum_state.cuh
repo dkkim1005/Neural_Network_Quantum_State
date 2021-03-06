@@ -328,7 +328,6 @@ RBMTrSymm<FloatType>::RBMTrSymm(const int nInputs, const int alpha, const int nC
   std::mt19937_64 ran(seed);
   std::normal_distribution<double>
     randw(0, std::sqrt(1.0/((1+kAlpha)*knInputs))),
-    randa(0, std::sqrt(1.0/knInputs)),
     randb(0, std::sqrt(1.0/(knInputs*kAlpha)));
   // host
   w_host_ = &variables_host_[0];
@@ -369,7 +368,7 @@ void RBMTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, co
   else
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
-  this->symmetrize_variables();
+  this->symmetrize_variables_();
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
@@ -440,7 +439,7 @@ void RBMTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * d
 {
   gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
-  this->symmetrize_variables();
+  this->symmetrize_variables_();
   // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
@@ -514,14 +513,220 @@ void RBMTrSymm<FloatType>::copy_to(RBMTrSymm<FloatType> & rbm) const
   if (kAlpha != rbm.get_alpha())
     throw std::length_error("kAlpha != rm.get_alpha()");
   rbm.variables_dev_ = variables_dev_;
-  rbm.symmetrize_variables();
+  rbm.symmetrize_variables_();
 }
 
 template <typename FloatType>
-void RBMTrSymm<FloatType>::symmetrize_variables()
+void RBMTrSymm<FloatType>::symmetrize_variables_()
 {
   gpu_kernel::RBMTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
     w_dev_, a_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
+}
+
+
+template <typename FloatType>
+RBMZ2PrSymm<FloatType>::RBMZ2PrSymm(const int nInputs, const int alpha, const int nChains):
+  knInputs(nInputs),
+  kAlpha(alpha),
+  knChains(nChains),
+  variables_host_(nInputs*alpha+alpha),
+  variables_dev_(nInputs*alpha+alpha),
+  lnpsiGradients_dev_(nChains*(nInputs*alpha+alpha)),
+  spinStates_dev_(nInputs*nChains),
+  y_dev_(4*alpha*nChains),
+  ly_dev_(4*alpha*nChains),
+  wf_dev_(nInputs*4*alpha),
+  bf_dev_(4*alpha),
+  index_(0),
+  kzero(0.0, 0.0),
+  kone(1.0, 0.0),
+  koneChains_dev(nChains, thrust::complex<FloatType>(1.0, 0.0)),
+  koneHiddens_dev(4*alpha, thrust::complex<FloatType>(1.0, 0.0)),
+  kgpuBlockSize1(CHECK_BLOCK_SIZE(1+(nChains*4*alpha-1)/NUM_THREADS_PER_BLOCK)),
+  kgpuBlockSize2(CHECK_BLOCK_SIZE(1+(nInputs*4*alpha-1)/NUM_THREADS_PER_BLOCK)),
+  kgpuBlockSize3(CHECK_BLOCK_SIZE(1+(nChains-1)/NUM_THREADS_PER_BLOCK)),
+  kgpuBlockSize4(CHECK_BLOCK_SIZE(1+(nInputs*alpha+alpha-1)/NUM_THREADS_PER_BLOCK))
+{
+  // parameter initialization: starting from the Gaussian random distribution
+  unsigned long int seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937_64 ran(seed);
+  std::normal_distribution<double>
+    randw(0, std::sqrt(1.0/(4*kAlpha+knInputs))),
+    randb(0, std::sqrt(1.0/(4*kAlpha)));
+  // host
+  w_host_ = &variables_host_[0];
+  b_host_ = &variables_host_[knInputs*kAlpha];
+  // device
+  w_dev_ = PTR_FROM_THRUST(&variables_dev_[0]);
+  b_dev_ = PTR_FROM_THRUST(&variables_dev_[knInputs*kAlpha]);
+  for (int i=0; i<knInputs*kAlpha; ++i)
+    w_host_[i] = thrust::complex<FloatType>(1e-1*randw(ran), 1e-1*randw(ran));
+  for (int j=0; j<kAlpha; ++j)
+    b_host_[j] = thrust::complex<FloatType>(1e-1*randb(ran), 1e-1*randb(ran));
+  variables_dev_ = variables_host_; // copy memory from host to device
+  d_dw_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[0]);
+  d_db_dev_ = PTR_FROM_THRUST(&lnpsiGradients_dev_[knInputs*kAlpha]);
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+  const float ln2f = std::log(2.0f);
+  const double ln2d = std::log(2.0);
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2f, &ln2f, sizeof(float)));
+  CHECK_ERROR(cudaSuccess, cudaMemcpyToSymbol(gpu_device::kln2d, &ln2d, sizeof(double)));
+}
+
+template <typename FloatType>
+RBMZ2PrSymm<FloatType>::~RBMZ2PrSymm()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev)
+{
+  // random spin distribution
+  if (spinStates_dev == nullptr)
+    generate_random_binary_dist(spinStates_dev_);
+  else
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
+  this->symmetrize_variables_();
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*4, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*4, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(y_dev_.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(ly_dev_.data()));  // ly_kj = ln(cosh(y_kj))
+  // lnpsi_k = \sum_j ly_kj + sa_k
+  CHECK_ERROR(cudaSuccess, cudaMemset(lnpsi_dev, 0, knChains*sizeof(thrust::complex<FloatType>)));
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*4, kone, kone, PTR_FROM_THRUST(koneHiddens_dev.data()),
+    PTR_FROM_THRUST(ly_dev_.data()), lnpsi_dev);
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev)
+{
+  index_ = spinFlipIndex;
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*4, knChains, index_,
+    PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(ly_dev_.data()));
+  // lnpsi_k = \sum_j ly_kj
+  CHECK_ERROR(cudaSuccess, cudaMemset(lnpsi_dev, 0, knChains*sizeof(thrust::complex<FloatType>)));
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*4, kone, kone, PTR_FROM_THRUST(koneHiddens_dev.data()),
+    PTR_FROM_THRUST(ly_dev_.data()), lnpsi_dev);
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates_dev,
+  thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates)
+{
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*4, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*4, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wf_dev_.data()), spinStates_dev, PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(y_dev_.size(), PTR_FROM_THRUST(y_dev_.data()),
+    PTR_FROM_THRUST(ly_dev_.data()));  // ly_kj = ln(cosh(y_kj))
+  // lnpsi_k = \sum_j ly_kj
+  CHECK_ERROR(cudaSuccess, cudaMemset(lnpsi_dev, 0, knChains*sizeof(thrust::complex<FloatType>)));
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*4, kone, kone, PTR_FROM_THRUST(koneHiddens_dev.data()),
+    PTR_FROM_THRUST(ly_dev_.data()), lnpsi_dev);
+  if (saveSpinStates)
+    CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
+      sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
+{
+  gpu_kernel::RBMZ2PrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha, knChains,
+    PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), d_dw_dev_, d_db_dev_);
+  CHECK_ERROR(cudaSuccess, cudaMemcpy(lnpsiGradients_dev, PTR_FROM_THRUST(lnpsiGradients_dev_.data()),
+    sizeof(std::complex<FloatType>)*variables_dev_.size()*knChains, cudaMemcpyDeviceToDevice));
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate)
+{
+  gpu_kernel::update_parameters<<<kgpuBlockSize4, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
+    derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
+  this->symmetrize_variables_();
+  // y_kj = \sum_i spinStates_ki w_ij + koneChains_k (x) b_j
+  thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
+  cublas::ger(theCublasHandle_, kAlpha*4, knChains, kone, PTR_FROM_THRUST(bf_dev_.data()),
+    PTR_FROM_THRUST(koneChains_dev.data()), PTR_FROM_THRUST(y_dev_.data()));
+  cublas::gemm(theCublasHandle_, kAlpha*4, knChains, knInputs, kone, kone,
+    PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex)
+{
+  index_ = ((spinFlipIndex == -1) ? index_ : spinFlipIndex);
+  gpu_kernel::conditional_y_update<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*4, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), PTR_FROM_THRUST(y_dev_.data()));
+  gpu_kernel::conditional_spin_update<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains, index_,
+    isSpinFlipped_dev, PTR_FROM_THRUST(spinStates_dev_.data()));
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::save(const std::string filePath, const int precision)
+{
+  std::ofstream writer(filePath);
+  writer << std::setprecision(precision);
+  variables_host_ = variables_dev_ ;
+  for (const auto & var : variables_host_)
+    writer << var << " ";
+  writer.close();
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::load(const std::string filePath)
+{
+  // read rawdata from the text file located at 'filePath'
+  std::vector<std::complex<FloatType>> rawdata;
+  std::ifstream reader(filePath);
+  if (reader.is_open())
+  {
+    std::complex<FloatType> temp;
+    while (reader >> temp)
+      rawdata.push_back(temp);
+    reader.close();
+  }
+  else
+  {
+    std::cout << "# --- file-path: " << filePath << " is not exist..." << std::endl;
+    return;
+  }
+  // insert rawdata into 'variables_'
+  if (rawdata.size() == variables_host_.size())
+  {
+    for (int i=0; i<variables_host_.size(); ++i)
+      variables_host_[i] = rawdata[i];
+    variables_dev_ = variables_host_;
+  }
+  else
+    std::cout << " check parameter size... " << std::endl;
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::copy_to(RBMZ2PrSymm<FloatType> & rbm) const
+{
+  if (knChains != rbm.get_nChains())
+    throw std::length_error("knChains != rbm.get_nChains()");
+  if (knInputs != rbm.get_nInputs())
+    throw std::length_error("knInputs != rbm.get_nInputs()");
+  if (kAlpha != rbm.get_alpha())
+    throw std::length_error("kAlpha != rm.get_alpha()");
+  rbm.variables_dev_ = variables_dev_;
+  rbm.symmetrize_variables_();
+}
+
+template <typename FloatType>
+void RBMZ2PrSymm<FloatType>::symmetrize_variables_()
+{
+  gpu_kernel::RBMZ2PrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha, knInputs,
+    w_dev_, b_dev_, PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(bf_dev_.data()));
 }
 
 
@@ -867,7 +1072,7 @@ void FFNNTrSymm<FloatType>::initialize(thrust::complex<FloatType> * lnpsi_dev, c
     CHECK_ERROR(cudaSuccess, cudaMemcpy(PTR_FROM_THRUST(spinStates_dev_.data()), spinStates_dev,
       sizeof(thrust::complex<FloatType>)*spinStates_dev_.size(), cudaMemcpyDeviceToDevice));
   // construct full weight matrices and a bias vector
-  this->symmetrize_variables();
+  this->symmetrize_variables_();
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
@@ -924,7 +1129,7 @@ void FFNNTrSymm<FloatType>::update_variables(const thrust::complex<FloatType> * 
   gpu_kernel::update_parameters<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(variables_dev_.size(),
     derivativeLoss_dev, learningRate, PTR_FROM_THRUST(variables_dev_.data()));
   // construct full weight matrices and a bias vector
-  this->symmetrize_variables();
+  this->symmetrize_variables_();
   // y_kj = \sum_i spinStates_ki wi1_ij + koneChains_k (x) b1_j
   thrust::fill(y_dev_.begin(), y_dev_.end(), kzero);
   cublas::ger(theCublasHandle_, kAlpha*knInputs, knChains, kone, PTR_FROM_THRUST(b1f_dev_.data()),
@@ -993,11 +1198,11 @@ void FFNNTrSymm<FloatType>::copy_to(FFNNTrSymm<FloatType> & fnn) const
   if (kAlpha != fnn.get_alpha())
     throw std::length_error("kAlpha != fnn.get_alpha()");
   fnn.variables_dev_ = variables_dev_;
-  fnn.symmetrize_variables();
+  fnn.symmetrize_variables_();
 }
 
 template <typename FloatType>
-void FFNNTrSymm<FloatType>::symmetrize_variables()
+void FFNNTrSymm<FloatType>::symmetrize_variables_()
 {
   gpu_kernel::FFNNTrSymm__ConstructWeightAndBias__<<<kgpuBlockSize2, NUM_THREADS_PER_BLOCK>>>(kAlpha,
     knInputs, wi1_dev_, b1_dev_, w1o_dev_, PTR_FROM_THRUST(wi1f_dev_.data()),
@@ -1329,6 +1534,71 @@ __global__ void RBMTrSymm__ConstructWeightAndBias__(const int alpha, const int n
   while (idx < nInputs)
   {
     af[idx] = a[0];
+    idx += nstep;
+  }
+}
+
+template <typename FloatType>
+__global__ void RBMZ2PrSymm__GetGradientsOfParameters__(const int nInputs, const int alpha, const int nChains,
+  const thrust::complex<FloatType> * y, const thrust::complex<FloatType> * spinStates,
+  thrust::complex<FloatType> * d_dw, thrust::complex<FloatType> * d_db)
+{
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned int vSize = nInputs*alpha+alpha;
+  while (idx < (nChains*alpha*nInputs))
+  {
+    // idx = k*alpha*nInputs + f*nInputs + i
+    const unsigned int k = idx/(alpha*nInputs), f = (idx-k*alpha*nInputs)/nInputs, i = idx-k*alpha*nInputs-f*nInputs;
+    d_dw[k*vSize+i*alpha+f] = (thrust::tanh(y[k*alpha*4+f*4+0])
+                             - thrust::tanh(y[k*alpha*4+f*4+1]))*spinStates[k*nInputs+i].real() +
+                              (thrust::tanh(y[k*alpha*4+f*4+2])
+                             - thrust::tanh(y[k*alpha*4+f*4+3]))*spinStates[k*nInputs+nInputs-1-i].real();
+    idx += nstep;
+  }
+  idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < nChains*alpha)
+  {
+    // idx = k*alpha + f
+    const unsigned int k = idx/alpha, f = idx-k*alpha;
+    d_db[k*vSize+f] = thrust::tanh(y[k*alpha*4+f*4+0]) + 
+                      thrust::tanh(y[k*alpha*4+f*4+1]) + 
+                      thrust::tanh(y[k*alpha*4+f*4+2]) + 
+                      thrust::tanh(y[k*alpha*4+f*4+3]);
+    idx += nstep;
+  }
+}
+
+// GPU kernels for RBM
+template <typename FloatType>
+__global__ void RBMZ2PrSymm__ConstructWeightAndBias__(const int alpha, const int nInputs,
+  const thrust::complex<FloatType> * w, const thrust::complex<FloatType> * b,
+  thrust::complex<FloatType> * wf, thrust::complex<FloatType> * bf)
+{
+  // i=0,1,...,N-1; j=0,...,3; f=0,...,alpha-1
+  // wf_{i,f*4+j} ; bf_{f*4+j}
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x; 
+  while (idx < alpha*nInputs)
+  {
+    // idx = f*nInputs + i
+    const unsigned int f = idx/nInputs, i = idx-f*nInputs;
+    // wf_{i,f*4+0} =  w_{i,f}
+    wf[i*alpha*4+f*4+0] =  w[i*alpha+f];
+    // wf_{i,f*4+1} = -w_{i,f}
+    wf[i*alpha*4+f*4+1] = -w[i*alpha+f];
+    // wf_{i,f*4+2} =  w_{N-1-i,f}
+    wf[i*alpha*4+f*4+2] =  w[(nInputs-1-i)*alpha+f];
+    // wf_{i,f*4+3} = -w_{N-1-i,f}
+    wf[i*alpha*4+f*4+3] = -w[(nInputs-1-i)*alpha+f];
+    idx += nstep;
+  }
+  idx = blockDim.x*blockIdx.x+threadIdx.x; 
+  while (idx < alpha*4)
+  {
+    // idx = f*4 + j
+    const unsigned int f = idx/4, j = idx-f*4;
+    bf[f*4+j] = b[f];
     idx += nstep;
   }
 }
