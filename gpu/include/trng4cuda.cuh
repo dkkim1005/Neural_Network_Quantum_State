@@ -29,7 +29,7 @@ template <typename FloatType, typename RNGType>
 class TRNGWrapper
 {
 public:
-  TRNGWrapper(const unsigned long seedNuber, const unsigned seedDistance, const int nChains);
+  TRNGWrapper(const unsigned long seedNuber, const unsigned long seedDistance, const int nChains);
   ~TRNGWrapper();
   void get_uniformDist(FloatType * rngValues_dev);
 private:
@@ -38,7 +38,7 @@ private:
 };
 
 template <typename FloatType, typename RNGType>
-TRNGWrapper<FloatType, RNGType>::TRNGWrapper(const unsigned long seedNuber, const unsigned seedDistance, const int nChains):
+TRNGWrapper<FloatType, RNGType>::TRNGWrapper(const unsigned long seedNuber, const unsigned long seedDistance, const int nChains):
   knChains(nChains),
   kgpuBlockSize(CHECK_BLOCK_SIZE(1+(nChains-1)/NUM_THREADS_PER_BLOCK))
 {
@@ -47,7 +47,7 @@ TRNGWrapper<FloatType, RNGType>::TRNGWrapper(const unsigned long seedNuber, cons
   for (int k=0; k<nChains; ++k)
   {
     rng[k].seed(seedNuber);
-    rng[k].jump(2*seedDistance*k);
+    rng[k].jump(2ul*seedDistance*k);
   }
   CHECK_ERROR(cudaSuccess, cudaMemcpy(rng_dev_, rng.data(), sizeof(RNGType)*nChains, cudaMemcpyHostToDevice));
 }
