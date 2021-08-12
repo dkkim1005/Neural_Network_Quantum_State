@@ -22,11 +22,13 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("filename", "data file of the trained model"));
+  options.push_back(pair_t("tag", "tag of results"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("path", "."));
+  defaults.push_back(pair_t("tag", "0"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
   const int L = parser.find<int>("L"),
@@ -51,7 +53,7 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  RBMTrSymm<double> psi(L, nf, nChains);
+  RBMTrSymm<float> psi(L, nf, nChains);
 
   const std::string filepath = parser.find<>("path") + "/" + parser.find<>("filename");
 
@@ -65,14 +67,14 @@ int main(int argc, char* argv[])
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = RBMTrSymm<double>; using FloatType = double; };
+  struct TRAITS { using AnsatzType = RBMTrSymm<float>; using FloatType = float; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
   MeasSpinSpinCorrelation<TRAITS> corr(smp);
-  std::vector<double> ss(L*L, 0);
+  std::vector<float> ss(L*L, 0);
   corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data());
 
-  std::ofstream wfile(parser.find<>("path") + "/Corr-" + parser.find<>("filename") + ".dat");
+  std::ofstream wfile(parser.find<>("path") + "/Corr-" + parser.find<>("filename") + "-TAG" + parser.find<>("tag")+ ".dat");
   for (int i=0; i<L; ++i)
   {
     for (int j=0; j<L; ++j)
