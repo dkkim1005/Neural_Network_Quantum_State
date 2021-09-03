@@ -23,6 +23,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("dev", "device number"));
   options.push_back(pair_t("J", "coupling constant"));
   options.push_back(pair_t("lr", "learning_rate"));
+  options.push_back(pair_t("rsd", "cutoff value of the energy deviation per energy (convergence criterion)"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
@@ -31,6 +32,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("J", "-1.0"));
   defaults.push_back(pair_t("lr", "5e-3"));
+  defaults.push_back(pair_t("rsd", "1e-3"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("ifprefix", "None"));
@@ -48,7 +50,8 @@ int main(int argc, char* argv[])
     version = parser.find<int>("ver");
   const double h = parser.find<double>("h"),
     J = parser.find<double>("J"),
-    lr = parser.find<double>("lr");
+    lr = parser.find<double>("lr"),
+    RSDcutoff = parser.find<double>("rsd");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
     nistr = std::to_string(nInputs),
@@ -96,7 +99,7 @@ int main(int argc, char* argv[])
   sampler.warm_up(nWarmup);
 
   StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr, RSDcutoff);
 
   // save parameters
   machine.save(prefix);

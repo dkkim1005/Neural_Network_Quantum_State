@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("nms", "# of MCMC steps for sampling spins"));
   options.push_back(pair_t("dev", "device number"));
   options.push_back(pair_t("lr", "learning_rate"));
+  options.push_back(pair_t("rsd", "cutoff value of the energy deviation per energy (convergence criterion)"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
@@ -45,7 +46,8 @@ int main(int argc, char* argv[])
     nMonteCarloSteps = parser.find<int>("nms"),
     deviceNumber = parser.find<int>("dev"),
     nIterations =  parser.find<int>("niter");
-  const double lr = parser.find<double>("lr");
+  const double lr = parser.find<double>("lr"),
+    RSDcutoff = parser.find<double>("rsd");
   const unsigned long long seed = parser.find<unsigned long long>("seed");
   const std::string path = parser.find<>("path") + "/",
     Lstr = parser.find<>("L"),
@@ -96,7 +98,7 @@ int main(int argc, char* argv[])
           const auto start = std::chrono::system_clock::now();
           sampler.warm_up(nWarmup);
           StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-          iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+          iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr, RSDcutoff);
           // save parameters
           machine.save(prefix);
           const auto end = std::chrono::system_clock::now();

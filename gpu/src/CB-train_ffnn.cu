@@ -25,6 +25,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("J2", "J2 coupling constant"));
   options.push_back(pair_t("pb", "use periodic boundary condition"));
   options.push_back(pair_t("lr", "learning_rate"));
+  options.push_back(pair_t("rsd", "cutoff value of the energy deviation per energy (convergence criterion)"));
   options.push_back(pair_t("path", "directory to load and save files"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("ifprefix", "prefix of the file to load data"));
@@ -35,6 +36,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("J2", "0.0"));
   defaults.push_back(pair_t("pb", "1"));
   defaults.push_back(pair_t("lr", "5e-3"));
+  defaults.push_back(pair_t("rsd", "1e-3"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("ifprefix", "None"));
@@ -54,6 +56,7 @@ int main(int argc, char* argv[])
     J1 = parser.find<double>("J1"),
     J2 = parser.find<double>("J2"),
     lr = parser.find<double>("lr"),
+    RSDcutoff = parser.find<double>("rsd"),
     dr = parser.find<double>("dr");
   const bool usePeriodicBoundary = parser.find<bool>("pb");
   const unsigned long seedNumber = parser.find<unsigned long long>("seed");
@@ -103,7 +106,7 @@ int main(int argc, char* argv[])
 
   // imaginary time propagator
   StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr);
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr, RSDcutoff);
 
   // save parameters
   machine.save(prefix);

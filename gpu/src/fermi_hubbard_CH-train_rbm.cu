@@ -25,6 +25,7 @@ int main(int argc, char* argv[])
   options.push_back(pair_t("np", "# of particles: up, down"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
   options.push_back(pair_t("lr", "learning rate"));
+  options.push_back(pair_t("rsd", "cutoff value of the energy deviation per energy (convergence criterion)"));
   options.push_back(pair_t("t", "hopping element"));
   options.push_back(pair_t("U", "onsite interaction"));
   options.push_back(pair_t("V", "strength of the harmonic potential"));
@@ -37,6 +38,7 @@ int main(int argc, char* argv[])
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("lr", "1e-2"));
+  defaults.push_back(pair_t("rsd", "1e-3"));
   defaults.push_back(pair_t("t", "1"));
   defaults.push_back(pair_t("path", "."));
   defaults.push_back(pair_t("seed", "0"));
@@ -52,6 +54,7 @@ int main(int argc, char* argv[])
     nwarm = parser.find<int>("nwarm");
   const auto np = parser.mfind<int, 2>("np");
   const double lr = parser.find<double>("lr"),
+    RSDcutoff = parser.find<double>("rsd"),
     t = parser.find<double>("t"),
     U = parser.find<double>("U");
   const bool usePBC = parser.find<bool>("pbc"),
@@ -90,7 +93,7 @@ int main(int argc, char* argv[])
   sampler.warm_up(nwarm);
 
   StochasticReconfigurationCG<double> iTimePropagator(nChains, machine.get_nVariables());
-  iTimePropagator.propagate(sampler, niter, nms, lr);
+  iTimePropagator.propagate(sampler, niter, nms, lr, RSDcutoff);
 
   // save parameters: w,a,b
   machine.save(prefix);
