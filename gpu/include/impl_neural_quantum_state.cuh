@@ -426,6 +426,20 @@ void RBMTrSymm<FloatType>::forward(const thrust::complex<FloatType> * spinStates
 }
 
 template <typename FloatType>
+void RBMTrSymm<FloatType>::forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev, thrust::complex<FloatType> * lnpsi_dev)
+{
+  gpu_kernel::logcosh<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha*knInputs, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), PTR_FROM_THRUST(wf_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()),
+    PTR_FROM_THRUST(y_dev_.data()), PTR_FROM_THRUST(ly_dev_.data()));
+  // lnpsi_k = \sum_j ly_kj + \sum_i a_i*spinStates_ki
+  gpu_kernel::RBM__sadot__<<<kgpuBlockSize3, NUM_THREADS_PER_BLOCK>>>(knInputs, knChains,
+    PTR_FROM_THRUST(spinPairFlipIdx_dev.data()), PTR_FROM_THRUST(sa_dev_.data()),
+    PTR_FROM_THRUST(af_dev_.data()), PTR_FROM_THRUST(spinStates_dev_.data()), lnpsi_dev);
+  cublas::gemm(theCublasHandle_, 1, knChains, kAlpha*knInputs, kone, kone, PTR_FROM_THRUST(koneHiddens_dev.data()),
+    PTR_FROM_THRUST(ly_dev_.data()), lnpsi_dev);
+}
+
+template <typename FloatType>
 void RBMTrSymm<FloatType>::backward(thrust::complex<FloatType> * lnpsiGradients_dev)
 {
   gpu_kernel::RBMTrSymm__GetGradientsOfParameters__<<<kgpuBlockSize1, NUM_THREADS_PER_BLOCK>>>(knInputs, kAlpha, knChains,

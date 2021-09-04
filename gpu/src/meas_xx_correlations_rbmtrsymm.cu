@@ -12,39 +12,33 @@ int main(int argc, char* argv[])
 {
   std::vector<pair_t> options, defaults;
   // env; explanation of env
-  options.push_back(pair_t("Ni", "# of input nodes"));
-  options.push_back(pair_t("Nh", "# of hidden nodes"));
+  options.push_back(pair_t("L", "# of lattice sites"));
+  options.push_back(pair_t("nf", "# of filters"));
   options.push_back(pair_t("ns", "# of spin samples for parallel Monte-Carlo"));
   options.push_back(pair_t("niter", "# of trials to compute spin-spin correlation"));
-  options.push_back(pair_t("h", "transverse-field strength"));
-  options.push_back(pair_t("ver", "version"));
   options.push_back(pair_t("nwarm", "# of MCMC steps for warming-up"));
   options.push_back(pair_t("nms", "# of MCMC steps for sampling spins"));
   options.push_back(pair_t("dev", "device number"));
   options.push_back(pair_t("seed", "seed of the parallel random number generator"));
   options.push_back(pair_t("path", "directory to load and save files"));
-  options.push_back(pair_t("lattice", "lattice type(=CH,SQ,TRI,CB)"));
+  options.push_back(pair_t("filename", "data file of the trained model"));
+  options.push_back(pair_t("tag", "tag of results"));
   // env; default value
   defaults.push_back(pair_t("nwarm", "100"));
   defaults.push_back(pair_t("nms", "1"));
   defaults.push_back(pair_t("seed", "0"));
   defaults.push_back(pair_t("path", "."));
+  defaults.push_back(pair_t("tag", "0"));
   // parser for arg list
   argsparse parser(argc, argv, options, defaults);
-  const int nInputs = parser.find<int>("Ni"),
-    nHiddens = parser.find<int>("Nh"),
+  const int L = parser.find<int>("L"),
+    nf = parser.find<int>("nf"),
     nChains = parser.find<int>("ns"),
     niter = parser.find<int>("niter"),
     nWarmup = parser.find<int>("nwarm"),
     nMonteCarloSteps = parser.find<int>("nms"),
-    deviceNumber = parser.find<int>("dev"),
-    ver = parser.find<int>("ver");
-  const double h = parser.find<double>("h");
+    deviceNumber = parser.find<int>("dev");
   const unsigned long seed = parser.find<unsigned long>("seed");
-  const std::string path = parser.find<>("path");
-  std::string hfstr = std::to_string(h);
-  hfstr.erase(hfstr.find_last_not_of('0') + 1, std::string::npos);
-  hfstr.erase(hfstr.find_last_not_of('.') + 1, std::string::npos);
 
   // print info of the registered args
   parser.print(std::cout);
@@ -59,39 +53,38 @@ int main(int argc, char* argv[])
   }
   CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
 
-  FFNN<double> psi(nInputs, nHiddens, nChains);
+  RBMTrSymm<float> psi(L, nf, nChains);
 
-  const std::string filename = parser.find<>("lattice") + "-Ni" + parser.find<>("Ni") + "Nh"
-    + parser.find<>("Nh") + "Hf" + hfstr + "V" + parser.find<>("ver");
-  const std::string filepath = parser.find<>("path") + "/" + filename;
+  const std::string filepath = parser.find<>("path") + "/" + parser.find<>("filename");
 
   // load parameters: w,a,b
-  psi.load(FFNNDataType::W1, filepath + "Dw1.dat");
-  psi.load(FFNNDataType::W2, filepath + "Dw2.dat");
-  psi.load(FFNNDataType::B1, filepath + "Db1.dat");
+  psi.load(filepath);
 
   // block size for the block splitting scheme of parallel Monte-Carlo
   const unsigned long nBlocks = static_cast<unsigned long>(niter)*
     static_cast<unsigned long>(nMonteCarloSteps)*
-    static_cast<unsigned long>(nInputs)*
+    static_cast<unsigned long>(L)*
     static_cast<unsigned long>(nChains);
 
   // measurements of the overlap integral for the given wave functions
-  struct TRAITS { using AnsatzType = FFNN<double>; using FloatType = double; };
+  struct TRAITS { using AnsatzType = RBMTrSymm<float>; using FloatType = float; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
-  MeasSpinSpinCorrelation<TRAITS> corr(smp);
-  std::vector<double> ss(nInputs*nInputs, 0);
-  corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data());
+  MeasSpinXSpinXCorrelation<TRAITS> corr(smp, psi);
+  std::vector<float> ss(L*L, 0), s(L, 0);
+  corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data(), s.data());
 
-  std::ofstream wfile(parser.find<>("path") + "/Corr-" + filename + ".dat");
-  for (int i=0; i<nInputs; ++i)
+  std::ofstream wfile1(parser.find<>("path") + "/Corr-XX-" + parser.find<>("filename") + "-TAG" + parser.find<>("tag")+ ".dat"),
+    wfile2(parser.find<>("path") + "/Mag-X-" + parser.find<>("filename") + "-TAG" + parser.find<>("tag")+ ".dat");
+  for (int i=0; i<L; ++i)
   {
-    for (int j=0; j<nInputs; ++j)
-      wfile << ss[i*nInputs+j] << " ";
-    wfile << std::endl;
+    wfile2 << s[i] << " ";
+    for (int j=0; j<L; ++j)
+      wfile1 << ss[i*L+j] << " ";
+    wfile1 << std::endl;
   }
-  wfile.close();
+  wfile1.close();
+  wfile2.close();
 
   return 0;
 }

@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
   struct TRAITS { using AnsatzType = RBMTrSymm<float>; using FloatType = float; };
 
   Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
-  MeasSpinSpinCorrelation<TRAITS> corr(smp);
+  MeasSpinZSpinZCorrelation<TRAITS> corr(smp);
   std::vector<float> ss(L*L, 0);
   corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data());
 

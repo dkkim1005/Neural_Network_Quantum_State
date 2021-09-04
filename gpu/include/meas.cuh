@@ -114,7 +114,6 @@ private:
   const thrust::complex<FloatType> kzero;
 };
 
-
 namespace gpu_kernel
 {
 template <typename FloatType>
@@ -126,14 +125,16 @@ __global__ void meas__Psi2OverPsi0__(
 );
 } // namespace gpu_kernel
 
+
+// z-z correlation function
 template <typename TraitsClass>
-class MeasSpinSpinCorrelation
+class MeasSpinZSpinZCorrelation
 {
   using AnsatzType = typename TraitsClass::AnsatzType;
   using FloatType = typename TraitsClass::FloatType;
 public:
-  explicit MeasSpinSpinCorrelation(Sampler4SpinHalf<TraitsClass> & smp);
-  ~MeasSpinSpinCorrelation();
+  explicit MeasSpinZSpinZCorrelation(Sampler4SpinHalf<TraitsClass> & smp);
+  ~MeasSpinZSpinZCorrelation();
   void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss);
 private:
   Sampler4SpinHalf<TraitsClass> & smp_;
@@ -142,6 +143,40 @@ private:
   const thrust::complex<FloatType> kzero, kone;
   cublasHandle_t theCublasHandle_;
 };
+
+
+// x-x correlation function
+template <typename TraitsClass>
+class MeasSpinXSpinXCorrelation
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  MeasSpinXSpinXCorrelation(Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi);
+  ~MeasSpinXSpinXCorrelation();
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s);
+private:
+  Sampler4SpinHalf<TraitsClass> & smp_;
+  AnsatzType & psi_;
+  thrust::device_vector<thrust::complex<FloatType>> ss_dev_, s_dev_, tmplnpsi_dev_; // spin-spin correlation in the spatial dimension
+  const thrust::device_vector<thrust::complex<FloatType>> kones;
+  thrust::device_vector<thrust::pair<int, int>> spinPairFlipIdx_dev_;
+  const int knInputs, knChains, kgpuBlockSize;
+  const thrust::complex<FloatType> kzero, kone;
+  cublasHandle_t theCublasHandle_;
+};
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void meas__AccumPsi2OverPsi0__(
+  const int nChains,
+  const int nInputs,
+  const thrust::complex<FloatType> * lnpsi_0,
+  const thrust::complex<FloatType> * lnpsi_2,
+  thrust::complex<FloatType> * ss);
+} // end namespace gpu_kernel
+
 
 // spontaneous magnetization m = \frac{1}{N}|\sum_{i}^{N} \sigma_i|
 template <typename TraitsClass>
@@ -161,6 +196,7 @@ private:
   thrust::device_vector<thrust::complex<FloatType>> tmpmag_dev_;
   thrust::device_vector<FloatType> mag_dev_;
 };
+
 
 // order parameter : \frac{1}{N}|\sum_{i}^{N} coeff_i*\sigma_i|
 template <typename TraitsClass>
@@ -210,6 +246,7 @@ private:
   kawasaki::NNSpinExchanger<LatticeTraits, FloatType> exchanger_;
   thrust::device_vector<thrust::pair<int, int> > spinPairIdx_dev_;
 };
+
 
 template <typename TraitsClass>
 class MeasOPDM

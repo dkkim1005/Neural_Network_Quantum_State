@@ -269,7 +269,7 @@ __global__ void meas__Psi2OverPsi0__(
 
 
 template <typename TraitsClass>
-MeasSpinSpinCorrelation<TraitsClass>::MeasSpinSpinCorrelation(Sampler4SpinHalf<TraitsClass> & smp):
+MeasSpinZSpinZCorrelation<TraitsClass>::MeasSpinZSpinZCorrelation(Sampler4SpinHalf<TraitsClass> & smp):
   smp_(smp),
   ss_dev_(smp.get_nInputs()*smp.get_nInputs()),
   knInputs(smp.get_nInputs()),
@@ -281,13 +281,13 @@ MeasSpinSpinCorrelation<TraitsClass>::MeasSpinSpinCorrelation(Sampler4SpinHalf<T
 }
 
 template <typename TraitsClass>
-MeasSpinSpinCorrelation<TraitsClass>::~MeasSpinSpinCorrelation()
+MeasSpinZSpinZCorrelation<TraitsClass>::~MeasSpinZSpinZCorrelation()
 {
   CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
 }
 
 template <typename TraitsClass>
-void MeasSpinSpinCorrelation<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss)
+void MeasSpinZSpinZCorrelation<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss)
 {
   std::cout << "# Now we are in warming up..." << std::flush;
   smp_.warm_up(nwarmup);
@@ -310,6 +310,107 @@ void MeasSpinSpinCorrelation<TraitsClass>::measure(const int nIterations, const 
       ss[idx] = ss_host[idx].real();
     }
 }
+
+
+template <typename TraitsClass>
+MeasSpinXSpinXCorrelation<TraitsClass>::MeasSpinXSpinXCorrelation(Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi):
+  smp_(smp),
+  psi_(psi),
+  ss_dev_(smp.get_nInputs()*smp.get_nInputs()),
+  s_dev_(smp.get_nInputs()),
+  tmplnpsi_dev_(smp.get_nChains()),
+  kones(smp.get_nChains(), thrust::complex<FloatType>(1, 0)),
+  spinPairFlipIdx_dev_(smp.get_nChains()),
+  knInputs(smp.get_nInputs()),
+  knChains(smp.get_nChains()),
+  kgpuBlockSize(CHECK_BLOCK_SIZE(1+(smp.get_nChains()-1)/NUM_THREADS_PER_BLOCK)),
+  kzero(0, 0),
+  kone(1, 0)
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename TraitsClass>
+MeasSpinXSpinXCorrelation<TraitsClass>::~MeasSpinXSpinXCorrelation()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename TraitsClass>
+void MeasSpinXSpinXCorrelation<TraitsClass>::measure(const int nIterations,
+  const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s)
+{
+  thrust::fill(ss_dev_.begin(), ss_dev_.end(), kzero);
+  thrust::fill(s_dev_.begin(), s_dev_.end(), kzero);
+  thrust::device_vector<thrust::complex<FloatType>> ss_accum_dev(knInputs*knInputs*knChains, kzero), s_accum_dev(knInputs*knChains, kzero);
+  std::cout << "# Now we are in warming up..." << std::flush;
+  smp_.warm_up(nwarmup);
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+  const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*knChains);
+  for (int n=0; n<nIterations; ++n)
+  {
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+    smp_.do_mcmc_steps(nMCSteps);
+    for (int i=0; i<knInputs; ++i)
+    {
+      // meas <\sigma^x_i>
+      psi_.forward(i, PTR_FROM_THRUST(tmplnpsi_dev_.data()));
+      gpu_kernel::meas__AccumPsi2OverPsi0__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(
+        knChains, knInputs, smp_.get_lnpsi(),
+        PTR_FROM_THRUST(tmplnpsi_dev_.data()),
+        PTR_FROM_THRUST(&s_accum_dev[i*knChains]));
+
+      // meas <\sigma^x_i \sigma^x_j>
+      for (int j=(i+1); j<knInputs; ++j)
+      {
+        thrust::fill(spinPairFlipIdx_dev_.begin(), spinPairFlipIdx_dev_.end(), thrust::pair<int, int>(i, j));
+        psi_.forward(spinPairFlipIdx_dev_, PTR_FROM_THRUST(tmplnpsi_dev_.data()));
+        gpu_kernel::meas__AccumPsi2OverPsi0__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(
+          knChains, knInputs, smp_.get_lnpsi(),
+          PTR_FROM_THRUST(tmplnpsi_dev_.data()),
+          PTR_FROM_THRUST(&ss_accum_dev[(i*knInputs+j)*knChains]));
+      }
+    }
+  }
+  std::cout << std::endl;
+
+  cublas::gemm(theCublasHandle_, 1, knInputs*knInputs, knChains, oneOverTotalMeas, kzero,
+    PTR_FROM_THRUST(kones.data()), PTR_FROM_THRUST(ss_accum_dev.data()), PTR_FROM_THRUST(ss_dev_.data()));
+  cublas::gemm(theCublasHandle_, 1, knInputs, knChains, oneOverTotalMeas, kzero,
+    PTR_FROM_THRUST(kones.data()), PTR_FROM_THRUST(s_accum_dev.data()), PTR_FROM_THRUST(s_dev_.data()));
+
+  thrust::host_vector<thrust::complex<FloatType>> ss_host(ss_dev_), s_host(s_dev_);
+  for (int i=0; i<knInputs; ++i)
+  {
+    s[i] = s_host[i].real();
+    for (int j=0; j<knInputs; ++j)
+    {
+      const int idx = i*knInputs+j;
+      ss[idx] = ss_host[idx].real();
+    }
+  }
+}
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void meas__AccumPsi2OverPsi0__(
+  const int nChains,
+  const int nInputs,
+  const thrust::complex<FloatType> * lnpsi_0,
+  const thrust::complex<FloatType> * lnpsi_2,
+  thrust::complex<FloatType> * ss)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned nstep = gridDim.x*blockDim.x;
+  while (idx < nChains)
+  {
+    ss[idx] = ss[idx] + thrust::exp(lnpsi_2[idx]-lnpsi_0[idx]);
+    idx += nstep;
+  }
+}
+} // end namespace gpu_kernel
 
 
 template <typename TraitsClass>

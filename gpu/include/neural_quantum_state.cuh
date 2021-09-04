@@ -70,6 +70,7 @@ public:
   void initialize(thrust::complex<FloatType> * lnpsi_dev, const thrust::complex<FloatType> * spinStates_dev = nullptr);
   void forward(const int spinFlipIndex, thrust::complex<FloatType> * lnpsi_dev);
   void forward(const thrust::complex<FloatType> * spinStates_dev, thrust::complex<FloatType> * lnpsi_dev, const bool saveSpinStates = true);
+  void forward(const thrust::device_vector<thrust::pair<int, int> > & spinPairFlipIdx_dev, thrust::complex<FloatType> * lnpsi_dev);
   void backward(thrust::complex<FloatType> * lnpsiGradients_dev);
   void update_variables(const thrust::complex<FloatType> * derivativeLoss_dev, const FloatType learningRate);
   void spin_flip(const bool * isSpinFlipped_dev, const int spinFlipIndex = -1);
