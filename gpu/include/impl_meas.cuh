@@ -287,21 +287,69 @@ MeasSpinZSpinZCorrelation<TraitsClass>::~MeasSpinZSpinZCorrelation()
 }
 
 template <typename TraitsClass>
-void MeasSpinZSpinZCorrelation<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss)
+void MeasSpinZSpinZCorrelation<TraitsClass>::measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss
+
+
+#ifdef __KISTI_GPU__
+  , const std::string logpath
+#endif
+
+
+)
 {
+
+
+#ifdef __KISTI_GPU__
+  std::ofstream logfile(logpath, std::fstream::app);
+#endif
+
+
+
+#ifdef __KISTI_GPU__
+  logfile << "# Now we are in warming up..." << std::flush;
+#else
   std::cout << "# Now we are in warming up..." << std::flush;
+#endif
+
+
   smp_.warm_up(nwarmup);
+
+
+#ifdef __KISTI_GPU__
+  logfile << " done." << std::endl << std::flush;
+  logfile << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#else
   std::cout << " done." << std::endl << std::flush;
   std::cout << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#endif
+
+
   thrust::fill(ss_dev_.begin(), ss_dev_.end(), kzero);
   const FloatType oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*knChains);
   for (int n=0; n<nIterations; ++n)
   {
+
+
+#ifdef __KISTI_GPU__
+    logfile << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#else
     std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#endif
+
+
     smp_.do_mcmc_steps(nMCSteps);
     cublas::herk(theCublasHandle_, knInputs, knChains, oneOverTotalMeas, smp_.get_quantumStates(), kone.real(), PTR_FROM_THRUST(ss_dev_.data()));
   }
+
+
+#ifdef __KISTI_GPU__
+  logfile << std::endl;
+  logfile.close();
+#else
   std::cout << std::endl;
+#endif
+
+
   thrust::host_vector<thrust::complex<FloatType>> ss_host(ss_dev_);
   for (int i=0; i<knInputs; ++i)
     for (int j=0; j<knInputs; ++j)
@@ -338,19 +386,59 @@ MeasSpinXSpinXCorrelation<TraitsClass>::~MeasSpinXSpinXCorrelation()
 
 template <typename TraitsClass>
 void MeasSpinXSpinXCorrelation<TraitsClass>::measure(const int nIterations,
-  const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s)
+  const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s
+
+
+#ifdef __KISTI_GPU__
+, const std::string logpath
+#endif
+
+
+  )
 {
+
+
+#ifdef __KISTI_GPU__
+  std::ofstream logfile(logpath, std::fstream::app);
+#endif
+
+
   thrust::fill(ss_dev_.begin(), ss_dev_.end(), kzero);
   thrust::fill(s_dev_.begin(), s_dev_.end(), kzero);
   thrust::device_vector<thrust::complex<FloatType>> ss_accum_dev(knInputs*knInputs*knChains, kzero), s_accum_dev(knInputs*knChains, kzero);
+
+
+#ifdef __KISTI_GPU__
+  logfile << "# Now we are in warming up..." << std::flush;
+#else
   std::cout << "# Now we are in warming up..." << std::flush;
+#endif
+
+
   smp_.warm_up(nwarmup);
+
+
+#ifdef __KISTI_GPU__
+  logfile << " done." << std::endl << std::flush;
+  logfile << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#else
   std::cout << " done." << std::endl << std::flush;
   std::cout << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#endif
+
+
   const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*knChains);
   for (int n=0; n<nIterations; ++n)
   {
+
+
+#ifdef __KISTI_GPU__
+    logfile << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#else
     std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#endif
+
+
     smp_.do_mcmc_steps(nMCSteps);
     for (int i=0; i<knInputs; ++i)
     {
@@ -373,7 +461,15 @@ void MeasSpinXSpinXCorrelation<TraitsClass>::measure(const int nIterations,
       }
     }
   }
+
+
+#ifdef __KISTI_GPU__
+  logfile << std::endl;
+  logfile.close();
+#else
   std::cout << std::endl;
+#endif
+
 
   cublas::gemm(theCublasHandle_, 1, knInputs*knInputs, knChains, oneOverTotalMeas, kzero,
     PTR_FROM_THRUST(kones.data()), PTR_FROM_THRUST(ss_accum_dev.data()), PTR_FROM_THRUST(ss_dev_.data()));

@@ -1,5 +1,10 @@
+#define __KISTI_GPU__
+
 #include <memory>
 #include "../include/neural_quantum_state.cuh"
+#include "../include/common.cuh"
+#include "../include/hamiltonians.cuh"
+#include "../include/optimizer.cuh"
 #include "../include/meas.cuh"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -117,8 +122,219 @@ private:
 };
 
 
+#ifdef __KISTI_GPU__
+// =====================================================================
+// The below codes are written for running KISTI GPU machines
+//
+
+// Part 1: STOCHASTIC RECONFIGURATION (RBMTrSymmLICH)
+template <typename FloatType>
+std::string remove_zeros_in_str(const FloatType val);
+
+using namespace spinhalf;
+
+template <typename T>
+void optimize_RBMTrSymmLICH(const py::dict kwargs)
+{
+  const int L = kwargs["L"].cast<int>(),
+    nChains = kwargs["ns"].cast<int>(),
+    nWarmup = kwargs["nwarm"].cast<int>(),
+    nMonteCarloSteps = kwargs["nms"].cast<int>(),
+    deviceNumber = kwargs["dev"].cast<int>(),
+    nIterations =  kwargs["niter"].cast<int>();
+
+  const T lr = kwargs["lr"].cast<T>(),
+    RSDcutoff = kwargs["rsd"].cast<T>();
+
+  const unsigned long long seed = kwargs["seed"].cast<unsigned long long>();
+
+  const std::string path = kwargs["path"].cast<std::string>() + "/",
+    Lstr = std::to_string(L);
+
+  const int nf = kwargs["nf"].cast<int>();
+  const T alpha = kwargs["alpha"].cast<T>();
+  const int ver = kwargs["ver"].cast<int>();
+  const T theta = kwargs["theta"].cast<T>();
+
+  // check whether the cuda device is available
+  int devicesCount;
+  CHECK_ERROR(cudaSuccess, cudaGetDeviceCount(&devicesCount));
+  if (deviceNumber >= devicesCount)
+  {
+    std::cerr << "# error ---> dev(" << deviceNumber << ") >= # of devices(" << devicesCount << ")" << std::endl;
+    exit(1);
+  }
+  CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
+
+  struct SamplerTraits { using AnsatzType = RBMTrSymm<T>; using FloatType = T; };
+
+  // block size for the block splitting scheme of parallel Monte-Carlo
+  const unsigned long nBlocks = static_cast<unsigned long>(nIterations)*
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(L)*
+    static_cast<unsigned long>(nChains);
+
+  const std::string verstr = std::to_string(ver),
+    nfstr = std::to_string(nf),
+    alphastr = remove_zeros_in_str(alpha),
+    thetastr = remove_zeros_in_str(theta);
+  RBMTrSymm<T> machine(L, nf, nChains);
+  const T J = std::sin(theta), h = -std::cos(theta);
+  // load parameters
+  const std::string prefix = path + "RBMTrSymmLICH-L" + Lstr + "NF" + nfstr + "A" + alphastr + "T" + thetastr + "V" + verstr,
+    logpath = prefix + "_log.dat";
+  machine.load(prefix);
+  // Transverse Field Ising Hamiltonian with long-range interaction on the 1D chain lattice
+  LITFIChain<SamplerTraits> sampler(machine, L, h, J, alpha, true, seed, nBlocks, prefix);
+  sampler.warm_up(nWarmup);
+  StochasticReconfigurationCG<T> iTimePropagator(nChains, machine.get_nVariables());
+  iTimePropagator.propagate(sampler, nIterations, nMonteCarloSteps, lr, RSDcutoff, logpath);
+  // save parameters
+  machine.save(prefix);
+}
+
+template <typename FloatType>
+std::string remove_zeros_in_str(const FloatType val)
+{
+  std::string tmp = std::to_string(val);
+  tmp.erase(tmp.find_last_not_of('0') + 1, std::string::npos);
+  tmp.erase(tmp.find_last_not_of('.') + 1, std::string::npos);
+  return tmp;
+}
+
+
+// Part 2: X-X CORRELATION (RBMTrSymmLICH)
+template <typename T>
+void xx_correlation_RBMTrSymmLICH(const py::dict kwargs)
+{
+  const int L = kwargs["L"].cast<int>(),
+    nf = kwargs["nf"].cast<int>(),
+    nChains = kwargs["ns"].cast<int>(),
+    niter = kwargs["niter"].cast<int>(),
+    nWarmup = kwargs["nwarm"].cast<int>(),
+    nMonteCarloSteps = kwargs["nms"].cast<int>(),
+    deviceNumber = kwargs["dev"].cast<int>();
+
+  const unsigned long seed = kwargs["seed"].cast<unsigned long>();
+
+  // check whether the cuda device is available
+  int devicesCount;
+  CHECK_ERROR(cudaSuccess, cudaGetDeviceCount(&devicesCount));
+  if (deviceNumber >= devicesCount)
+  {
+    std::cerr << "# error ---> dev(" << deviceNumber << ") >= # of devices(" << devicesCount << ")" << std::endl;
+    exit(1);
+  }
+  CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
+
+  RBMTrSymm<T> psi(L, nf, nChains);
+
+  const std::string filepath = kwargs["path"].cast<std::string>() + "/" + kwargs["filename"].cast<std::string>();
+
+  // load parameters: w,a,b
+  psi.load(filepath);
+
+  // block size for the block splitting scheme of parallel Monte-Carlo
+  const unsigned long nBlocks = static_cast<unsigned long>(niter)*
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(L)*
+    static_cast<unsigned long>(nChains);
+
+  // measurements of the overlap integral for the given wave functions
+  struct TRAITS { using AnsatzType = RBMTrSymm<T>; using FloatType = T; };
+
+  Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
+  MeasSpinXSpinXCorrelation<TRAITS> corr(smp, psi);
+  std::vector<T> ss(L*L, 0), s(L, 0);
+  const std::string logfile = kwargs["path"].cast<std::string>() +
+    "/X-" + kwargs["filename"].cast<std::string>() + "_log.dat";
+  corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data(), s.data(), logfile);
+
+  const std::string filename1 = kwargs["path"].cast<std::string>() +
+    "/Corr-XX-" + kwargs["filename"].cast<std::string>() + "-TAG" + std::to_string(kwargs["tag"].cast<int>()) + ".dat",
+    filename2 = kwargs["path"].cast<std::string>() +
+      "/Mag-X-" + kwargs["filename"].cast<std::string>() + "-TAG" + std::to_string(kwargs["tag"].cast<int>()) + ".dat";
+
+  std::ofstream wfile1(filename1), wfile2(filename2);
+  for (int i=0; i<L; ++i)
+  {
+    wfile2 << s[i] << " ";
+    for (int j=0; j<L; ++j)
+      wfile1 << ss[i*L+j] << " ";
+    wfile1 << std::endl;
+  }
+  wfile1.close();
+  wfile2.close();
+}
+
+
+// Part 3: Z-Z CORRELATION (RBMTrSymmLICH)
+template <typename T>
+void zz_correlation_RBMTrSymmLICH(const py::dict kwargs)
+{
+  const int L = kwargs["L"].cast<int>(),
+    nf = kwargs["nf"].cast<int>(),
+    nChains = kwargs["ns"].cast<int>(),
+    niter = kwargs["niter"].cast<int>(),
+    nWarmup = kwargs["nwarm"].cast<int>(),
+    nMonteCarloSteps = kwargs["nms"].cast<int>(),
+    deviceNumber = kwargs["dev"].cast<int>();
+
+  const unsigned long seed = kwargs["seed"].cast<unsigned long>();
+
+  // check whether the cuda device is available
+  int devicesCount;
+  CHECK_ERROR(cudaSuccess, cudaGetDeviceCount(&devicesCount));
+  if (deviceNumber >= devicesCount)
+  {
+    std::cerr << "# error ---> dev(" << deviceNumber << ") >= # of devices(" << devicesCount << ")" << std::endl;
+    exit(1);
+  }
+  CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
+
+  RBMTrSymm<T> psi(L, nf, nChains);
+
+  const std::string filepath = kwargs["path"].cast<std::string>() + "/" + kwargs["filename"].cast<std::string>();
+
+  // load parameters: w,a,b
+  psi.load(filepath);
+
+  // block size for the block splitting scheme of parallel Monte-Carlo
+  const unsigned long nBlocks = static_cast<unsigned long>(niter)*
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(L)*
+    static_cast<unsigned long>(nChains);
+
+  // measurements of the overlap integral for the given wave functions
+  struct TRAITS { using AnsatzType = RBMTrSymm<T>; using FloatType = T; };
+
+  Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
+  MeasSpinZSpinZCorrelation<TRAITS> corr(smp);
+  std::vector<T> ss(L*L, 0);
+  const std::string logfile = kwargs["path"].cast<std::string>() +
+    "/Z-" + kwargs["filename"].cast<std::string>() + "_log.dat";
+  corr.measure(niter, nMonteCarloSteps, nWarmup, ss.data(), logfile);
+
+  const std::string filename = kwargs["path"].cast<std::string>() +
+    "/Corr-" + kwargs["filename"].cast<std::string>() + "-TAG" + std::to_string(kwargs["tag"].cast<int>()) + ".dat";
+  std::ofstream wfile(filename);
+  for (int i=0; i<L; ++i)
+  {
+    for (int j=0; j<L; ++j)
+      wfile << ss[i*L+j] << " ";
+    wfile << std::endl;
+  }
+  wfile.close();
+}
+
+// =====================================================================
+#endif // __KISTI_GPU__
+
+
+
 PYBIND11_MODULE(_pynqs_gpu, m)
 {
+  /*
   MAKE_PYSAMPLER_MODULE(m, "sRBMSampler",         spinhalf::RBM,          float);
   MAKE_PYSAMPLER_MODULE(m, "dRBMSampler",         spinhalf::RBM,          double);
   MAKE_PYSAMPLER_MODULE(m, "sRBMTrSymmSampler",   spinhalf::RBMTrSymm,    float);
@@ -129,4 +345,14 @@ PYBIND11_MODULE(_pynqs_gpu, m)
   MAKE_PYSAMPLER_MODULE(m, "dFFNNSampler",        spinhalf::FFNN,         double);
   MAKE_PYSAMPLER_MODULE(m, "sFFNNTrSymmSampler",  spinhalf::FFNNTrSymm,   float);
   MAKE_PYSAMPLER_MODULE(m, "dFFNNTrSymmSampler",  spinhalf::FFNNTrSymm,   double);
+  */
+
+#ifdef __KISTI_GPU__
+  m.def("SR_float32_RBMTrSymmLICH", &optimize_RBMTrSymmLICH<float>, "");
+  m.def("SR_float64_RBMTrSymmLICH", &optimize_RBMTrSymmLICH<double>, "");
+  m.def("xx_corr_float32_RBMTrSymmLICH", &xx_correlation_RBMTrSymmLICH<float>, "");
+  m.def("xx_corr_float64_RBMTrSymmLICH", &xx_correlation_RBMTrSymmLICH<double>, "");
+  m.def("zz_corr_float32_RBMTrSymmLICH", &zz_correlation_RBMTrSymmLICH<float>, "");
+  m.def("zz_corr_float64_RBMTrSymmLICH", &zz_correlation_RBMTrSymmLICH<double>, "");
+#endif
 }

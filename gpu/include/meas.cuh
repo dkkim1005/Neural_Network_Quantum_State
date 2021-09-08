@@ -135,7 +135,17 @@ class MeasSpinZSpinZCorrelation
 public:
   explicit MeasSpinZSpinZCorrelation(Sampler4SpinHalf<TraitsClass> & smp);
   ~MeasSpinZSpinZCorrelation();
-  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss);
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss
+
+
+#ifdef __KISTI_GPU__
+  , const std::string logpath
+#else
+
+#endif
+
+
+  );
 private:
   Sampler4SpinHalf<TraitsClass> & smp_;
   thrust::device_vector<thrust::complex<FloatType>> ss_dev_; // spin-spin correlation in the spatial dimension
@@ -154,7 +164,15 @@ class MeasSpinXSpinXCorrelation
 public:
   MeasSpinXSpinXCorrelation(Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi);
   ~MeasSpinXSpinXCorrelation();
-  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s);
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * ss, FloatType * s
+
+
+#ifdef __KISTI_GPU__
+, const std::string logpath
+#endif
+
+
+  );
 private:
   Sampler4SpinHalf<TraitsClass> & smp_;
   AnsatzType & psi_;

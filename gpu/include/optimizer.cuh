@@ -13,6 +13,7 @@
 #include "linear_solver.cuh"
 #endif
 
+
 namespace gpu_kernel
 {
 template <typename FloatType>
@@ -118,10 +119,27 @@ public:
   ~StochasticReconfigurationCG();
   template <typename SamplerType>
   void propagate(SamplerType & sampler, const int nIteration, const int nMCSteps, const FloatType deltaTau,
-      const FloatType RSDcutoff, const int nrec = 100)
+      const FloatType RSDcutoff,
+
+
+#ifdef __KISTI_GPU__
+      const std::string logpath,
+#endif
+
+
+      const int nrec = 100)
   {
     const thrust::complex<FloatType> oneOverTotalMeas = 1/static_cast<FloatType>(knChains);
+
+
+#ifdef __KISTI_GPU__
+    std::ofstream logfile(logpath, std::fstream::app);
+    logfile   << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
+#else
     std::cout << "# of loop\t" << "<H>" << std::endl << std::setprecision(7);
+#endif
+
+
     for (int n=0; n<nIteration; ++n)
     {
       sampler.do_mcmc_steps(nMCSteps);
@@ -133,7 +151,15 @@ public:
       const thrust::complex<FloatType> conjHavg = oneOverTotalMeas.real()*thrust::reduce(thrust::device, htilda_dev_.begin(), htilda_dev_.end(), kzero);
       if (!std::isfinite(conjHavg.real()))
       {
+
+
+#ifdef __KISTI_GPU__
+        logfile   << "# \"Havg\" has non-value type. We stop here." << std::endl;
+#else
         std::cout << "# \"Havg\" has non-value type. We stop here." << std::endl;
+#endif
+
+
         return;
       }
       // aO_i = (\sum_k lnpsigradients_ki)*oneOverTotalMeas
@@ -155,15 +181,40 @@ public:
         sampler.save();
       const FloatType RSD = std::sqrt((internal_impl::l2_norm(htilda_dev_)/knChains
         - thrust::norm(conjHavg))/thrust::norm(conjHavg));
+
+
+#ifdef __KISTI_GPU__
+      logfile   << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::setw(16) <<
+        RSD << std::endl << std::flush;
+#else
       std::cout << std::setw(5) << (n+1) << std::setw(16) << conjHavg.real() << std::setw(16) <<
         RSD << std::endl << std::flush;
+#endif
+
+
       if (RSD < RSDcutoff)
       {
+
+
+#ifdef __KISTI_GPU__
+        logfile   << "# We got a converged solution." << std::endl;
+        logfile.close();
+#else
         std::cout << "# We got a converged solution." << std::endl;
+#endif
+
+
         sampler.save();
         break;
       }
     }
+
+
+#ifdef __KISTI_GPU__
+    logfile.close();
+#endif
+
+
   }
 private:
   FloatType schedular_();
