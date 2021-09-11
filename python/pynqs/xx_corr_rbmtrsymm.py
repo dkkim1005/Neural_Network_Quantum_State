@@ -1,10 +1,9 @@
-from miscellaneous_tools import argchecker, remove_last_zero_points
-from pynqs._pynqs_gpu import xx_corr_float32_RBMTrSymmLICH
-from pynqs._pynqs_gpu import xx_corr_float64_RBMTrSymmLICH
+from . import miscellaneous_tools
+from . import _pynqs_gpu
 
 
 def run_gpu(kwargs):
-    argchecker(kwargs,
+    miscellaneous_tools.argchecker(kwargs,
       [    'L',  #  # of lattice sites
           'nf',  #  # of filters
           'ns',  #  # of spin samples for parallel Monte-Carlo
@@ -31,8 +30,8 @@ def run_gpu(kwargs):
         f.write("#============================\n")
 
     if kwargs['dtype'] == 'float32':
-        xx_corr_float32_RBMTrSymmLICH(kwargs)
+        _pynqs_gpu.xx_corr_float32_RBMTrSymmLICH(kwargs)
     elif kwargs['dtype'] == 'float64':
-        xx_corr_float64_RBMTrSymmLICH(kwargs)
+        _pynqs_gpu.xx_corr_float64_RBMTrSymmLICH(kwargs)
     else:
         raise TypeError("The argument \'dtype\' should be either \'float32\' or \'float64\'.")

@@ -1,10 +1,9 @@
-from miscellaneous_tools import argchecker, remove_last_zero_points
-from pynqs._pynqs_gpu import SR_float32_RBMTrSymmLICH
-from pynqs._pynqs_gpu import SR_float64_RBMTrSymmLICH
+from . import miscellaneous_tools #import argchecker, remove_last_zero_points
+from . import _pynqs_gpu
 
 
 def run_gpu(kwargs):
-    argchecker(kwargs,
+    miscellaneous_tools.argchecker(kwargs,
       [    'L',  #  # of lattice sites
           'nf',  #  # of filters
           'ns',  #  # of spin samples for parallel Monte-Carlo
@@ -25,8 +24,8 @@ def run_gpu(kwargs):
     # log-file to print a current status
     logfilename = kwargs['path'] + "/RBMTrSymmLICH-L" + str(kwargs['L']) + \
       "NF" + str(kwargs['nf']) + \
-      "A" + remove_last_zero_points(str(kwargs['alpha'])) + \
-      "T" + remove_last_zero_points(str(kwargs['theta'])) + \
+      "A" + miscellaneous_tools.remove_last_zero_points(str(kwargs['alpha'])) + \
+      "T" + miscellaneous_tools.remove_last_zero_points(str(kwargs['theta'])) + \
       "V" + str(kwargs['ver']) + \
       "_log.dat"
 
@@ -39,31 +38,8 @@ def run_gpu(kwargs):
         f.write("#============================\n")
         
     if kwargs['dtype'] == 'float32':
-        SR_float32_RBMTrSymmLICH(kwargs)
+        _pynqs_gpu.SR_float32_RBMTrSymmLICH(kwargs)
     elif kwargs['dtype'] == 'float64':
-        SR_float64_RBMTrSymmLICH(kwargs)
+        _pynqs_gpu.SR_float64_RBMTrSymmLICH(kwargs)
     else:
         raise TypeError("The argument \'dtype\' should be either \'float32\' or \'float64\'.")
-
-
-if __name__ == "__main__":
-    kwargs = {
-     'L'     : 16,
-     'nf'    : 4,
-     'ns'    : 1000,
-     'nwarm' : 500,
-     'nms'   : 1,
-     'dev'   : 0, 
-     'niter' : 1000,
-     'lr'    : 1,
-     'rsd'   : 0.001,
-     'seed'  : 0,
-     'path'  : "./tmp",
-     'alpha' : 1,
-     'theta' : 1,
-     'ver'   : 1,
-     'dtype' : 'float64',
-   'verbose' : True
-     }
-
-    run_gpu(kwargs)

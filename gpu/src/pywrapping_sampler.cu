@@ -11,6 +11,9 @@
 #include "pybind11/complex.h"
 #include "pybind11/numpy.h"
 
+namespace py = pybind11;
+
+/*
 #define MAKE_PYSAMPLER_MODULE(MODULE_NAME, PYCLASS_NAME, ANSATZ, TYPE) do {\
   py::class_<PySampler<ANSATZ, TYPE>>(MODULE_NAME, PYCLASS_NAME)\
     .def(py::init<const py::dict>())\
@@ -21,8 +24,6 @@
     .def("get_lnpsi", &PySampler<ANSATZ, TYPE>::get_lnpsi)\
     .def("get_lnpsi_for_fixed_spins", &PySampler<ANSATZ, TYPE>::get_lnpsi_for_fixed_spins);\
 } while (false)
-
-namespace py = pybind11;
 
 template <template<typename> class ToAnsatzType, typename ToFloatType>
 struct Traits
@@ -120,7 +121,7 @@ private:
   thrust::host_vector<thrust::complex<T>> spinStates_host_, lnpsi_host_;
   thrust::device_vector<thrust::complex<T>> spinStates_dev_, lnpsi_dev_;
 };
-
+*/
 
 #ifdef __KISTI_GPU__
 // =====================================================================

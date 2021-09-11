@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import os
 from mpi4py import MPI
-from miscellaneous_tools import remove_last_zero_points
-import SR_LICH_rbmtrsymm
-import xx_corr_rbmtrsymm
-import zz_corr_rbmtrsymm
+from pynqs import miscellaneous_tools as mtools
+from pynqs import SR_LICH_rbmtrsymm
+from pynqs import xx_corr_rbmtrsymm
+from pynqs import zz_corr_rbmtrsymm
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -12,7 +12,7 @@ rank = comm.Get_rank()
 dev = rank
 L = 128
 nf = 4
-alpha = 1.0
+alpha = 0.5
 ns_1 = 3000
 ns_2 = 4000
 niter_1 = 80000
@@ -21,11 +21,11 @@ nms = 5
 nwarm = 500
 ver = 1
 lr = 1.0
-rsd = 0.001
+rsd = 0.0013
 seed = 1234567
 ntag = 5
-thetas = [[1.02, 1.04], # rank 0
-          [1.06, 1.08]  # rank 1
+thetas = [[1.12, 1.14, 1.16, 1.18, 1.2], # rank 0
+          [1.22, 1.24, 1.26, 1.28, 1.3]  # rank 1
          ]
 
 sr_parameters = {
@@ -51,12 +51,12 @@ if comm.size != 2:
 path = f'../LITFI/pbc/A{alpha}/L{L}/'
 os.makedirs(path, exist_ok = True)
 sr_parameters['path'] = path
-str_alpha = remove_last_zero_points(str(alpha))
+str_alpha = mtools.remove_last_zero_points(str(alpha))
 
 for theta in thetas[rank]:
     sr_parameters['theta'] = theta
     SR_LICH_rbmtrsymm.run_gpu(sr_parameters)
-    str_theta = remove_last_zero_points(str(theta))
+    str_theta = mtools.remove_last_zero_points(str(theta))
     filename = f"RBMTrSymmLICH-L{L}NF{nf}A{str_alpha}T{str_theta}V{ver}"
     seed0 = seed
     for tag in range(ntag):
@@ -76,4 +76,3 @@ for theta in thetas[rank]:
             'dtype'    : 'float32'
         }
         xx_corr_rbmtrsymm.run_gpu(meas_parameters)
-        zz_corr_rbmtrsymm.run_gpu(meas_parameters)
