@@ -6,12 +6,18 @@ Neural network ansatz to approximate a ground state by using variational Monte C
 + CUDA 10.x.x or higher
 
 
-Build Reciepe
+Build reciepe 1 [C++ or CUDA]
 --------------
     mkdir build
     cd build
-    cmake ../ -DUSE_CUDA_GPU=TRUE # <- use this flag to run a gpu device.
-    
+    cmake ../ -DUSE_CUDA=TRUE # <- use this flag to run a gpu device.
+
+
+Build reciepe 2 [Python-CUDA]
+--------------
+    # One can import 'pynqs' module. The examples are listed in './python' folder.
+    python3 ./setup.py build
+    export PYTHONPATH=$(pwd)/python:$PYTHONPATH
 
 Bug report
 --------------
