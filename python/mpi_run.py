@@ -5,12 +5,13 @@ from pynqs import miscellaneous_tools as mtools
 from pynqs import SR_LICH_rbmtrsymm
 from pynqs import xx_corr_rbmtrsymm
 from pynqs import zz_corr_rbmtrsymm
+from pynqs import z4p_corr_rbmtrsymm
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 dev = rank
-L = 128
+L = 10
 nf = 4
 alpha = 0.5
 ns_1 = 3000
@@ -75,4 +76,4 @@ for theta in thetas[rank]:
             'filename' : filename,
             'dtype'    : 'float32'
         }
-        xx_corr_rbmtrsymm.run_gpu(meas_parameters)
+        z4p_corr_rbmtrsymm.run_gpu(meas_parameters)

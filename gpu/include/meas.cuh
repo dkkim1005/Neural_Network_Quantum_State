@@ -155,6 +155,38 @@ private:
 };
 
 
+// 4-points (z-z-z-z) correlation function
+template <typename TraitsClass>
+class Meas4PointsSpinZCorrelation
+{
+  using AnsatzType = typename TraitsClass::AnsatzType;
+  using FloatType = typename TraitsClass::FloatType;
+public:
+  explicit Meas4PointsSpinZCorrelation(Sampler4SpinHalf<TraitsClass> & smp);
+  ~Meas4PointsSpinZCorrelation();
+  void measure(const int nIterations, const int nMCSteps, const int nwarmup, FloatType * sz4
+
+
+#ifdef __KISTI_GPU__
+  , const std::string logpath
+#else
+
+#endif
+
+
+  );
+private:
+  Sampler4SpinHalf<TraitsClass> & smp_;
+  thrust::device_vector<thrust::complex<FloatType>> sz4_dev_; // 4-points correlation in the z-direction
+  thrust::device_vector<thrust::complex<FloatType>> nnsz2_dev_; // 2-points nearest neighbor correlation in the z-direction s_i * s_{i+1}, i=0,1,...L-1 (s_{L} == s_0)
+  const int knInputs, knChains, kgpuBlockSize;
+  const thrust::complex<FloatType> kzero, kone;
+  cublasHandle_t theCublasHandle_;
+};
+
+
+
+
 // x-x correlation function
 template <typename TraitsClass>
 class MeasSpinXSpinXCorrelation

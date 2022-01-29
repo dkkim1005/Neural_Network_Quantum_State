@@ -328,6 +328,67 @@ void zz_correlation_RBMTrSymmLICH(const py::dict kwargs)
   wfile.close();
 }
 
+
+// Part 4: 4 POINTS Z-DIRECTIONAL CORRELATION (RBMTrSymmLICH)
+template <typename T>
+void z4p_correlation_RBMTrSymmLICH(const py::dict kwargs)
+{
+  const int L = kwargs["L"].cast<int>(),
+    nf = kwargs["nf"].cast<int>(),
+    nChains = kwargs["ns"].cast<int>(),
+    niter = kwargs["niter"].cast<int>(),
+    nWarmup = kwargs["nwarm"].cast<int>(),
+    nMonteCarloSteps = kwargs["nms"].cast<int>(),
+    deviceNumber = kwargs["dev"].cast<int>();
+
+  const unsigned long seed = kwargs["seed"].cast<unsigned long>();
+
+  // check whether the cuda device is available
+  int devicesCount;
+  CHECK_ERROR(cudaSuccess, cudaGetDeviceCount(&devicesCount));
+  if (deviceNumber >= devicesCount)
+  {
+    std::cerr << "# error ---> dev(" << deviceNumber << ") >= # of devices(" << devicesCount << ")" << std::endl;
+    exit(1);
+  }
+  CHECK_ERROR(cudaSuccess, cudaSetDevice(deviceNumber));
+
+  RBMTrSymm<T> psi(L, nf, nChains);
+
+  const std::string filepath = kwargs["path"].cast<std::string>() + "/" + kwargs["filename"].cast<std::string>();
+
+  // load parameters: w,a,b
+  psi.load(filepath);
+
+  // block size for the block splitting scheme of parallel Monte-Carlo
+  const unsigned long nBlocks = static_cast<unsigned long>(niter)*
+    static_cast<unsigned long>(nMonteCarloSteps)*
+    static_cast<unsigned long>(L)*
+    static_cast<unsigned long>(nChains);
+
+  // measurements of the overlap integral for the given wave functions
+  struct TRAITS { using AnsatzType = RBMTrSymm<T>; using FloatType = T; };
+
+  Sampler4SpinHalf<TRAITS> smp(psi, seed, nBlocks);
+  Meas4PointsSpinZCorrelation<TRAITS> corr(smp);
+  std::vector<T> sz4(L*L, 0);
+  const std::string logfile = kwargs["path"].cast<std::string>() +
+    "/Z4-" + kwargs["filename"].cast<std::string>() + "_log.dat";
+  corr.measure(niter, nMonteCarloSteps, nWarmup, sz4.data(), logfile);
+
+  const std::string filename = kwargs["path"].cast<std::string>() +
+    "/Corr-Z4-" + kwargs["filename"].cast<std::string>() + "-TAG" + std::to_string(kwargs["tag"].cast<int>()) + ".dat";
+  std::ofstream wfile(filename);
+  for (int i=0; i<L; ++i)
+  {
+    for (int j=0; j<L; ++j)
+      wfile << sz4[i*L+j] << " ";
+    wfile << std::endl;
+  }
+  wfile.close();
+}
+
+
 // =====================================================================
 #endif // __KISTI_GPU__
 
@@ -355,5 +416,7 @@ PYBIND11_MODULE(_pynqs_gpu, m)
   m.def("xx_corr_float64_RBMTrSymmLICH", &xx_correlation_RBMTrSymmLICH<double>, "");
   m.def("zz_corr_float32_RBMTrSymmLICH", &zz_correlation_RBMTrSymmLICH<float>, "");
   m.def("zz_corr_float64_RBMTrSymmLICH", &zz_correlation_RBMTrSymmLICH<double>, "");
+  m.def("z4p_corr_float32_RBMTrSymmLICH", &z4p_correlation_RBMTrSymmLICH<float>, "");
+  m.def("z4p_corr_float64_RBMTrSymmLICH", &z4p_correlation_RBMTrSymmLICH<double>, "");
 #endif
 }

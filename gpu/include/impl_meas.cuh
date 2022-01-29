@@ -360,6 +360,117 @@ void MeasSpinZSpinZCorrelation<TraitsClass>::measure(const int nIterations, cons
 }
 
 
+
+namespace gpu_kernel
+{
+template <typename FloatType>
+__global__ void meas__NN2PointsCorr__(
+  const thrust::complex<FloatType> * s,
+  thrust::complex<FloatType> * nnsz2,
+  const int nChains,
+  const int nInputs)
+{
+  unsigned int idx = blockDim.x*blockIdx.x+threadIdx.x;
+  const unsigned int nstep = gridDim.x*blockDim.x;
+  while (idx < nChains*(nInputs-1))
+  {
+    const int i = idx/nChains, k = idx-i*nChains;
+    const int siteIdx = k*nInputs+i;
+    // nnsz2_{k,i} = s_{k,i}*s_{k,i+1}
+    nnsz2[siteIdx] = s[siteIdx]*s[siteIdx+1];
+    idx += nstep;
+  }
+  idx = blockDim.x*blockIdx.x+threadIdx.x;
+  while (idx < nChains)
+  {
+    const int siteIdx = (idx+1)*nInputs-1;
+    // nnsz2_{k,nInputs-1} = s_{k,nInputs-1}*s_{k,0}
+    nnsz2[siteIdx] = s[siteIdx]*s[siteIdx-nInputs+1];
+    idx += nstep;
+  }
+}
+} // namespace gpu_kernel
+
+
+template <typename TraitsClass>
+Meas4PointsSpinZCorrelation<TraitsClass>::Meas4PointsSpinZCorrelation(Sampler4SpinHalf<TraitsClass> & smp):
+  smp_(smp),
+  sz4_dev_(smp.get_nInputs()*smp.get_nInputs()),
+  nnsz2_dev_(smp.get_nChains()*smp.get_nInputs()),
+  knInputs(smp.get_nInputs()),
+  knChains(smp.get_nChains()),
+  kgpuBlockSize(CHECK_BLOCK_SIZE(1+(nnsz2_dev_.size()-1)/NUM_THREADS_PER_BLOCK)),
+  kzero(0, 0),
+  kone(1, 0)
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasCreate(&theCublasHandle_)); // create cublas handler
+}
+
+template <typename TraitsClass>
+Meas4PointsSpinZCorrelation<TraitsClass>::~Meas4PointsSpinZCorrelation()
+{
+  CHECK_ERROR(CUBLAS_STATUS_SUCCESS, cublasDestroy(theCublasHandle_));
+}
+
+template <typename TraitsClass>
+void Meas4PointsSpinZCorrelation<TraitsClass>::measure(const int nIterations, const int nMCSteps,
+  const int nwarmup, FloatType * sz4
+#ifdef __KISTI_GPU__
+  , const std::string logpath
+#endif
+)
+{
+#ifdef __KISTI_GPU__
+  std::ofstream logfile(logpath, std::fstream::app);
+  logfile << "# Now we are in warming up..." << std::flush;
+#else
+  std::cout << "# Now we are in warming up..." << std::flush;
+#endif
+
+  smp_.warm_up(nwarmup);
+
+#ifdef __KISTI_GPU__
+  logfile << " done." << std::endl << std::flush;
+  logfile << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#else
+  std::cout << " done." << std::endl << std::flush;
+  std::cout << "# Measuring spin-spin correlation... (current/total)" << std::endl << std::flush;
+#endif
+
+  thrust::fill(sz4_dev_.begin(), sz4_dev_.end(), kzero);
+  const FloatType oneOverTotalMeas = 1/static_cast<FloatType>(nIterations*knChains);
+  for (int n=0; n<nIterations; ++n)
+  {
+#ifdef __KISTI_GPU__
+    logfile << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#else
+    std::cout << "\r# --- " << std::setw(4) << (n+1) << " / " << std::setw(4) << nIterations << std::flush;
+#endif
+    smp_.do_mcmc_steps(nMCSteps);
+    gpu_kernel::meas__NN2PointsCorr__<<<kgpuBlockSize, NUM_THREADS_PER_BLOCK>>>(smp_.get_quantumStates(),
+      PTR_FROM_THRUST(nnsz2_dev_.data()), knChains, knInputs);
+    cublas::herk(theCublasHandle_, knInputs, knChains, oneOverTotalMeas, PTR_FROM_THRUST(nnsz2_dev_.data()),
+      kone.real(), PTR_FROM_THRUST(sz4_dev_.data()));
+  }
+
+#ifdef __KISTI_GPU__
+  logfile << std::endl;
+  logfile.close();
+#else
+  std::cout << std::endl;
+#endif
+
+  thrust::host_vector<thrust::complex<FloatType>> sz4_host(sz4_dev_);
+  for (int i=0; i<knInputs; ++i)
+    for (int j=0; j<knInputs; ++j)
+    {
+      const int idx = i*knInputs+j;
+      sz4[idx] = sz4_host[idx].real();
+    }
+}
+
+
+
 template <typename TraitsClass>
 MeasSpinXSpinXCorrelation<TraitsClass>::MeasSpinXSpinXCorrelation(Sampler4SpinHalf<TraitsClass> & smp, AnsatzType & psi):
   smp_(smp),
