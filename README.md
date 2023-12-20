@@ -1,4 +1,6 @@
 # Neural Network Quantum State
+> The manuscript ["Neural-network quantum state study of the long-range antiferromagnetic Ising chain"](https://arxiv.org/abs/2308.09709) is published on arXiv. One can reproduce the results with this code.
+
 Neural network ansatz to approximate a ground state by using variational Monte Carlo (VMC)
 
 ## Required compilers
